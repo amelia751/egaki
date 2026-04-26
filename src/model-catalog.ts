@@ -507,14 +507,34 @@ export const CATALOG: ModelEntry[] = [
     },
   },
   {
+    id: 'gpt-image-2',
+    name: 'GPT Image 2',
+    description:
+      'State-of-the-art image generation model with token-based pricing. ' +
+      'Cost varies by quality and size; $0.053 is the medium-quality 1024×1024 estimate.',
+    released: '2026-04-21',
+    ...openaiImage,
+    // Token-based pricing: $30/1M output image tokens. Medium quality 1024×1024 ≈ $0.053.
+    cost: { type: 'per-image', perImage: 0.053 },
+    features: {
+      editing: true,
+      inpainting: true,
+      aspectRatios: [],
+      sizes: ['1024x1024', '1536x1024', '1024x1536'],
+      seed: false,
+      multipleImages: true,
+    },
+  },
+  {
     id: 'chatgpt-image-latest',
     name: 'ChatGPT Image',
     description:
       'Rolling-latest alias that tracks the newest ChatGPT image model. Currently points ' +
-      'to gpt-image-1.5. Pricing may shift when the alias retargets to a newer model.',
+      'to gpt-image-2. Pricing may shift when the alias retargets to a newer model.',
     released: '2026-01',
     ...openaiImage,
-    cost: { type: 'per-image', perImage: 0.034 },
+    // Matches gpt-image-2 medium quality 1024×1024 estimate.
+    cost: { type: 'per-image', perImage: 0.053 },
     features: {
       editing: true,
       inpainting: true,
