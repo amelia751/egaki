@@ -45,6 +45,15 @@ the key with `egaki login --provider egaki --key egaki_...`.
 When login requires a URL flow, run login in the background and send the login URL
 to the user so they can complete auth interactively.
 
+## Model selection
+
+The `--model` / `-m` flag is **optional** on both `egaki image` and `egaki video`.
+
+- **Interactive (TTY):** omitting `--model` shows a picker with popular models
+- **Non-interactive (piped/scripted):** omitting `--model` uses a sensible default
+
+Agents should always pass `-m` explicitly to avoid the interactive picker.
+
 ## Example commands
 
 ```bash
@@ -60,7 +69,7 @@ egaki subscribe
 # check subscription usage
 egaki usage
 
-# generate an image
+# generate an image (interactive model picker if TTY)
 egaki image "a watercolor fox reading a map" -o fox.png
 
 # select a model explicitly

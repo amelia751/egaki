@@ -15,6 +15,7 @@ import {
   generateText,
   experimental_generateVideo as aiGenerateVideo,
 } from 'ai'
+import { select, isCancel, cancel } from '@clack/prompts'
 import fs from 'node:fs'
 import path from 'node:path'
 import pc from 'picocolors'
@@ -38,6 +39,7 @@ import {
   createVideoModel,
   shouldUseResponsesApi,
 } from './models.js'
+import { CATALOG } from './model-catalog.js'
 import { VIDEO_CATALOG } from './video-model-catalog.js'
 import {
   loginInteractive,
@@ -225,7 +227,7 @@ cli
   )
   .option(
     '-m, --model [model]',
-    z.enum(IMAGE_MODELS).default(DEFAULT_MODEL).describe('Model ID for generation'),
+    z.enum(IMAGE_MODELS).describe('Model ID for generation. If omitted, shows an interactive picker (or uses default in non-TTY mode)'),
   )
   .option(
     '-o, --output [path]',
@@ -308,10 +310,7 @@ cli
     // Inject stored API keys as env vars before calling the AI SDK.
     injectCredentialsToEnv()
 
-    // goke infers schema .default() values via Zod's input type, which leaves
-    // options.model / options.output / options.count as `T | undefined` even
-    // though the runtime always resolves them. Apply the same defaults here.
-    const model = options.model ?? DEFAULT_MODEL
+    const model = options.model ?? await resolveImageModel()
     const outputPath = options.output ?? 'egaki-output.png'
     const count = options.count ?? 1
     const config = getModelConfig(model)
@@ -391,7 +390,7 @@ cli
   )
   .option(
     '-m, --model [model]',
-    z.enum(VIDEO_MODELS).default(DEFAULT_VIDEO_MODEL).describe('Video model ID for generation'),
+    z.enum(VIDEO_MODELS).describe('Video model ID for generation. If omitted, shows an interactive picker (or uses default in non-TTY mode)'),
   )
   .option(
     '-o, --output [path]',
@@ -455,8 +454,7 @@ cli
   .action(async (prompt, options) => {
     injectCredentialsToEnv()
 
-    // Apply the same .default(...) values goke's input-type inference drops.
-    const model = options.model ?? DEFAULT_VIDEO_MODEL
+    const model = options.model ?? await resolveVideoModel()
     const outputPath = options.output ?? 'egaki-output.mp4'
     const count = options.count ?? 1
     const config = getModelConfig(model)
@@ -515,7 +513,6 @@ cli
   )
   .option('--json', 'Output as JSON instead of YAML')
   .action(async (options) => {
-    const { CATALOG } = await import('./model-catalog.js')
     const yaml = await import('js-yaml')
     const providerStatuses = Object.fromEntries(
       Object.keys(PROVIDERS).map((provider) => [provider, getKeyStatus(provider)]),
@@ -578,6 +575,94 @@ cli
 cli.help()
 cli.version(pkg.version)
 cli.parse()
+
+// ─── interactive model pickers ──────────────────────────────────────────────
+
+/** Curated image models shown in the interactive picker, ordered by recommendation. */
+const FEATURED_IMAGE_MODELS = [
+  'imagen-4.0-generate-001',
+  'imagen-4.0-ultra-generate-001',
+  'imagen-4.0-fast-generate-001',
+  'gemini-2.5-flash-image',
+  'gemini-3.1-flash-image-preview',
+  'nano-banana-pro-preview',
+  'gpt-image-2',
+  'gpt-image-1.5',
+  'chatgpt-image-latest',
+  'flux-kontext-pro',
+  'flux-kontext-max',
+  'flux-pro-1.1-ultra',
+  'recraft-v4',
+  'dall-e-3',
+  'grok-imagine-image-pro',
+]
+
+/**
+ * Resolve the image model: show interactive picker in TTY, use default otherwise.
+ */
+async function resolveImageModel(): Promise<string> {
+  const isTTY = process.stdin.isTTY && process.stderr.isTTY
+  if (!isTTY) return DEFAULT_MODEL
+
+  const options = FEATURED_IMAGE_MODELS
+    .map((id) => CATALOG.find((m) => m.id === id))
+    .filter(Boolean)
+    .map((m) => {
+      const cost = m!.cost.type === 'per-image'
+        ? pc.dim(`$${m!.cost.perImage}/img`)
+        : m!.cost.type === 'per-token'
+          ? pc.dim(`$${m!.cost.outputPerM}/M out`)
+          : ''
+      return {
+        value: m!.id,
+        label: `${m!.name} ${cost}`,
+        hint: m!.id,
+      }
+    })
+
+  const selected = await select({
+    message: 'Select an image model',
+    options,
+  })
+
+  if (isCancel(selected)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
+
+  return selected
+}
+
+/**
+ * Resolve the video model: show interactive picker in TTY, use default otherwise.
+ */
+async function resolveVideoModel(): Promise<string> {
+  const isTTY = process.stdin.isTTY && process.stderr.isTTY
+  if (!isTTY) return DEFAULT_VIDEO_MODEL
+
+  const options = VIDEO_CATALOG.map((m) => {
+    const dur = m.features.durationRangeSec
+      ? pc.dim(`${m.features.durationRangeSec.min}-${m.features.durationRangeSec.max}s`)
+      : ''
+    return {
+      value: m.id,
+      label: `${m.name} ${dur}`,
+      hint: m.id,
+    }
+  })
+
+  const selected = await select({
+    message: 'Select a video model',
+    options,
+  })
+
+  if (isCancel(selected)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
+
+  return selected
+}
 
 function isUrl(input: string): boolean {
   return /^https?:\/\//i.test(input)

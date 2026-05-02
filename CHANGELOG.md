@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.5.0
+
+1. **Interactive model picker** — omitting `--model` now shows a select prompt with popular models instead of silently using a default:
+
+   ```bash
+   # Shows a model picker in the terminal
+   egaki image "a dreamy watercolor landscape" -o landscape.png
+
+   # Explicit model skips the picker
+   egaki image "a dreamy watercolor landscape" -m imagen-4.0-generate-001 -o landscape.png
+   ```
+
+   Works for both `egaki image` and `egaki video`. In non-interactive (piped/scripted) mode, the default model is used automatically so existing scripts are unaffected.
+
 ## 0.4.1
 
 1. **Added `gpt-image-2` model** — OpenAI's new flagship image generation model (released 2026-04-21) is now available in the model catalog:
