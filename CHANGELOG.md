@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.4.1
+
+1. **Added `gpt-image-2` model** — OpenAI's new flagship image generation model (released 2026-04-21) is now available in the model catalog:
+
+   ```bash
+   egaki image "a dreamy watercolor landscape" -m gpt-image-2 -o landscape.png
+   egaki models --json | jq '.[] | select(.id == "gpt-image-2")'
+   ```
+
+   Supports editing, inpainting, and multiple output images. Token-based pricing (~$0.053 for medium-quality 1024×1024).
+
+2. **`chatgpt-image-latest` now tracks `gpt-image-2`** — the rolling alias has been updated from `gpt-image-1.5` to `gpt-image-2`, with pricing adjusted accordingly.
+
 ## 0.4.0
 
 1. **ChatGPT login for OpenAI image generation** — use your ChatGPT subscription in `egaki` without a separate OpenAI platform API key:
