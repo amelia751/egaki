@@ -2,6 +2,63 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.6.0
+
+1. **xAI provider with Grok image and video generation** — generate images and videos using xAI's Aurora and Grok models. Two auth paths: direct API key via `XAI_API_KEY` or Grok Build OAuth browser flow:
+
+   ```bash
+   # Direct API key
+   egaki login --provider xai --key xai-xxx
+
+   # OAuth (opens browser)
+   egaki login --provider xai-oauth
+
+   # Generate images
+   egaki image "cyberpunk cityscape at dusk" -m xai/grok-2-image -o city.png
+
+   # Generate videos
+   egaki video "a cat playing piano" -m xai/grok-3-mini-video -o cat.mp4
+   ```
+
+   Auth priority: explicit `XAI_API_KEY` > xAI OAuth > stored xai key > egaki gateway.
+
+2. **New CLI flags for provider-specific options** — control quality, resolution, output format, and more per-provider:
+
+   ```bash
+   # Quality and resolution (xAI)
+   egaki image "portrait" -m xai/grok-2-image --quality high --resolution 2k
+
+   # Output format
+   egaki image "logo" -m xai/grok-2-image --output-format png
+
+   # Negative prompts (Fal models)
+   egaki image "landscape" -m fal/flux-pro/v1.1 --negative-prompt "blurry, low quality"
+
+   # Video modes (xAI): edit, extend, reference-to-video
+   egaki video "slow zoom out" -m xai/grok-3-mini-video --mode extend-video --input clip.mp4
+   egaki video "a person walking" -m xai/grok-3-mini-video --mode reference-to-video --reference-images ref1.png ref2.png
+   ```
+
+   Flag descriptions are auto-derived from the model catalog so `--help` shows valid values per provider.
+
+3. **Local file upload for video editing and reference images** — `--input` and `--reference-images` on the video command now accept local file paths. Files are uploaded to a temporary R2 bucket (auto-expires after 2 days) and the URL is passed to the provider:
+
+   ```bash
+   # Edit a local video file
+   egaki video "add lens flare" -m xai/grok-3-mini-video --mode edit-video --input local-clip.mp4
+
+   # Reference images from disk
+   egaki video "person walking in park" -m xai/grok-3-mini-video --mode reference-to-video --reference-images photo1.jpg photo2.jpg
+   ```
+
+   The `--video-url` flag was removed; `--input` now handles both local files and URLs depending on the mode.
+
+4. **Unified model catalog** — all image and video model definitions (provider, pricing, features, provider options) now live in a single `model-catalog.ts` file. Provider option schemas are sourced directly from `@ai-sdk/*` package types with URL comments pointing to upstream docs for easy verification.
+
+5. **Type-safe provider options** — provider option objects passed to the AI SDK now use `satisfies` with the actual SDK types, catching mismatches at compile time instead of runtime.
+
+6. **Fixed OAuth race condition** — the xAI OAuth callback server is now resilient to state mismatches from stale browser tabs or retried requests, preventing silent auth failures.
+
 ## 0.5.0
 
 1. **Interactive model picker** — omitting `--model` now shows a select prompt with popular models instead of silently using a default:
