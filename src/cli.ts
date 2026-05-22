@@ -19,6 +19,10 @@ import {
   NoVideoGeneratedError,
   RetryError,
 } from 'ai'
+import type { XaiImageModelOptions, XaiVideoModelOptions } from '@ai-sdk/xai'
+import type { GoogleImageModelOptions, GoogleLanguageModelOptions, GoogleVideoModelOptions } from '@ai-sdk/google'
+import type { GoogleVertexImageModelOptions, GoogleVertexVideoModelOptions } from '@ai-sdk/google-vertex'
+import type { FalImageModelOptions, FalVideoModelOptions } from '@ai-sdk/fal'
 import { select, isCancel, cancel } from '@clack/prompts'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -47,7 +51,6 @@ import {
   CATALOG,
   VIDEO_CATALOG,
   describeProviderValues,
-  findProviderOption,
 } from './model-catalog.js'
 import {
   loginInteractive,
@@ -63,6 +66,18 @@ import {
   showUsage,
 } from './subscription.js'
 import { getValidChatGptAuth } from './chatgpt-auth.js'
+
+// OpenAI doesn't export a providerOptions type for image models.
+// These fields are what providerOptions.openai accepts, derived from
+// node_modules/@ai-sdk/openai/src/image/openai-image-model.ts.
+type OpenAIImageProviderOptions = {
+  quality?: 'standard' | 'low' | 'medium' | 'high' | 'auto'
+  output_format?: 'png' | 'jpeg' | 'webp'
+  output_compression?: number
+  size?: `${number}x${number}`
+  partial_images?: number | null
+  background?: 'auto' | 'opaque' | 'transparent'
+}
 
 const cli = goke('egaki')
 
@@ -990,6 +1005,137 @@ async function readInputImages(
   return Promise.all(inputs.map((f) => readInputSource(f)))
 }
 
+// ─── type-safe provider option builders ──────────────────────────────────────
+// Each builder switches on provider name and constructs a typed object using
+// `satisfies` with the SDK's exported type. This catches typos in keys and
+// invalid enum values at compile time instead of runtime.
+
+type ImageOptionInputs = {
+  aspectRatio?: `${number}:${number}`
+  allowPeople: boolean
+  quality?: string
+  resolution?: string
+  outputFormat?: string
+  negativePrompt?: string
+}
+
+// Return type uses a mapped type that preserves the typed structure while
+// remaining compatible with the AI SDK's ProviderOptions (Record<string, JSONObject>).
+// The satisfies checks catch key typos and invalid enum values at compile time,
+// then we widen to the SDK's expected shape at the boundary.
+type ProviderOptionsResult = Record<string, Record<string, string | number | boolean | string[] | null | undefined | Record<string, string | number | boolean | null | undefined>>>
+
+function buildImageProviderOptions(
+  provider: string,
+  opts: ImageOptionInputs,
+): ProviderOptionsResult {
+  switch (provider) {
+    case 'google': {
+      const googleOpts = {
+        ...(opts.allowPeople ? { personGeneration: 'allow_all' as const } : {}),
+        ...(opts.aspectRatio ? { aspectRatio: opts.aspectRatio as GoogleImageModelOptions['aspectRatio'] } : {}),
+      } satisfies GoogleImageModelOptions
+      return { google: googleOpts }
+    }
+    case 'vertex': {
+      const vertexOpts = {
+        ...(opts.allowPeople ? { personGeneration: 'allow_all' as const } : {}),
+        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
+      } satisfies GoogleVertexImageModelOptions
+      return { vertex: vertexOpts }
+    }
+    case 'xai': {
+      const xaiOpts = {
+        ...(opts.quality ? { quality: opts.quality as XaiImageModelOptions['quality'] } : {}),
+        ...(opts.resolution ? { resolution: opts.resolution as XaiImageModelOptions['resolution'] } : {}),
+        ...(opts.outputFormat ? { output_format: opts.outputFormat } : {}),
+      } satisfies XaiImageModelOptions
+      return { xai: xaiOpts }
+    }
+    case 'openai': {
+      const openaiOpts = {
+        ...(opts.quality ? { quality: opts.quality as OpenAIImageProviderOptions['quality'] } : {}),
+        ...(opts.outputFormat ? { output_format: opts.outputFormat as OpenAIImageProviderOptions['output_format'] } : {}),
+      } satisfies OpenAIImageProviderOptions
+      return { openai: openaiOpts }
+    }
+    case 'fal': {
+      const falOpts = {
+        ...(opts.outputFormat ? { outputFormat: opts.outputFormat } : {}),
+        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
+      } satisfies FalImageModelOptions
+      return { fal: falOpts }
+    }
+    default:
+      // Providers routed through the gateway (bfl, recraft, etc.) pass options
+      // as-is since they don't have local SDK types.
+      return {}
+  }
+}
+
+type VideoOptionInputs = {
+  resolution?: string
+  mode?: string
+  videoUrl?: string
+  referenceImages?: string[]
+  negativePrompt?: string
+  model: string
+}
+
+function buildVideoProviderOptions(
+  provider: string,
+  opts: VideoOptionInputs,
+): ProviderOptionsResult | undefined {
+  switch (provider) {
+    case 'xai': {
+      // xAI video modes are a discriminated union; build the correct variant.
+      const base = {
+        ...(opts.resolution ? { resolution: opts.resolution as '480p' | '720p' } : {}),
+      }
+      if (opts.mode === 'edit-video' && opts.videoUrl) {
+        const xaiOpts = { ...base, mode: 'edit-video' as const, videoUrl: opts.videoUrl } satisfies XaiVideoModelOptions
+        return { xai: xaiOpts }
+      }
+      if (opts.mode === 'extend-video' && opts.videoUrl) {
+        const xaiOpts = { ...base, mode: 'extend-video' as const, videoUrl: opts.videoUrl } satisfies XaiVideoModelOptions
+        return { xai: xaiOpts }
+      }
+      if (opts.mode === 'reference-to-video' && opts.referenceImages) {
+        const xaiOpts = { ...base, mode: 'reference-to-video' as const, referenceImageUrls: opts.referenceImages } satisfies XaiVideoModelOptions
+        return { xai: xaiOpts }
+      }
+      // Default: text-to-video or image-to-video (no mode)
+      if (Object.keys(base).length === 0) return undefined
+      const xaiOpts = { ...base } satisfies XaiVideoModelOptions
+      return { xai: xaiOpts }
+    }
+    case 'fal': {
+      const falOpts = {
+        ...(opts.resolution ? { resolution: opts.resolution } : {}),
+        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
+      } satisfies FalVideoModelOptions
+      if (Object.keys(falOpts).length === 0) return undefined
+      return { fal: falOpts }
+    }
+    case 'google': {
+      const googleOpts = {
+        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
+      } satisfies GoogleVideoModelOptions
+      if (Object.keys(googleOpts).length === 0) return undefined
+      return { google: googleOpts }
+    }
+    case 'vertex': {
+      const vertexOpts = {
+        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
+      } satisfies GoogleVertexVideoModelOptions
+      if (Object.keys(vertexOpts).length === 0) return undefined
+      return { vertex: vertexOpts }
+    }
+    default:
+      return undefined
+  }
+}
+
 // Generate using the dedicated generateImage API (Imagen models)
 async function generateWithImageModel({
   prompt,
@@ -1032,36 +1178,16 @@ async function generateWithImageModel({
   const config = getModelConfig(model)
   const imageModel = await createImageModel(model)
 
-  // Build provider-specific options from CLI flags using the catalog as schema.
-  // Each provider has different keys (e.g. xAI uses 'output_format', OpenAI uses 'outputFormat').
-  // The findProviderOption helper looks up the correct providerKey for each flag.
-  const providerOpts: Record<string, string | number | boolean | string[]> = {}
-
-  if (allowPeople && (config.provider === 'google' || config.provider === 'vertex')) {
-    providerOpts.personGeneration = 'allow_all'
-  }
-  if (aspectRatio && (config.provider === 'google' || config.provider === 'vertex')) {
-    providerOpts.aspectRatio = aspectRatio
-  }
-
-  // Map generic CLI flags to provider-specific keys via catalog
-  const flagValues: [string, string | undefined][] = [
-    ['quality', quality],
-    ['resolution', resolution],
-    ['output-format', outputFormat],
-    ['negative-prompt', negativePrompt],
-  ]
-  for (const [flag, value] of flagValues) {
-    if (value === undefined) continue
-    const opt = findProviderOption(config, flag)
-    if (opt) {
-      providerOpts[opt.providerKey] = value
-    }
-  }
-
-  // Use the correct providerOptions key based on provider
-  const providerOptionsKey =
-    config.provider === 'vertex' ? 'vertex' : config.provider
+  // Build type-safe provider options using the SDK types with `satisfies`.
+  // Each provider has its own shape; we switch on provider to get compile-time safety.
+  const providerOptions = buildImageProviderOptions(config.provider, {
+    aspectRatio,
+    allowPeople,
+    quality,
+    resolution,
+    outputFormat,
+    negativePrompt,
+  })
 
   if (!stdout) {
     console.error(pc.cyan('Generating...'))
@@ -1073,9 +1199,7 @@ async function generateWithImageModel({
     n: count,
     ...(aspectRatio ? { aspectRatio } : {}),
     ...(seed !== undefined ? { seed } : {}),
-    providerOptions: {
-      [providerOptionsKey]: providerOpts,
-    },
+    providerOptions,
   }))
 
   const files = result.images.map((img) => ({
@@ -1126,7 +1250,6 @@ async function generateWithTextModel({
 }) {
   const textModel = await createTextModel(model)
   const config = getModelConfig(model)
-  const providerOptionsKey = config.provider === 'vertex' ? 'vertex' : 'google'
 
   if (!stdout) {
     console.error(pc.cyan('Generating...'))
@@ -1148,21 +1271,28 @@ async function generateWithTextModel({
       ]
     : undefined
 
+  // Type-safe Google/Vertex language model options with image generation config.
+  // aspectRatio is cast to the Google SDK's enum type since CLI input is a free string.
+  type GoogleAspectRatio = NonNullable<NonNullable<GoogleLanguageModelOptions['imageConfig']>['aspectRatio']>
+  const googleOpts = {
+    responseModalities: ['TEXT', 'IMAGE'],
+    ...(imageSize || aspectRatio
+      ? {
+          imageConfig: {
+            ...(imageSize ? { imageSize } : {}),
+            ...(aspectRatio ? { aspectRatio: aspectRatio as GoogleAspectRatio } : {}),
+          },
+        }
+      : {}),
+  } satisfies GoogleLanguageModelOptions
+
+  const providerOptionsKey = config.provider === 'vertex' ? 'vertex' : 'google'
+
   const result = await runProviderCall('Text/image generation', () => generateText({
     model: textModel,
     ...(messages ? { messages } : { prompt }),
     providerOptions: {
-      [providerOptionsKey]: {
-        responseModalities: ['TEXT', 'IMAGE'],
-        ...(imageSize || aspectRatio
-          ? {
-              imageConfig: {
-                ...(imageSize ? { imageSize } : {}),
-                ...(aspectRatio ? { aspectRatio } : {}),
-              },
-            }
-          : {}),
-      },
+      [providerOptionsKey]: googleOpts,
     },
   }))
 
@@ -1430,37 +1560,15 @@ async function generateWithVideoModel({
   const videoModel = await createVideoModel(model)
   const config = getModelConfig(model)
 
-  // Build provider-specific options from CLI flags via catalog.
-  // Resolution is passed both top-level (for providers like Google that accept
-  // WIDTHxHEIGHT) and via providerOptions (for xAI which expects '480p'/'720p').
-  const providerOpts: Record<string, string | number | boolean | string[]> = {}
-
-  // videoUrl is derived from --input in edit/extend modes (not a CLI flag).
-  // Use catalog lookup to verify the model supports it and get the correct providerKey.
-  if (videoUrl) {
-    const videoUrlOpt = findProviderOption(config, 'video-url')
-    if (!videoUrlOpt) {
-      console.error(pc.red(`Model ${model} does not support video URL input for editing/extension`))
-      process.exit(1)
-    }
-    providerOpts[videoUrlOpt.providerKey] = videoUrl
-  }
-
-  const videoFlagValues: [string, string | string[] | undefined][] = [
-    ['resolution', resolution],
-    ['mode', mode],
-    ['reference-images', referenceImages],
-    ['negative-prompt', negativePrompt],
-  ]
-  for (const [flag, value] of videoFlagValues) {
-    if (value === undefined) continue
-    const opt = findProviderOption(config, flag)
-    if (opt) {
-      providerOpts[opt.providerKey] = value
-    }
-  }
-
-  const hasProviderOpts = Object.keys(providerOpts).length > 0
+  // Build type-safe provider options for video generation.
+  const providerOptions = buildVideoProviderOptions(config.provider, {
+    resolution,
+    mode,
+    videoUrl,
+    referenceImages,
+    negativePrompt,
+    model,
+  })
 
   if (!stdout) {
     console.error(pc.cyan('Generating...'))
@@ -1477,7 +1585,7 @@ async function generateWithVideoModel({
     ...(duration != null ? { duration } : {}),
     ...(fps != null ? { fps } : {}),
     ...(seed != null ? { seed } : {}),
-    ...(hasProviderOpts ? { providerOptions: { [config.provider]: providerOpts } } : {}),
+    ...(providerOptions ? { providerOptions } : {}),
   }))
 
   const files = result.videos.map((v: { uint8Array: Uint8Array; mediaType: string }) => ({
