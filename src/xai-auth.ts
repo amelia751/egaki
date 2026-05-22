@@ -216,20 +216,20 @@ function startOAuthServer(): Promise<ReturnType<typeof createServer>> {
       }
 
       if (!code) {
-        const msg = 'Missing authorization code'
-        pendingOAuth?.reject(new Error(msg))
-        pendingOAuth = undefined
+        // Missing code but no explicit error. Don't destroy pendingOAuth;
+        // could be a stray browser request, not the real callback.
         res.writeHead(400, { 'Content-Type': 'text/html' })
-        res.end(htmlError(msg))
+        res.end(htmlError('Missing authorization code'))
         return
       }
 
       if (!pendingOAuth || state !== pendingOAuth.state) {
-        const msg = 'Invalid state — potential CSRF attack'
-        pendingOAuth?.reject(new Error(msg))
-        pendingOAuth = undefined
+        // Bad state: respond 400 but keep pendingOAuth intact so the real
+        // callback can still succeed. Clearing it here would let a random
+        // local request to :56121/callback?code=x&state=bad kill the
+        // legitimate login attempt (local DoS).
         res.writeHead(400, { 'Content-Type': 'text/html' })
-        res.end(htmlError(msg))
+        res.end(htmlError('Invalid state — potential CSRF attack'))
         return
       }
 
@@ -329,9 +329,13 @@ export async function xaiOAuthLogin(): Promise<XaiAuth> {
   log.info('Opening browser for xAI authorization...')
   note(authUrl, 'If the browser does not open, visit this URL manually')
 
-  await openUrlInBrowser(authUrl)
-
+  // Register the callback listener BEFORE opening the browser. If the user
+  // already has an active xAI session, the browser can redirect back to
+  // the loopback server almost instantly. Registering after openUrlInBrowser
+  // creates a race where the callback arrives before pendingOAuth exists.
   const callbackPromise = waitForOAuthCallback(pkce.verifier, state)
+
+  await openUrlInBrowser(authUrl)
 
   s.start('Waiting for authorization...')
   try {
