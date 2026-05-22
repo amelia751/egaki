@@ -69,6 +69,10 @@ type ProviderSdk = {
   video?: (modelId: string) => Promise<any>
 }
 
+// Vertex is the only provider that uses a prefix (vertex/model-id) in the catalog
+// but expects a bare model ID in its SDK. Replicate and fal use slashes as part
+// of the actual model name (e.g. fal-ai/flux/schnell, black-forest-labs/flux-1.1-pro).
+// stripProviderPrefix is called inside the Vertex lambdas only.
 const PROVIDER_SDKS: Record<string, ProviderSdk> = {
   google: {
     image: async (id) => (await import('@ai-sdk/google')).google.image(id),
@@ -76,9 +80,9 @@ const PROVIDER_SDKS: Record<string, ProviderSdk> = {
     video: async (id) => (await import('@ai-sdk/google')).google.video(id),
   },
   vertex: {
-    image: async (id) => (await import('@ai-sdk/google-vertex')).vertex.image(id),
-    text: async (id) => (await import('@ai-sdk/google-vertex')).vertex(id),
-    video: async (id) => (await import('@ai-sdk/google-vertex')).vertex.video(id),
+    image: async (id) => (await import('@ai-sdk/google-vertex')).vertex.image(stripProviderPrefix(id)),
+    text: async (id) => (await import('@ai-sdk/google-vertex')).vertex(stripProviderPrefix(id)),
+    video: async (id) => (await import('@ai-sdk/google-vertex')).vertex.video(stripProviderPrefix(id)),
   },
   openai: {
     image: async (id) => (await import('@ai-sdk/openai')).openai.image(id),
@@ -213,10 +217,12 @@ export async function createImageModel(modelId: string): Promise<ImageModel> {
   const config = getModelConfig(modelId)
   ensureProviderKey(config.provider)
 
+  // Each factory in PROVIDER_SDKS handles its own prefix stripping if needed
+  // (only Vertex strips the vertex/ prefix). All others receive the original ID.
   if (hasDirectProviderKey(config.provider)) {
     const factory = PROVIDER_SDKS[config.provider]?.image
     if (factory) {
-      return factory(stripProviderPrefix(modelId))
+      return factory(modelId)
     }
   }
 
@@ -239,7 +245,7 @@ export async function createTextModel(modelId: string): Promise<LanguageModel> {
   if (hasDirectProviderKey(config.provider)) {
     const factory = PROVIDER_SDKS[config.provider]?.text
     if (factory) {
-      return factory(stripProviderPrefix(modelId))
+      return factory(modelId)
     }
     console.error(
       pc.red(
@@ -269,7 +275,7 @@ export async function createVideoModel(modelId: string): Promise<any> {
   if (hasDirectProviderKey(config.provider)) {
     const factory = PROVIDER_SDKS[config.provider]?.video
     if (factory) {
-      return factory(stripProviderPrefix(modelId))
+      return factory(modelId)
     }
     console.error(
       pc.red(
