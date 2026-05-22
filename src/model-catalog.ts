@@ -237,6 +237,7 @@ const xaiImage = {
 // Source: node_modules/@ai-sdk/xai/dist/index.d.ts → XaiVideoModelOptions
 // Docs:   https://docs.x.ai/docs/api-reference#create-video
 const xaiVideoProviderOptions: ProviderOption[] = [
+  { flag: 'resolution', providerKey: 'resolution', description: 'Output resolution', values: ['480p', '720p'], type: 'string' },
   { flag: 'mode', providerKey: 'mode', description: 'Video operation mode', values: ['edit-video', 'extend-video', 'reference-to-video'], type: 'string' },
   { flag: 'video-url', providerKey: 'videoUrl', description: 'Source video URL for editing or extension', type: 'string' },
   { flag: 'reference-images', providerKey: 'referenceImageUrls', description: 'Reference image URLs for R2V (1-7)', type: 'string', array: true },

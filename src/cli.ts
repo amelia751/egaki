@@ -651,7 +651,7 @@ cli
 
 cli.help()
 cli.version(pkg.version)
-cli.parse()
+await cli.parse()
 
 // ─── interactive model pickers ──────────────────────────────────────────────
 
@@ -1212,9 +1212,12 @@ async function generateWithVideoModel({
   const videoModel = await createVideoModel(model)
   const config = getModelConfig(model)
 
-  // Build provider-specific options from CLI flags via catalog
+  // Build provider-specific options from CLI flags via catalog.
+  // Resolution is passed both top-level (for providers like Google that accept
+  // WIDTHxHEIGHT) and via providerOptions (for xAI which expects '480p'/'720p').
   const providerOpts: Record<string, string | number | boolean | string[]> = {}
   const videoFlagValues: [string, string | string[] | undefined][] = [
+    ['resolution', resolution],
     ['mode', mode],
     ['video-url', videoUrl],
     ['reference-images', referenceImages],
