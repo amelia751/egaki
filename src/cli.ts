@@ -67,15 +67,17 @@ import {
 } from './subscription.js'
 import { getValidChatGptAuth } from './chatgpt-auth.js'
 
-// OpenAI doesn't export a providerOptions type for image models.
+// OpenAI doesn't export a providerOptions type for image models yet (vercel/ai#12437).
 // These fields are what providerOptions.openai accepts, derived from
-// node_modules/@ai-sdk/openai/src/image/openai-image-model.ts.
+// node_modules/@ai-sdk/openai/src/image/openai-image-model-options.ts.
+// NOTE: The SDK uses camelCase keys in providerOptions, then internally maps to
+// snake_case for the OpenAI API. Always use camelCase here.
 type OpenAIImageProviderOptions = {
   quality?: 'standard' | 'low' | 'medium' | 'high' | 'auto'
-  output_format?: 'png' | 'jpeg' | 'webp'
-  output_compression?: number
+  outputFormat?: 'png' | 'jpeg' | 'webp'
+  outputCompression?: number
   size?: `${number}x${number}`
-  partial_images?: number | null
+  partialImages?: number | null
   background?: 'auto' | 'opaque' | 'transparent'
 }
 
@@ -1055,7 +1057,7 @@ function buildImageProviderOptions(
     case 'openai': {
       const openaiOpts = {
         ...(opts.quality ? { quality: opts.quality as OpenAIImageProviderOptions['quality'] } : {}),
-        ...(opts.outputFormat ? { output_format: opts.outputFormat as OpenAIImageProviderOptions['output_format'] } : {}),
+        ...(opts.outputFormat ? { outputFormat: opts.outputFormat as OpenAIImageProviderOptions['outputFormat'] } : {}),
       } satisfies OpenAIImageProviderOptions
       return { openai: openaiOpts }
     }
@@ -1559,6 +1561,13 @@ async function generateWithVideoModel({
 }) {
   const videoModel = await createVideoModel(model)
   const config = getModelConfig(model)
+
+  // Validate that the model supports video-url input before building options.
+  // Only models with a 'video-url' providerOption (currently xAI) accept edit/extend mode.
+  if (videoUrl && !config.providerOptions?.some((opt) => opt.flag === 'video-url')) {
+    console.error(pc.red(`Model ${model} does not support video URL input for editing/extension`))
+    process.exit(1)
+  }
 
   // Build type-safe provider options for video generation.
   const providerOptions = buildVideoProviderOptions(config.provider, {
