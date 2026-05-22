@@ -14,10 +14,10 @@ All notable changes to this project will be documented in this file.
    egaki login --provider xai-oauth
 
    # Generate images
-   egaki image "cyberpunk cityscape at dusk" -m xai/grok-2-image -o city.png
+   egaki image "cyberpunk cityscape at dusk" -m grok-imagine-image -o city.png
 
    # Generate videos
-   egaki video "a cat playing piano" -m xai/grok-3-mini-video -o cat.mp4
+   egaki video "a cat playing piano" -m grok-imagine-video -o cat.mp4
    ```
 
    Auth priority: explicit `XAI_API_KEY` > xAI OAuth > stored xai key > egaki gateway.
@@ -26,17 +26,17 @@ All notable changes to this project will be documented in this file.
 
    ```bash
    # Quality and resolution (xAI)
-   egaki image "portrait" -m xai/grok-2-image --quality high --resolution 2k
+   egaki image "portrait" -m grok-imagine-image --quality high --resolution 2k
 
    # Output format
-   egaki image "logo" -m xai/grok-2-image --output-format png
+   egaki image "logo" -m grok-imagine-image --output-format png
 
    # Negative prompts (Fal models)
-   egaki image "landscape" -m fal/flux-pro/v1.1 --negative-prompt "blurry, low quality"
+   egaki image "landscape" -m fal-ai/flux-pro/v1.1 --negative-prompt "blurry, low quality"
 
    # Video modes (xAI): edit, extend, reference-to-video
-   egaki video "slow zoom out" -m xai/grok-3-mini-video --mode extend-video --input clip.mp4
-   egaki video "a person walking" -m xai/grok-3-mini-video --mode reference-to-video --reference-images ref1.png ref2.png
+   egaki video "slow zoom out" -m grok-imagine-video --mode extend-video --input clip.mp4
+   egaki video "a person walking" -m grok-imagine-video --mode reference-to-video --reference-images ref1.png ref2.png
    ```
 
    Flag descriptions are auto-derived from the model catalog so `--help` shows valid values per provider.
@@ -45,10 +45,10 @@ All notable changes to this project will be documented in this file.
 
    ```bash
    # Edit a local video file
-   egaki video "add lens flare" -m xai/grok-3-mini-video --mode edit-video --input local-clip.mp4
+   egaki video "add lens flare" -m grok-imagine-video --mode edit-video --input local-clip.mp4
 
    # Reference images from disk
-   egaki video "person walking in park" -m xai/grok-3-mini-video --mode reference-to-video --reference-images photo1.jpg photo2.jpg
+   egaki video "person walking in park" -m grok-imagine-video --mode reference-to-video --reference-images photo1.jpg photo2.jpg
    ```
 
    The `--video-url` flag was removed; `--input` now handles both local files and URLs depending on the mode.
