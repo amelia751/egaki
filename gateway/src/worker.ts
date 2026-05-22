@@ -350,6 +350,81 @@ const handleAiProxy = async (c: Context<{ Bindings: Env }>) => {
 
 app.all('/v3/ai/*', handleAiProxy)
 
+// ── File Upload ──────────────────────────────────────────────────────
+// Temporary file upload for CLI flags that need public URLs (e.g. --video-url,
+// --reference-images). Files are stored in EGAKI_UPLOADS KV with a 2-day TTL.
+// No auth required; rate-limited per IP to prevent abuse.
+
+const MAX_UPLOAD_SIZE = 100 * 1024 * 1024 // 100 MB
+
+const ALLOWED_UPLOAD_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'application/octet-stream',
+])
+
+app.post('/upload', async (c) => {
+  // Rate limit by client IP
+  const clientIp = c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for') || 'unknown'
+  const rateLimitResult = await c.env.RATE_LIMITER.limit({ key: clientIp })
+  if (!rateLimitResult.success) {
+    return c.json({ error: 'Rate limit exceeded. Try again in a minute.' }, 429)
+  }
+
+  // Pre-check Content-Length before reading the body into memory
+  const contentLength = Number(c.req.header('content-length') ?? 0)
+  if (contentLength > MAX_UPLOAD_SIZE) {
+    return c.json({ error: `File too large. Maximum size is ${MAX_UPLOAD_SIZE / 1024 / 1024}MB` }, 413)
+  }
+
+  const contentType = c.req.header('content-type') || 'application/octet-stream'
+  if (!ALLOWED_UPLOAD_TYPES.has(contentType)) {
+    return c.json({ error: `Unsupported content type: ${contentType}. Only image and video files are allowed.` }, 415)
+  }
+
+  const body = await c.req.raw.arrayBuffer()
+
+  if (body.byteLength === 0) {
+    return c.json({ error: 'Empty request body' }, 400)
+  }
+  if (body.byteLength > MAX_UPLOAD_SIZE) {
+    return c.json({ error: `File too large. Maximum size is ${MAX_UPLOAD_SIZE / 1024 / 1024}MB` }, 413)
+  }
+
+  const id = crypto.randomUUID().replace(/-/g, '')
+  const publicUrl = getPublicUrl(c)
+
+  await c.env.EGAKI_UPLOADS.put(id, body, {
+    httpMetadata: { contentType },
+  })
+
+  return c.json({ url: `${publicUrl}/uploads/${id}` })
+})
+
+app.get('/uploads/:id', async (c) => {
+  const id = c.req.param('id')
+  const object = await c.env.EGAKI_UPLOADS.get(id)
+
+  if (!object) {
+    return c.text('Not found', 404)
+  }
+
+  const contentType = object.httpMetadata?.contentType || 'application/octet-stream'
+  return new Response(object.body, {
+    headers: {
+      'Content-Type': contentType,
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Disposition': 'attachment',
+      'Cache-Control': 'public, max-age=86400', // 1 day edge cache
+    },
+  })
+})
+
 // ── Stripe Checkout ──────────────────────────────────────────────────────
 
 app.get('/buy', async (c) => {

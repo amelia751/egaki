@@ -11,9 +11,13 @@ import { goke } from 'goke'
 import { z } from 'zod'
 import dedent from 'string-dedent'
 import {
+  APICallError,
   generateImage as aiGenerateImage,
   generateText,
   experimental_generateVideo as aiGenerateVideo,
+  NoImageGeneratedError,
+  NoVideoGeneratedError,
+  RetryError,
 } from 'ai'
 import { select, isCancel, cancel } from '@clack/prompts'
 import fs from 'node:fs'
@@ -64,19 +68,13 @@ const cli = goke('egaki')
 
 process.title = 'egaki'
 
-// Print clean error output for unhandled rejections (e.g. AI SDK APICallError).
-// The AI SDK errors include request bodies, response headers, and other noisy
-// properties that get dumped by Node's default handler. We strip those and just
-// print the message + stack trace.
 process.on('uncaughtException', (err) => {
-  console.error(pc.red(err.message))
-  if (err.stack) {
-    const lines = err.stack.split('\n')
-    const stackOnly = lines.filter((l) => l.trimStart().startsWith('at '))
-    if (stackOnly.length > 0) {
-      console.error(pc.dim(stackOnly.join('\n')))
-    }
-  }
+  printErrorDetails(err)
+  process.exit(1)
+})
+
+process.on('unhandledRejection', (reason) => {
+  printErrorDetails(reason)
   process.exit(1)
 })
 
@@ -470,7 +468,7 @@ cli
     z
       .string()
       .describe(
-        'Optional reference image for image-to-video. Accepts local file path or URL (http/https)',
+        'Input file for video generation. For i2v: a reference image. For edit-video/extend-video: a source video. Accepts local file paths or URLs',
       ),
   )
   .option(
@@ -482,19 +480,11 @@ cli
       ),
   )
   .option(
-    '--video-url [url]',
-    z
-      .string()
-      .describe(
-        'Source video URL for editing or extension. Required with --mode edit-video or extend-video (xAI)',
-      ),
-  )
-  .option(
-    '--reference-images [url]',
+    '--reference-images [path]',
     z
       .array(z.string())
       .describe(
-        'Reference image URLs for R2V generation, repeatable, 1-7 URLs (xAI)',
+        'Reference images for R2V generation, repeatable, 1-7 files or URLs (xAI)',
       ),
   )
   .option(
@@ -542,9 +532,39 @@ cli
       console.error(pc.dim('Mode: Video API (experimental_generateVideo)'))
     }
 
-    const inputImage = options.input
-      ? await readInputSource(options.input)
-      : undefined
+    // Determine how --input is used based on --mode:
+    // - edit-video / extend-video: input is a source video, passed as videoUrl (needs URL)
+    // - everything else (i2v, t2v): input is a reference image, passed as bytes
+    const isVideoInputMode = options.mode === 'edit-video' || options.mode === 'extend-video'
+
+    // Validate mode-specific required inputs
+    if (isVideoInputMode && !options.input) {
+      console.error(pc.red(`--input is required with --mode ${options.mode}. Pass a local video file or URL.`))
+      process.exit(1)
+    }
+    if (options.mode === 'reference-to-video' && (!options.referenceImages || options.referenceImages.length === 0)) {
+      console.error(pc.red('--reference-images is required with --mode reference-to-video. Pass 1-7 image files or URLs.'))
+      process.exit(1)
+    }
+
+    let inputImage: Uint8Array | undefined
+    let videoUrl: string | undefined
+
+    if (options.input && isVideoInputMode) {
+      // Upload local file or use URL directly for video editing/extension
+      videoUrl = await resolveToUrl(options.input)
+    } else if (options.input) {
+      // Read as bytes for image-to-video
+      inputImage = await readInputSource(options.input)
+    }
+
+    // Resolve --reference-images: upload local files to get URLs
+    let resolvedReferenceImages = options.referenceImages
+    if (resolvedReferenceImages) {
+      resolvedReferenceImages = await Promise.all(
+        resolvedReferenceImages.map((ref: string) => resolveToUrl(ref)),
+      )
+    }
 
     await generateWithVideoModel({
       prompt,
@@ -558,8 +578,8 @@ cli
       seed: options.seed,
       inputImage,
       mode: options.mode,
-      videoUrl: options.videoUrl,
-      referenceImages: options.referenceImages,
+      videoUrl,
+      referenceImages: resolvedReferenceImages,
       negativePrompt: options.negativePrompt,
       json: options.json || false,
       stdout: options.stdout || false,
@@ -649,9 +669,142 @@ cli
     }
   })
 
+/** Upload gateway base URL for temporary file uploads. */
+const UPLOAD_GATEWAY_BASE = 'https://egaki.org'
+/** Max upload size in bytes (must match gateway limit). */
+const MAX_UPLOAD_SIZE = 100 * 1024 * 1024
+
 cli.help()
 cli.version(pkg.version)
 await cli.parse()
+
+// ─── error output helpers ────────────────────────────────────────────────────
+
+type PrintableValue = unknown
+type ErrorDetailsInput = Parameters<typeof APICallError.isInstance>[0]
+
+async function runProviderCall<T>(operation: string, call: () => Promise<T>): Promise<T> {
+  const result = await call().catch((error) => {
+    printErrorDetails(error, operation)
+    process.exit(1)
+  })
+  return result
+}
+
+function printErrorDetails(error: ErrorDetailsInput, operation?: string): void {
+  const prefix = operation ? `${operation} failed` : 'Command failed'
+  console.error(pc.red(pc.bold(prefix)))
+
+  if (APICallError.isInstance(error)) {
+    printKeyValue('name', error.name)
+    printKeyValue('message', error.message)
+    printKeyValue('statusCode', error.statusCode)
+    printKeyValue('url', error.url)
+    printKeyValue('isRetryable', error.isRetryable)
+    printJsonBlock('responseBody', parseJsonLike(error.responseBody))
+    printJsonBlock('responseHeaders', error.responseHeaders)
+    printJsonBlock('requestBodyValues', error.requestBodyValues)
+    printJsonBlock('data', error.data)
+    printCause(error.cause)
+    printStack(error)
+    return
+  }
+
+  if (NoImageGeneratedError.isInstance(error) || NoVideoGeneratedError.isInstance(error)) {
+    printKeyValue('name', error.name)
+    printKeyValue('message', error.message)
+    printJsonBlock('responses', error.responses)
+    printCause(error.cause)
+    printStack(error)
+    return
+  }
+
+  if (RetryError.isInstance(error)) {
+    printKeyValue('name', error.name)
+    printKeyValue('message', error.message)
+    printKeyValue('reason', error.reason)
+    printJsonBlock('errors', error.errors.map((e) => serializeUnknown(e)))
+    printCause(error.cause)
+    printStack(error)
+    return
+  }
+
+  if (error instanceof Error) {
+    printKeyValue('name', error.name)
+    printKeyValue('message', error.message)
+    printJsonBlock('details', serializeOwnProperties(error))
+    printCause(error.cause)
+    printStack(error)
+    return
+  }
+
+  printJsonBlock('error', serializeUnknown(error))
+}
+
+function printKeyValue(key: string, value: PrintableValue): void {
+  if (value === undefined) return
+  console.error(`${pc.dim(`${key}:`)} ${String(value)}`)
+}
+
+function printJsonBlock(label: string, value: PrintableValue): void {
+  if (value === undefined) return
+  const serialized = stableStringify(value)
+  if (!serialized || serialized === '{}') return
+  console.error(pc.dim(`${label}:`))
+  console.error(serialized)
+}
+
+function printCause(cause: Error['cause']): void {
+  if (cause === undefined) return
+  console.error(pc.dim('cause:'))
+  console.error(stableStringify(serializeUnknown(cause)))
+}
+
+function printStack(error: Error): void {
+  if (!error.stack) return
+  console.error(pc.dim('stack:'))
+  console.error(pc.dim(error.stack))
+}
+
+function parseJsonLike(value?: string): PrintableValue {
+  if (typeof value !== 'string') return value
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
+
+function serializeUnknown(value: ErrorDetailsInput): PrintableValue {
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      ...serializeOwnProperties(value),
+      ...(value.cause === undefined ? {} : { cause: serializeUnknown(value.cause) }),
+      ...(value.stack ? { stack: value.stack } : {}),
+    }
+  }
+  return value
+}
+
+function serializeOwnProperties(error: Error): Record<string, PrintableValue> {
+  return Object.fromEntries(
+    Object.entries(error).map(([key, value]) => [key, serializeUnknown(value)]),
+  )
+}
+
+function stableStringify(value: PrintableValue): string | undefined {
+  const seen = new WeakSet<object>()
+  return JSON.stringify(value, (_key, item) => {
+    if (typeof item === 'bigint') return item.toString()
+    if (item instanceof Date) return item.toISOString()
+    if (typeof item !== 'object' || item === null) return item
+    if (seen.has(item)) return '[Circular]'
+    seen.add(item)
+    return item
+  }, 2)
+}
 
 // ─── interactive model pickers ──────────────────────────────────────────────
 
@@ -743,6 +896,71 @@ async function resolveVideoModel(): Promise<string> {
 
 function isUrl(input: string): boolean {
   return /^https?:\/\//i.test(input)
+}
+
+function mimeTypeFromExtension(ext: string): string {
+  const map: Record<string, string> = {
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.mov': 'video/quicktime',
+    '.avi': 'video/x-msvideo',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+  }
+  return map[ext.toLowerCase()] || 'application/octet-stream'
+}
+
+/**
+ * Upload a local file to the egaki gateway and return the public URL.
+ * Used when a flag that expects a URL receives a local file path instead.
+ */
+async function uploadFileToGateway(filePath: string): Promise<string> {
+  const resolved = path.resolve(filePath)
+  if (!fs.existsSync(resolved)) {
+    console.error(pc.red(`File not found: ${resolved}`))
+    process.exit(1)
+  }
+
+  const stat = fs.statSync(resolved)
+  if (stat.size > MAX_UPLOAD_SIZE) {
+    console.error(pc.red(`File too large: ${resolved} (${Math.round(stat.size / 1024 / 1024)}MB). Maximum is ${MAX_UPLOAD_SIZE / 1024 / 1024}MB`))
+    process.exit(1)
+  }
+
+  const ext = path.extname(resolved)
+  const contentType = mimeTypeFromExtension(ext)
+  const fileBytes = fs.readFileSync(resolved)
+
+  console.error(pc.dim(`Uploading ${filePath}...`))
+
+  const response = await fetch(`${UPLOAD_GATEWAY_BASE}/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': contentType },
+    body: fileBytes,
+  })
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '')
+    console.error(pc.red(`Upload failed: ${response.status} ${response.statusText}`))
+    if (body) console.error(pc.dim(body))
+    process.exit(1)
+  }
+
+  const result = await response.json() as { url: string }
+  console.error(pc.dim(`Uploaded: ${result.url}`))
+  return result.url
+}
+
+/**
+ * Resolve a value that should be a URL: if it's already a URL, return as-is.
+ * If it's a local file path, upload it to the gateway and return the public URL.
+ */
+async function resolveToUrl(input: string): Promise<string> {
+  if (isUrl(input)) return input
+  return uploadFileToGateway(input)
 }
 
 async function readInputSource(input: string): Promise<Uint8Array> {
@@ -849,7 +1067,7 @@ async function generateWithImageModel({
     console.error(pc.cyan('Generating...'))
   }
 
-  const result = await aiGenerateImage({
+  const result = await runProviderCall('Image generation', () => aiGenerateImage({
     model: imageModel,
     prompt: imagePrompt,
     n: count,
@@ -858,7 +1076,7 @@ async function generateWithImageModel({
     providerOptions: {
       [providerOptionsKey]: providerOpts,
     },
-  })
+  }))
 
   const files = result.images.map((img) => ({
     uint8Array: img.uint8Array,
@@ -930,7 +1148,7 @@ async function generateWithTextModel({
       ]
     : undefined
 
-  const result = await generateText({
+  const result = await runProviderCall('Text/image generation', () => generateText({
     model: textModel,
     ...(messages ? { messages } : { prompt }),
     providerOptions: {
@@ -946,7 +1164,7 @@ async function generateWithTextModel({
           : {}),
       },
     },
-  })
+  }))
 
   const imageFiles = result.files.filter((f) => f.mediaType.startsWith('image/'))
 
@@ -1216,10 +1434,21 @@ async function generateWithVideoModel({
   // Resolution is passed both top-level (for providers like Google that accept
   // WIDTHxHEIGHT) and via providerOptions (for xAI which expects '480p'/'720p').
   const providerOpts: Record<string, string | number | boolean | string[]> = {}
+
+  // videoUrl is derived from --input in edit/extend modes (not a CLI flag).
+  // Use catalog lookup to verify the model supports it and get the correct providerKey.
+  if (videoUrl) {
+    const videoUrlOpt = findProviderOption(config, 'video-url')
+    if (!videoUrlOpt) {
+      console.error(pc.red(`Model ${model} does not support video URL input for editing/extension`))
+      process.exit(1)
+    }
+    providerOpts[videoUrlOpt.providerKey] = videoUrl
+  }
+
   const videoFlagValues: [string, string | string[] | undefined][] = [
     ['resolution', resolution],
     ['mode', mode],
-    ['video-url', videoUrl],
     ['reference-images', referenceImages],
     ['negative-prompt', negativePrompt],
   ]
@@ -1237,7 +1466,7 @@ async function generateWithVideoModel({
     console.error(pc.cyan('Generating...'))
   }
 
-  const result = await aiGenerateVideo({
+  const result = await runProviderCall('Video generation', () => aiGenerateVideo({
     model: videoModel,
     prompt: inputImage
       ? { image: inputImage, text: prompt }
@@ -1249,7 +1478,7 @@ async function generateWithVideoModel({
     ...(fps != null ? { fps } : {}),
     ...(seed != null ? { seed } : {}),
     ...(hasProviderOpts ? { providerOptions: { [config.provider]: providerOpts } } : {}),
-  })
+  }))
 
   const files = result.videos.map((v: { uint8Array: Uint8Array; mediaType: string }) => ({
     uint8Array: v.uint8Array,

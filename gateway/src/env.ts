@@ -2,12 +2,20 @@
 // All secrets are managed via Doppler and injected as wrangler secrets.
 // KV namespace is bound via wrangler.jsonc.
 
-import type { KVNamespace } from '@cloudflare/workers-types'
+import type { KVNamespace, R2Bucket } from '@cloudflare/workers-types'
 
 export type Env = {
   // ── KV ──────────────────────────────────────────────────────────────────
   /** Cloudflare KV namespace for API keys, usage, subscriptions */
   EGAKI_KV: KVNamespace
+
+  // ── R2 ─────────────────────────────────────────────────────────────────
+  /** R2 bucket for temporary file uploads (2-day lifecycle expiration) */
+  EGAKI_UPLOADS: R2Bucket
+
+  // ── Rate Limiting ──────────────────────────────────────────────────────
+  /** Rate limiter binding for upload endpoint (per-IP) */
+  RATE_LIMITER: { limit: (opts: { key: string }) => Promise<{ success: boolean }> }
 
   // ── Vercel AI Gateway ──────────────────────────────────────────────────
   /** Our Vercel AI Gateway API key — used to forward requests upstream */

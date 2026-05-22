@@ -14,6 +14,26 @@
     }
   ],
 
+  // R2 bucket for temporary file uploads (2-day lifecycle expiration)
+  "r2_buckets": [
+    {
+      "binding": "EGAKI_UPLOADS",
+      "bucket_name": "egaki-uploads"
+    }
+  ],
+
+  // Rate limiting for upload endpoint (30 requests per 60 seconds per IP)
+  "unsafe": {
+    "bindings": [
+      {
+        "name": "RATE_LIMITER",
+        "type": "ratelimit",
+        "namespace_id": "0",
+        "simple": { "period": 60, "limit": 30 }
+      }
+    ]
+  },
+
   // Custom domain
   "routes": [
     { "pattern": "egaki.org", "custom_domain": true },

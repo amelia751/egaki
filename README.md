@@ -183,28 +183,28 @@ egaki video "slowly pan across the scene with gentle wind" \
   --duration 5 \
   -o animated.mp4
 
-# Video editing (modify an existing video)
+# Video editing (modify an existing video — pass the source via --input)
 egaki video "make it look like a watercolor painting" \
   -m grok-imagine-video \
   --mode edit-video \
-  --video-url https://example.com/original.mp4 \
+  --input ./original.mp4 \
   -o edited.mp4
 
 # Video extension (continue from last frame)
 egaki video "the camera keeps moving forward" \
   -m grok-imagine-video \
   --mode extend-video \
-  --video-url https://example.com/clip.mp4 \
+  --input ./clip.mp4 \
   -o extended.mp4
 
 # Reference-to-video (R2V): generate a video guided by 1-7 reference images.
 # The images act as style and content references (not as the first frame).
-# Useful for character consistency, style transfer, or multi-subject scenes.
+# Accepts local files or URLs; local files are uploaded automatically.
 egaki video "the model walks down a white runway wearing the outfit from the reference" \
   -m grok-imagine-video \
   --mode reference-to-video \
-  --reference-images https://example.com/model-face.jpg \
-  --reference-images https://example.com/outfit.jpg \
+  --reference-images ./model-face.jpg \
+  --reference-images ./outfit.jpg \
   --duration 8 \
   -o runway.mp4
 

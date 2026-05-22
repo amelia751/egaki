@@ -241,8 +241,10 @@ const xaiImage = {
 const xaiVideoProviderOptions: ProviderOption[] = [
   { flag: 'resolution', providerKey: 'resolution', description: 'Output resolution', values: ['480p', '720p'], defaultValue: '720p', type: 'string' },
   { flag: 'mode', providerKey: 'mode', description: 'Video operation mode', values: ['edit-video', 'extend-video', 'reference-to-video'], type: 'string' },
-  { flag: 'video-url', providerKey: 'videoUrl', description: 'Source video URL for editing or extension', type: 'string' },
-  { flag: 'reference-images', providerKey: 'referenceImageUrls', description: 'Reference image URLs for R2V (1-7)', type: 'string', array: true },
+  // video-url is not a CLI flag; it's set internally from --input in edit/extend modes.
+  // Kept here so findProviderOption() can verify the model supports it and resolve the correct providerKey.
+  { flag: 'video-url', providerKey: 'videoUrl', description: 'Source video URL for editing or extension (internal)', type: 'string' },
+  { flag: 'reference-images', providerKey: 'referenceImageUrls', description: 'Reference images for R2V (1-7 files or URLs)', type: 'string', array: true },
 ]
 
 // Source: node_modules/@ai-sdk/fal/dist/index.d.ts → FalVideoModelOptions
