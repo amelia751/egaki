@@ -128,6 +128,109 @@ egaki video "looping rain animation" --stdout | ffmpeg -i pipe:0 -vf fps=12 rain
 
 ---
 
+### xAI Grok image generation
+
+```bash
+# Basic text-to-image
+egaki image "a fox wearing armor in a misty forest" -m grok-imagine-image -o fox.png
+
+# High quality + 2K resolution
+egaki image "product photo of a ceramic vase on linen" \
+  -m grok-imagine-image-pro \
+  --quality high \
+  --resolution 2k \
+  -o vase.png
+
+# Edit an existing image
+egaki image "add dramatic storm clouds to the sky" \
+  -m grok-imagine-image \
+  --input landscape.jpg \
+  -o landscape-storm.png
+
+# Generate multiple variations
+egaki image "abstract geometric pattern" -m grok-imagine-image -n 3 -o pattern.png
+# writes pattern-0.png, pattern-1.png, pattern-2.png
+
+# Control aspect ratio and output format
+egaki image "vertical phone wallpaper, aurora borealis" \
+  -m grok-imagine-image \
+  --aspect-ratio 9:16 \
+  --output-format jpeg \
+  -o wallpaper.jpg
+```
+
+### xAI Grok video generation
+
+```bash
+# Basic text-to-video
+egaki video "a paper airplane gliding through clouds" \
+  -m grok-imagine-video \
+  --duration 5 \
+  -o airplane.mp4
+
+# Text-to-video with resolution and aspect ratio
+egaki video "cinematic drone shot over a city at sunset" \
+  -m grok-imagine-video \
+  --duration 8 \
+  --resolution 720p \
+  --aspect-ratio 16:9 \
+  -o city.mp4
+
+# Image-to-video (animate a still image)
+egaki video "slowly pan across the scene with gentle wind" \
+  -m grok-imagine-video \
+  --input photo.jpg \
+  --duration 5 \
+  -o animated.mp4
+
+# Video editing (modify an existing video)
+egaki video "make it look like a watercolor painting" \
+  -m grok-imagine-video \
+  --mode edit-video \
+  --video-url https://example.com/original.mp4 \
+  -o edited.mp4
+
+# Video extension (continue from last frame)
+egaki video "the camera keeps moving forward" \
+  -m grok-imagine-video \
+  --mode extend-video \
+  --video-url https://example.com/clip.mp4 \
+  -o extended.mp4
+
+# Reference-to-video (R2V): generate a video guided by 1-7 reference images.
+# The images act as style and content references (not as the first frame).
+# Useful for character consistency, style transfer, or multi-subject scenes.
+egaki video "the model walks down a white runway wearing the outfit from the reference" \
+  -m grok-imagine-video \
+  --mode reference-to-video \
+  --reference-images https://example.com/model-face.jpg \
+  --reference-images https://example.com/outfit.jpg \
+  --duration 8 \
+  -o runway.mp4
+
+# Low-res draft for quick iteration
+egaki video "test animation concept" \
+  -m grok-imagine-video \
+  --duration 3 \
+  --resolution 480p \
+  -o draft.mp4
+```
+
+### xAI Grok auth
+
+```bash
+# Option 1: direct API key
+egaki login --provider xai --key xai-...
+
+# Option 2: Grok Build subscription (browser OAuth)
+egaki login --provider xai-oauth
+
+# Check auth status
+egaki login --show
+```
+
+---
+
 ### Discover models and pricing
 
 ```bash
@@ -198,7 +301,7 @@ egaki image "mascot variations, flat vector look" \
 | `vertex/veo-3.1-generate-001` | Same as above, routed through Vertex AI | `egaki video "rainy Tokyo street" -m vertex/veo-3.1-generate-001 --duration 8 -o tokyo.mp4` |
 | `klingai/kling-v2.5-turbo-t2v` | Cheap, fast Kling text-to-video | `egaki video "a paper boat on a pond" -m klingai/kling-v2.5-turbo-t2v --duration 5 -o boat.mp4` |
 | `bytedance/seedance-v1.5-pro` | Bytedance, audio support, three resolutions | `egaki video "timelapse of clouds above mountains" -m bytedance/seedance-v1.5-pro -o clouds.mp4` |
-| `xai/grok-imagine-video` | xAI video generation, cheap for short clips | `egaki video "a dog catching a frisbee" -m xai/grok-imagine-video --duration 3 -o dog.mp4` |
+| `grok-imagine-video` | xAI video with editing, extension, R2V | `egaki video "a dog catching a frisbee" -m grok-imagine-video --duration 5 -o dog.mp4` |
 
 ## Feature support by model family
 
@@ -207,12 +310,12 @@ egaki image "mascot variations, flat vector look" \
 - **OpenAI image models**: strong editing and inpainting; size controls are model-specific
 - **BFL image models (`flux-*`)**: Kontext/Pro variants via AI Gateway subscription
 - **Recraft models (`recraft-*`)**: v2/v3/v4 families available via AI Gateway subscription
-- **xAI image models (`grok-imagine-*`)**: Grok image generation via AI Gateway subscription
+- **xAI image models (`grok-imagine-*`)**: `--quality`, `--resolution`, `--output-format`, `--input` for editing, `-n` for batches. Auth via API key or Grok Build OAuth
 - **Vertex models (`vertex/*`)**: same models as Google AI Studio, routed through Vertex AI / Google Cloud billing
 - **Google Veo video models**: up to 4K, audio optional, duration 4–8s
 - **Kling video models**: mode (std/pro), audio on v2.6+, image-to-video support
 - **Bytedance Seedance**: 480p–1080p, audio support on v1.5-pro
-- **xAI Grok video**: 480p–720p, short clips (1–15s)
+- **xAI Grok video (`grok-imagine-video`)**: 480p–720p, 1–15s, i2v, video editing, video extension, R2V from reference images
 
 ## Subscription and usage
 
@@ -220,6 +323,7 @@ egaki supports **both** authentication modes:
 
 - **BYOK (bring your own keys):** add provider keys with `egaki login` per provider.
 - **ChatGPT auth:** log in with `egaki login --provider chatgpt` to use the ChatGPT/Codex backend for supported OpenAI image generation and editing flows.
+- **xAI Grok Build auth:** log in with `egaki login --provider xai-oauth` to use your Grok Build subscription for xAI image and video generation.
 - **Egaki subscription:** use one `egaki_...` key to access all supported models without managing keys for each provider.
 - **Google vs Vertex:** bare model IDs (e.g. `imagen-4.0-generate-001`) use Google AI Studio. Prefix with `vertex/` (e.g. `vertex/imagen-4.0-generate-001`) to route through Vertex AI / Google Cloud billing.
 

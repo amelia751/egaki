@@ -451,11 +451,11 @@ cli
     '--resolution [resolution]',
     z
       .string()
-      .describe('Video resolution in WIDTHxHEIGHT or provider format (e.g. 1280x720, 720p)'),
+      .describe(`Video resolution. ${describeProviderValues('resolution', [VIDEO_CATALOG])}. Google: 720p, 1080p, 4k`),
   )
   .option(
     '--duration [seconds]',
-    z.number().describe('Video duration in seconds (provider/model-specific limits apply)'),
+    z.number().describe('Video duration in seconds. Veo: 4-8s. xAI Grok: 1-15s. Kling: 5-10s. Wan: 2-15s'),
   )
   .option(
     '--fps [fps]',

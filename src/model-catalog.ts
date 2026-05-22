@@ -78,6 +78,8 @@ export type ProviderOption = {
   description: string
   /** Enum values if constrained, shown in flag description */
   values?: string[]
+  /** Server-side default when not specified */
+  defaultValue?: string
   /** Value type */
   type: 'string' | 'number' | 'boolean'
   /** Whether this flag accepts multiple values (array) */
@@ -182,8 +184,8 @@ const googleText = {
 // Source: node_modules/@ai-sdk/openai/dist/index.d.ts → imageGeneration args
 // Docs:   https://platform.openai.com/docs/api-reference/images/create
 const openaiImageProviderOptions: ProviderOption[] = [
-  { flag: 'quality', providerKey: 'quality', description: 'Image quality', values: ['auto', 'low', 'medium', 'high'], type: 'string' },
-  { flag: 'output-format', providerKey: 'outputFormat', description: 'Output format', values: ['png', 'jpeg', 'webp'], type: 'string' },
+  { flag: 'quality', providerKey: 'quality', description: 'Image quality', values: ['auto', 'low', 'medium', 'high'], defaultValue: 'auto', type: 'string' },
+  { flag: 'output-format', providerKey: 'outputFormat', description: 'Output format', values: ['png', 'jpeg', 'webp'], defaultValue: 'png', type: 'string' },
 ]
 
 const openaiImage = {
@@ -223,9 +225,9 @@ const recraftImage = {
 // Source: node_modules/@ai-sdk/xai/dist/index.d.ts → xaiImageModelOptions
 // Docs:   https://docs.x.ai/docs/api-reference#create-image
 const xaiImageProviderOptions: ProviderOption[] = [
-  { flag: 'quality', providerKey: 'quality', description: 'Image quality', values: ['low', 'medium', 'high'], type: 'string' },
-  { flag: 'resolution', providerKey: 'resolution', description: 'Output resolution', values: ['1k', '2k'], type: 'string' },
-  { flag: 'output-format', providerKey: 'output_format', description: 'Output format', values: ['png', 'jpeg'], type: 'string' },
+  { flag: 'quality', providerKey: 'quality', description: 'Image quality', values: ['low', 'medium', 'high'], defaultValue: 'medium', type: 'string' },
+  { flag: 'resolution', providerKey: 'resolution', description: 'Output resolution', values: ['1k', '2k'], defaultValue: '1k', type: 'string' },
+  { flag: 'output-format', providerKey: 'output_format', description: 'Output format', values: ['png', 'jpeg'], defaultValue: 'png', type: 'string' },
 ]
 
 const xaiImage = {
@@ -237,7 +239,7 @@ const xaiImage = {
 // Source: node_modules/@ai-sdk/xai/dist/index.d.ts → XaiVideoModelOptions
 // Docs:   https://docs.x.ai/docs/api-reference#create-video
 const xaiVideoProviderOptions: ProviderOption[] = [
-  { flag: 'resolution', providerKey: 'resolution', description: 'Output resolution', values: ['480p', '720p'], type: 'string' },
+  { flag: 'resolution', providerKey: 'resolution', description: 'Output resolution', values: ['480p', '720p'], defaultValue: '720p', type: 'string' },
   { flag: 'mode', providerKey: 'mode', description: 'Video operation mode', values: ['edit-video', 'extend-video', 'reference-to-video'], type: 'string' },
   { flag: 'video-url', providerKey: 'videoUrl', description: 'Source video URL for editing or extension', type: 'string' },
   { flag: 'reference-images', providerKey: 'referenceImageUrls', description: 'Reference image URLs for R2V (1-7)', type: 'string', array: true },
@@ -1541,16 +1543,36 @@ export function getProviderValuesForFlag(
 
 /**
  * Build a human-readable description suffix listing provider-specific values
- * for a flag. Example: "xAI: low, medium, high. OpenAI: auto, low, medium, high"
+ * for a flag. Includes default values when available.
+ * Example: "xai: low, medium, high (default: medium). openai: auto, low, medium, high (default: auto)"
  */
 export function describeProviderValues(
   flag: string,
   catalogs?: AnyModelEntry[][],
 ): string {
-  const providerValues = getProviderValuesForFlag(flag, catalogs)
-  if (providerValues.size === 0) return ''
-  return [...providerValues.entries()]
-    .map(([provider, values]) => `${provider}: ${values.join(', ')}`)
+  const allCatalogs = catalogs ?? [CATALOG, VIDEO_CATALOG]
+  // collect {provider → {values, defaultValue}} for this flag
+  const providerInfo = new Map<string, { values: string[]; defaultValue?: string }>()
+  for (const catalog of allCatalogs) {
+    for (const entry of catalog) {
+      if (!entry.providerOptions) continue
+      for (const opt of entry.providerOptions) {
+        if (opt.flag === flag && opt.values?.length && !providerInfo.has(entry.provider)) {
+          providerInfo.set(entry.provider, {
+            values: opt.values,
+            defaultValue: opt.defaultValue,
+          })
+        }
+      }
+    }
+  }
+  if (providerInfo.size === 0) return ''
+  return [...providerInfo.entries()]
+    .map(([provider, info]) => {
+      const vals = info.values.join(', ')
+      const def = info.defaultValue ? ` (default: ${info.defaultValue})` : ''
+      return `${provider}: ${vals}${def}`
+    })
     .join('. ')
 }
 
