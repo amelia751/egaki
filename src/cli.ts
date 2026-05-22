@@ -39,8 +39,7 @@ import {
   createVideoModel,
   shouldUseResponsesApi,
 } from './models.js'
-import { CATALOG } from './model-catalog.js'
-import { VIDEO_CATALOG } from './video-model-catalog.js'
+import { CATALOG, VIDEO_CATALOG } from './model-catalog.js'
 import {
   loginInteractive,
   loginNonInteractive,
@@ -518,11 +517,12 @@ cli
       Object.keys(PROVIDERS).map((provider) => [provider, getKeyStatus(provider)]),
     )
 
-    let models = options.type === 'video'
-      ? VIDEO_CATALOG
-      : options.type === 'image'
-        ? CATALOG
-        : [...CATALOG, ...VIDEO_CATALOG]
+    let models: Array<typeof CATALOG[number] | typeof VIDEO_CATALOG[number]> =
+      options.type === 'video'
+        ? [...VIDEO_CATALOG]
+        : options.type === 'image'
+          ? [...CATALOG]
+          : [...CATALOG, ...VIDEO_CATALOG]
 
     if (options.provider) {
       models = models.filter((m) => m.provider === options.provider)
@@ -750,44 +750,29 @@ async function generateWithImageModel({
     },
   })
 
+  const files = result.images.map((img) => ({
+    uint8Array: img.uint8Array,
+    mediaType: img.mediaType,
+  }))
+
   if (stdout) {
-    // Write first image to stdout for piping
-    const image = result.images[0]
-    if (image) {
-      process.stdout.write(Buffer.from(image.uint8Array))
-    }
+    writeFirstToStdout(files)
     return
   }
 
-  const savedFiles: string[] = []
-  for (let i = 0; i < result.images.length; i++) {
-    const image = result.images[i]!
-    const ext = extensionFromMediaType(image.mediaType)
-    const filePath =
-      result.images.length === 1
-        ? ensureExtension(outputPath, ext)
-        : insertIndex(outputPath, i, ext)
-
-    fs.writeFileSync(filePath, image.uint8Array)
-    console.error(pc.green(`Saved: ${filePath}`))
-    savedFiles.push(filePath)
-  }
-
+  const savedFiles = saveGeneratedFiles(files, outputPath)
   const cost = calculateCost(config.cost, result.usage, result.images.length)
-  if (cost != null) {
-    console.error(pc.dim(`Cost: ${formatCost(cost)}`))
-  }
+  printCost(cost)
 
   if (json) {
-    const output = {
+    console.log(JSON.stringify({
       model,
       files: savedFiles,
       count: result.images.length,
       cost,
       usage: result.usage,
       warnings: result.warnings,
-    }
-    console.log(JSON.stringify(output, null, 2))
+    }, null, 2))
   }
 }
 
@@ -853,9 +838,7 @@ async function generateWithTextModel({
     },
   })
 
-  const imageFiles = result.files.filter((f) => {
-    return f.mediaType.startsWith('image/')
-  })
+  const imageFiles = result.files.filter((f) => f.mediaType.startsWith('image/'))
 
   if (imageFiles.length === 0) {
     console.error(pc.red('No images generated.'))
@@ -863,46 +846,27 @@ async function generateWithTextModel({
   }
 
   if (stdout) {
-    const file = imageFiles[0]
-    if (file) {
-      process.stdout.write(Buffer.from(file.uint8Array))
-    }
+    writeFirstToStdout(imageFiles)
     return
   }
 
-  const savedFiles: string[] = []
-  for (let i = 0; i < imageFiles.length; i++) {
-    const file = imageFiles[i]!
-    const ext = extensionFromMediaType(file.mediaType)
-    const filePath =
-      imageFiles.length === 1
-        ? ensureExtension(outputPath, ext)
-        : insertIndex(outputPath, i, ext)
-
-    fs.writeFileSync(filePath, file.uint8Array)
-    console.error(pc.green(`Saved: ${filePath}`))
-    savedFiles.push(filePath)
-  }
-
+  const savedFiles = saveGeneratedFiles(imageFiles, outputPath)
   const cost = calculateCost(config.cost, result.usage, imageFiles.length)
-  if (cost != null) {
-    console.error(pc.dim(`Cost: ${formatCost(cost)}`))
-  }
+  printCost(cost)
 
   if (result.text && !json) {
     console.error(pc.dim(result.text))
   }
 
   if (json) {
-    const output = {
+    console.log(JSON.stringify({
       model,
       files: savedFiles,
       count: imageFiles.length,
       text: result.text || null,
       cost,
       usage: result.usage,
-    }
-    console.log(JSON.stringify(output, null, 2))
+    }, null, 2))
   }
 }
 
@@ -1146,48 +1110,86 @@ async function generateWithVideoModel({
     ...(seed != null ? { seed } : {}),
   })
 
+  const files = result.videos.map((v: { uint8Array: Uint8Array; mediaType: string }) => ({
+    uint8Array: v.uint8Array,
+    mediaType: v.mediaType,
+  }))
+
   if (stdout) {
-    const video = result.videos[0]
-    if (video) {
-      process.stdout.write(Buffer.from(video.uint8Array))
-    }
+    writeFirstToStdout(files)
     return
   }
 
-  const savedFiles: string[] = []
-  for (let i = 0; i < result.videos.length; i++) {
-    const video = result.videos[i]!
-    const ext = extensionFromMediaType(video.mediaType)
-    const filePath =
-      result.videos.length === 1
-        ? ensureExtension(outputPath, ext)
-        : insertIndex(outputPath, i, ext)
-
-    fs.writeFileSync(filePath, video.uint8Array)
-    console.error(pc.green(`Saved: ${filePath}`))
-    savedFiles.push(filePath)
-  }
-
+  const savedFiles = saveGeneratedFiles(files, outputPath)
   const config = getModelConfig(model)
   const cost = calculateCost(config.cost, {
     videosGenerated: result.videos.length,
     durationSeconds: duration,
     resolution,
   }, result.videos.length)
-  if (cost != null) {
-    console.error(pc.dim(`Cost: ${formatCost(cost)}`))
-  }
+  printCost(cost)
 
   if (json) {
-    const output = {
+    console.log(JSON.stringify({
       model,
       files: savedFiles,
       count: result.videos.length,
       cost,
       warnings: result.warnings,
       responses: result.responses,
-    }
-    console.log(JSON.stringify(output, null, 2))
+    }, null, 2))
+  }
+}
+
+// ─── shared output helpers ───────────────────────────────────────────────────
+// Common logic for saving generated files, calculating cost, and printing JSON
+// metadata. Used by all generation paths to avoid repeating boilerplate.
+
+type GeneratedFile = {
+  uint8Array: Uint8Array
+  mediaType: string
+}
+
+/**
+ * Save generated files to disk. Returns the list of saved file paths.
+ * Handles single vs multi-file naming with index suffixes.
+ */
+function saveGeneratedFiles(
+  files: GeneratedFile[],
+  outputPath: string,
+): string[] {
+  const savedFiles: string[] = []
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]!
+    const ext = extensionFromMediaType(file.mediaType)
+    const filePath =
+      files.length === 1
+        ? ensureExtension(outputPath, ext)
+        : insertIndex(outputPath, i, ext)
+
+    fs.writeFileSync(filePath, file.uint8Array)
+    console.error(pc.green(`Saved: ${filePath}`))
+    savedFiles.push(filePath)
+  }
+  return savedFiles
+}
+
+/**
+ * Print estimated cost to stderr if calculable.
+ */
+function printCost(cost: number | null): void {
+  if (cost != null) {
+    console.error(pc.dim(`Cost: ${formatCost(cost)}`))
+  }
+}
+
+/**
+ * Write the first file's raw bytes to stdout (for piping to other tools).
+ */
+function writeFirstToStdout(files: GeneratedFile[]): void {
+  const file = files[0]
+  if (file) {
+    process.stdout.write(Buffer.from(file.uint8Array))
   }
 }
 

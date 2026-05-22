@@ -1,4 +1,4 @@
-// Single source of truth for all image generation models.
+// Single source of truth for all image and video generation models.
 // Every model's provider, pricing, features, and generation strategy lives here.
 // Other modules derive their data from this catalog — no separate registries.
 //
@@ -6,7 +6,7 @@
 // To update pricing: change the cost field on the model entry.
 // To add a provider: create a new shared fragment and add models using it.
 
-// ─── types ───────────────────────────────────────────────────────────────────
+// ─── cost types ──────────────────────────────────────────────────────────────
 
 export type PerImageCost = {
   type: 'per-image'
@@ -22,7 +22,33 @@ export type PerTokenCost = {
   outputPerM: number
 }
 
+export type VideoDurationPricingTier = {
+  /** USD per second for this variant */
+  costPerSecond: number
+  /** Optional resolution discriminator (e.g. 720p, 1080p, 4k) */
+  resolution?: string
+  /** Optional mode discriminator (e.g. std, pro) */
+  mode?: string
+  /** Optional audio discriminator */
+  audio?: boolean
+}
+
+export type PerVideoSecondCost = {
+  type: 'per-video-second'
+  /** Fallback duration when request does not specify one (seconds) */
+  defaultDurationSec: number
+  tiers: VideoDurationPricingTier[]
+}
+
+export type UnknownCost = {
+  type: 'unknown'
+}
+
 export type ModelCost = PerImageCost | PerTokenCost
+export type VideoModelCost = PerVideoSecondCost | UnknownCost
+export type AnyCost = ModelCost | VideoModelCost
+
+// ─── feature types ───────────────────────────────────────────────────────────
 
 export type ModelFeatures = {
   /** supports input images for editing */
@@ -39,10 +65,28 @@ export type ModelFeatures = {
   multipleImages: boolean
 }
 
-export type ModelEntry = {
+export type VideoModelFeatures = {
+  /** Supports text prompt to video generation */
+  textToVideo: boolean
+  /** Supports image-to-video prompt object ({ image, text }) */
+  imageToVideo: boolean
+  /** Optional capabilities exposed by provider */
+  capabilities: Array<'t2v' | 'i2v' | 'r2v' | 'motion-control' | 'editing'>
+  /** Optional supported aspect ratios */
+  aspectRatios?: string[]
+  /** Optional supported resolutions */
+  resolutions?: string[]
+  /** Optional duration range in seconds */
+  durationRangeSec?: { min: number; max: number }
+  seed: boolean
+  multipleVideos: boolean
+}
+
+// ─── entry types (discriminated union by strategy) ───────────────────────────
+
+export type ImageModelEntry = {
   id: string
   name: string
-  /** Optional longer description shown in `egaki models` output */
   description?: string
   provider: string
   strategy: 'image' | 'text'
@@ -51,6 +95,22 @@ export type ModelEntry = {
   cost: ModelCost
   features: ModelFeatures
 }
+
+export type VideoModelEntry = {
+  id: string
+  name: string
+  description?: string
+  provider: string
+  strategy: 'video'
+  released: string
+  cost: VideoModelCost
+  features: VideoModelFeatures
+}
+
+/** @deprecated Use ImageModelEntry instead */
+export type ModelEntry = ImageModelEntry
+
+export type AnyModelEntry = ImageModelEntry | VideoModelEntry
 
 // ─── shared fragments ────────────────────────────────────────────────────────
 // Spread these into model entries to avoid repeating common fields.
@@ -1068,10 +1128,320 @@ export const CATALOG: ModelEntry[] = [
   },
 ]
 
+// ─── video catalog ───────────────────────────────────────────────────────────
+
+const commonVideoRatios = ['16:9', '9:16', '1:1', '4:3', '3:4']
+
+export const VIDEO_CATALOG: VideoModelEntry[] = [
+  {
+    id: 'veo-3.1-generate-001',
+    name: 'Veo 3.1',
+    provider: 'google',
+    strategy: 'video',
+    released: '2026-01',
+    cost: {
+      type: 'per-video-second',
+      defaultDurationSec: 8,
+      tiers: [
+        { resolution: '720p', audio: false, costPerSecond: 0.2 },
+        { resolution: '720p', audio: true, costPerSecond: 0.4 },
+        { resolution: '1080p', audio: false, costPerSecond: 0.2 },
+        { resolution: '1080p', audio: true, costPerSecond: 0.4 },
+        { resolution: '4k', audio: false, costPerSecond: 0.4 },
+        { resolution: '4k', audio: true, costPerSecond: 0.6 },
+      ],
+    },
+    features: {
+      textToVideo: true,
+      imageToVideo: false,
+      capabilities: ['t2v'],
+      aspectRatios: ['16:9', '9:16'],
+      resolutions: ['720p', '1080p', '4k'],
+      durationRangeSec: { min: 4, max: 8 },
+      seed: true,
+      multipleVideos: true,
+    },
+  },
+  {
+    id: 'veo-3.1-fast-generate-001',
+    name: 'Veo 3.1 Fast',
+    provider: 'google',
+    strategy: 'video',
+    released: '2026-01',
+    cost: {
+      type: 'per-video-second',
+      defaultDurationSec: 8,
+      tiers: [
+        { resolution: '720p', audio: false, costPerSecond: 0.1 },
+        { resolution: '720p', audio: true, costPerSecond: 0.15 },
+        { resolution: '1080p', audio: false, costPerSecond: 0.1 },
+        { resolution: '1080p', audio: true, costPerSecond: 0.15 },
+        { resolution: '4k', audio: false, costPerSecond: 0.3 },
+        { resolution: '4k', audio: true, costPerSecond: 0.35 },
+      ],
+    },
+    features: {
+      textToVideo: true,
+      imageToVideo: false,
+      capabilities: ['t2v'],
+      aspectRatios: ['16:9', '9:16'],
+      resolutions: ['720p', '1080p', '4k'],
+      durationRangeSec: { min: 4, max: 8 },
+      seed: true,
+      multipleVideos: true,
+    },
+  },
+  {
+    id: 'veo-3.0-generate-001',
+    name: 'Veo 3.0',
+    provider: 'google',
+    strategy: 'video',
+    released: '2025-12',
+    cost: {
+      type: 'per-video-second',
+      defaultDurationSec: 8,
+      tiers: [
+        { resolution: '720p', audio: false, costPerSecond: 0.2 },
+        { resolution: '720p', audio: true, costPerSecond: 0.4 },
+        { resolution: '1080p', audio: false, costPerSecond: 0.2 },
+        { resolution: '1080p', audio: true, costPerSecond: 0.4 },
+      ],
+    },
+    features: {
+      textToVideo: true,
+      imageToVideo: false,
+      capabilities: ['t2v'],
+      aspectRatios: ['16:9', '9:16'],
+      resolutions: ['720p', '1080p'],
+      durationRangeSec: { min: 4, max: 8 },
+      seed: true,
+      multipleVideos: true,
+    },
+  },
+  {
+    id: 'veo-3.0-fast-generate-001',
+    name: 'Veo 3.0 Fast',
+    provider: 'google',
+    strategy: 'video',
+    released: '2025-12',
+    cost: {
+      type: 'per-video-second',
+      defaultDurationSec: 8,
+      tiers: [
+        { resolution: '720p', audio: false, costPerSecond: 0.1 },
+        { resolution: '720p', audio: true, costPerSecond: 0.15 },
+        { resolution: '1080p', audio: false, costPerSecond: 0.1 },
+        { resolution: '1080p', audio: true, costPerSecond: 0.15 },
+      ],
+    },
+    features: {
+      textToVideo: true,
+      imageToVideo: false,
+      capabilities: ['t2v'],
+      aspectRatios: ['16:9', '9:16'],
+      resolutions: ['720p', '1080p'],
+      durationRangeSec: { min: 4, max: 8 },
+      seed: true,
+      multipleVideos: true,
+    },
+  },
+  // ── Vertex: Veo ──────────────────────────────────────────────────────
+  {
+    id: 'vertex/veo-3.1-generate-001',
+    name: 'Veo 3.1 (Vertex)',
+    provider: 'vertex',
+    strategy: 'video',
+    released: '2026-01',
+    cost: {
+      type: 'per-video-second',
+      defaultDurationSec: 8,
+      tiers: [
+        { resolution: '720p', audio: false, costPerSecond: 0.2 },
+        { resolution: '720p', audio: true, costPerSecond: 0.4 },
+        { resolution: '1080p', audio: false, costPerSecond: 0.2 },
+        { resolution: '1080p', audio: true, costPerSecond: 0.4 },
+        { resolution: '4k', audio: false, costPerSecond: 0.4 },
+        { resolution: '4k', audio: true, costPerSecond: 0.6 },
+      ],
+    },
+    features: {
+      textToVideo: true,
+      imageToVideo: false,
+      capabilities: ['t2v'],
+      aspectRatios: ['16:9', '9:16'],
+      resolutions: ['720p', '1080p', '4k'],
+      durationRangeSec: { min: 4, max: 8 },
+      seed: true,
+      multipleVideos: true,
+    },
+  },
+  {
+    id: 'vertex/veo-3.1-fast-generate-001',
+    name: 'Veo 3.1 Fast (Vertex)',
+    provider: 'vertex',
+    strategy: 'video',
+    released: '2026-01',
+    cost: {
+      type: 'per-video-second',
+      defaultDurationSec: 8,
+      tiers: [
+        { resolution: '720p', audio: false, costPerSecond: 0.1 },
+        { resolution: '720p', audio: true, costPerSecond: 0.15 },
+        { resolution: '1080p', audio: false, costPerSecond: 0.1 },
+        { resolution: '1080p', audio: true, costPerSecond: 0.15 },
+        { resolution: '4k', audio: false, costPerSecond: 0.3 },
+        { resolution: '4k', audio: true, costPerSecond: 0.35 },
+      ],
+    },
+    features: {
+      textToVideo: true,
+      imageToVideo: false,
+      capabilities: ['t2v'],
+      aspectRatios: ['16:9', '9:16'],
+      resolutions: ['720p', '1080p', '4k'],
+      durationRangeSec: { min: 4, max: 8 },
+      seed: true,
+      multipleVideos: true,
+    },
+  },
+  {
+    id: 'grok-imagine-video',
+    name: 'Grok Imagine Video',
+    provider: 'xai',
+    strategy: 'video',
+    released: '2026-03',
+    cost: {
+      type: 'per-video-second',
+      defaultDurationSec: 5,
+      tiers: [
+        { resolution: '480p', costPerSecond: 0.05 },
+        { resolution: '720p', costPerSecond: 0.07 },
+      ],
+    },
+    features: {
+      textToVideo: true,
+      imageToVideo: true,
+      capabilities: ['t2v', 'i2v', 'editing'],
+      aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
+      resolutions: ['480p', '720p'],
+      durationRangeSec: { min: 1, max: 15 },
+      seed: false,
+      multipleVideos: false,
+    },
+  },
+  {
+    id: 'kling-v2.6-t2v',
+    name: 'Kling v2.6 T2V',
+    provider: 'klingai',
+    strategy: 'video',
+    released: '2025-12',
+    cost: {
+      type: 'per-video-second',
+      defaultDurationSec: 5,
+      tiers: [
+        { mode: 'std', costPerSecond: 0.042 },
+        { mode: 'pro', audio: false, costPerSecond: 0.07 },
+        { mode: 'pro', audio: true, costPerSecond: 0.14 },
+      ],
+    },
+    features: {
+      textToVideo: true,
+      imageToVideo: false,
+      capabilities: ['t2v'],
+      aspectRatios: commonVideoRatios,
+      durationRangeSec: { min: 5, max: 10 },
+      seed: false,
+      multipleVideos: false,
+    },
+  },
+  {
+    id: 'wan-v2.6-t2v',
+    name: 'Wan v2.6 T2V',
+    provider: 'alibaba',
+    strategy: 'video',
+    released: '2026-01',
+    cost: {
+      type: 'per-video-second',
+      defaultDurationSec: 5,
+      tiers: [
+        { resolution: '720p', costPerSecond: 0.1 },
+        { resolution: '1080p', costPerSecond: 0.15 },
+      ],
+    },
+    features: {
+      textToVideo: true,
+      imageToVideo: false,
+      capabilities: ['t2v'],
+      resolutions: ['720p', '1080p'],
+      durationRangeSec: { min: 2, max: 15 },
+      seed: false,
+      multipleVideos: false,
+    },
+  },
+  // ── Fal video models ─────────────────────────────────────────────────
+  {
+    id: 'luma-ray-2',
+    name: 'Luma Ray 2 (Fal)',
+    provider: 'fal',
+    strategy: 'video',
+    released: '2025-11',
+    cost: { type: 'unknown' },
+    features: {
+      textToVideo: true,
+      imageToVideo: true,
+      capabilities: ['t2v', 'i2v'],
+      aspectRatios: commonVideoRatios,
+      seed: true,
+      multipleVideos: false,
+    },
+  },
+  {
+    id: 'minimax-video',
+    name: 'MiniMax Video (Fal)',
+    provider: 'fal',
+    strategy: 'video',
+    released: '2025-10',
+    cost: { type: 'unknown' },
+    features: {
+      textToVideo: true,
+      imageToVideo: false,
+      capabilities: ['t2v'],
+      aspectRatios: commonVideoRatios,
+      seed: false,
+      multipleVideos: false,
+    },
+  },
+  {
+    id: 'hunyuan-video',
+    name: 'Hunyuan Video (Fal)',
+    provider: 'fal',
+    strategy: 'video',
+    released: '2025-09',
+    cost: { type: 'unknown' },
+    features: {
+      textToVideo: true,
+      imageToVideo: true,
+      capabilities: ['t2v', 'i2v'],
+      aspectRatios: commonVideoRatios,
+      seed: true,
+      multipleVideos: false,
+    },
+  },
+]
+
 // ─── lookup helpers ──────────────────────────────────────────────────────────
 
-const catalogIndex = new Map(CATALOG.map((m) => [m.id, m]))
+const imageCatalogIndex = new Map(CATALOG.map((m) => [m.id, m]))
+const videoCatalogIndex = new Map(VIDEO_CATALOG.map((m) => [m.id, m]))
 
-export function findModel(id: string): ModelEntry | undefined {
-  return catalogIndex.get(id)
+export function findModel(id: string): ImageModelEntry | undefined {
+  return imageCatalogIndex.get(id)
+}
+
+export function findVideoModel(id: string): VideoModelEntry | undefined {
+  return videoCatalogIndex.get(id)
+}
+
+export function findAnyModel(id: string): AnyModelEntry | undefined {
+  return imageCatalogIndex.get(id) ?? videoCatalogIndex.get(id)
 }
