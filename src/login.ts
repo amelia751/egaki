@@ -20,8 +20,11 @@ import {
   getKeyStatus,
   getChatGptAuth,
   saveChatGptAuth,
+  getXaiAuth,
+  saveXaiAuth,
 } from './credentials.js'
 import { chatGptOAuthLogin, extractPlanType } from './chatgpt-auth.js'
+import { xaiOAuthLogin } from './xai-auth.js'
 
 export async function loginInteractive(): Promise<void> {
   intro(pc.bold('egaki login'))
@@ -36,9 +39,17 @@ export async function loginInteractive(): Promise<void> {
         return pc.green('(saved)')
       }
       if (status.source === 'oauth') {
-        const auth = getChatGptAuth()
-        const email = auth?.email
-        return pc.green(`(signed in${email ? ` as ${email}` : ''})`)
+        if (key === 'chatgpt') {
+          const auth = getChatGptAuth()
+          const email = auth?.email
+          return pc.green(`(signed in${email ? ` as ${email}` : ''})`)
+        }
+        if (key === 'xai-oauth') {
+          const auth = getXaiAuth()
+          const email = auth?.email
+          return pc.green(`(signed in${email ? ` as ${email}` : ''})`)
+        }
+        return pc.green('(signed in)')
       }
       return pc.dim('(not configured)')
     })()
@@ -74,6 +85,14 @@ export async function loginInteractive(): Promise<void> {
     const auth = await chatGptOAuthLogin()
     saveChatGptAuth(auth)
     outro('Done — ChatGPT OAuth saved')
+    return
+  }
+
+  // xAI Grok Build uses browser OAuth
+  if (provider === 'xai-oauth') {
+    const auth = await xaiOAuthLogin()
+    saveXaiAuth(auth)
+    outro('Done — xAI OAuth saved')
     return
   }
 
@@ -131,6 +150,14 @@ export async function loginNonInteractive({
     return
   }
 
+  // xAI Grok Build uses browser OAuth — key flag is not needed
+  if (provider === 'xai-oauth') {
+    const auth = await xaiOAuthLogin()
+    saveXaiAuth(auth)
+    console.log(pc.green('xAI OAuth saved'))
+    return
+  }
+
   if (!key || key.trim().length === 0) {
     console.error(pc.red('API key cannot be empty'))
     process.exit(1)
@@ -161,6 +188,24 @@ export function showLoginStatus(): void {
       } else {
         console.log(`${pc.dim('-')} ${info.label} ${pc.dim('(not signed in)')}`)
         console.log(pc.dim(`  run: egaki login → select ChatGPT`))
+      }
+      continue
+    }
+
+    if (key === 'xai-oauth') {
+      const auth = getXaiAuth()
+      if (auth) {
+        const email = auth.email ?? 'unknown'
+        const expired = auth.expires < Date.now()
+        const expiryLabel = expired
+          ? pc.yellow('(token expired, will auto-refresh)')
+          : pc.dim('(token valid)')
+        console.log(`${pc.green('*')} ${info.label} ${pc.green('(signed in)')}`)
+        console.log(pc.dim(`  account: ${email}`))
+        console.log(`  ${expiryLabel}`)
+      } else {
+        console.log(`${pc.dim('-')} ${info.label} ${pc.dim('(not signed in)')}`)
+        console.log(pc.dim(`  run: egaki login → select xAI Grok Build`))
       }
       continue
     }

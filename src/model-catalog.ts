@@ -5,6 +5,22 @@
 // To add a model: add an entry to CATALOG with the right shared fragment spread.
 // To update pricing: change the cost field on the model entry.
 // To add a provider: create a new shared fragment and add models using it.
+//
+// Provider option schemas are sourced from the @ai-sdk/* packages and upstream API docs.
+// Each shared fragment has a URL comment pointing to the source of truth so options
+// are easy to verify and update when providers change their APIs.
+//
+// Sources:
+//   xAI image:  node_modules/@ai-sdk/xai/dist/index.d.ts → xaiImageModelOptions
+//               https://docs.x.ai/docs/api-reference#create-image
+//   xAI video:  node_modules/@ai-sdk/xai/dist/index.d.ts → XaiVideoModelOptions
+//               https://docs.x.ai/docs/api-reference#create-video
+//   OpenAI:     node_modules/@ai-sdk/openai/dist/index.d.ts → imageGeneration args
+//               https://platform.openai.com/docs/api-reference/images
+//   Fal image:  https://ai-sdk.dev/providers/ai-sdk-providers/fal
+//               node_modules/@ai-sdk/fal/dist/index.d.ts → FalImageModelOptions
+//   Fal video:  node_modules/@ai-sdk/fal/dist/index.d.ts → FalVideoModelOptions
+//               https://ai-sdk.dev/providers/ai-sdk-providers/fal
 
 // ─── cost types ──────────────────────────────────────────────────────────────
 
@@ -48,6 +64,26 @@ export type ModelCost = PerImageCost | PerTokenCost
 export type VideoModelCost = PerVideoSecondCost | UnknownCost
 export type AnyCost = ModelCost | VideoModelCost
 
+// ─── provider option types ───────────────────────────────────────────────────
+// Declares provider-specific options that can be passed via providerOptions.
+// Lives in the catalog so CLI flag descriptions and validation are derived
+// from a single source of truth.
+
+export type ProviderOption = {
+  /** CLI flag name, e.g. 'quality', 'output-format' */
+  flag: string
+  /** The key sent to providerOptions.{provider}.{key} */
+  providerKey: string
+  /** Human description for --help */
+  description: string
+  /** Enum values if constrained, shown in flag description */
+  values?: string[]
+  /** Value type */
+  type: 'string' | 'number' | 'boolean'
+  /** Whether this flag accepts multiple values (array) */
+  array?: boolean
+}
+
 // ─── feature types ───────────────────────────────────────────────────────────
 
 export type ModelFeatures = {
@@ -71,7 +107,7 @@ export type VideoModelFeatures = {
   /** Supports image-to-video prompt object ({ image, text }) */
   imageToVideo: boolean
   /** Optional capabilities exposed by provider */
-  capabilities: Array<'t2v' | 'i2v' | 'r2v' | 'motion-control' | 'editing'>
+  capabilities: Array<'t2v' | 'i2v' | 'r2v' | 'motion-control' | 'editing' | 'extension'>
   /** Optional supported aspect ratios */
   aspectRatios?: string[]
   /** Optional supported resolutions */
@@ -94,6 +130,8 @@ export type ImageModelEntry = {
   released: string
   cost: ModelCost
   features: ModelFeatures
+  /** Provider-specific options passable via providerOptions.{provider} */
+  providerOptions?: ProviderOption[]
 }
 
 export type VideoModelEntry = {
@@ -105,6 +143,8 @@ export type VideoModelEntry = {
   released: string
   cost: VideoModelCost
   features: VideoModelFeatures
+  /** Provider-specific options passable via providerOptions.{provider} */
+  providerOptions?: ProviderOption[]
 }
 
 /** @deprecated Use ImageModelEntry instead */
@@ -139,9 +179,17 @@ const googleText = {
   },
 }
 
+// Source: node_modules/@ai-sdk/openai/dist/index.d.ts → imageGeneration args
+// Docs:   https://platform.openai.com/docs/api-reference/images/create
+const openaiImageProviderOptions: ProviderOption[] = [
+  { flag: 'quality', providerKey: 'quality', description: 'Image quality', values: ['auto', 'low', 'medium', 'high'], type: 'string' },
+  { flag: 'output-format', providerKey: 'outputFormat', description: 'Output format', values: ['png', 'jpeg', 'webp'], type: 'string' },
+]
+
 const openaiImage = {
   provider: 'openai',
   strategy: 'image' as const,
+  providerOptions: openaiImageProviderOptions,
 }
 
 const replicateImage = {
@@ -149,9 +197,17 @@ const replicateImage = {
   strategy: 'image' as const,
 }
 
+// Source: node_modules/@ai-sdk/fal/dist/index.d.ts → FalImageModelOptions (lazy passthrough)
+// Docs:   https://ai-sdk.dev/providers/ai-sdk-providers/fal#provider-options
+const falImageProviderOptions: ProviderOption[] = [
+  { flag: 'output-format', providerKey: 'outputFormat', description: 'Output format', values: ['png', 'jpeg'], type: 'string' },
+  { flag: 'negative-prompt', providerKey: 'negativePrompt', description: 'What to avoid in the image', type: 'string' },
+]
+
 const falImage = {
   provider: 'fal',
   strategy: 'image' as const,
+  providerOptions: falImageProviderOptions,
 }
 
 const bflImage = {
@@ -164,10 +220,33 @@ const recraftImage = {
   strategy: 'image' as const,
 }
 
+// Source: node_modules/@ai-sdk/xai/dist/index.d.ts → xaiImageModelOptions
+// Docs:   https://docs.x.ai/docs/api-reference#create-image
+const xaiImageProviderOptions: ProviderOption[] = [
+  { flag: 'quality', providerKey: 'quality', description: 'Image quality', values: ['low', 'medium', 'high'], type: 'string' },
+  { flag: 'resolution', providerKey: 'resolution', description: 'Output resolution', values: ['1k', '2k'], type: 'string' },
+  { flag: 'output-format', providerKey: 'output_format', description: 'Output format', values: ['png', 'jpeg'], type: 'string' },
+]
+
 const xaiImage = {
   provider: 'xai',
   strategy: 'image' as const,
+  providerOptions: xaiImageProviderOptions,
 }
+
+// Source: node_modules/@ai-sdk/xai/dist/index.d.ts → XaiVideoModelOptions
+// Docs:   https://docs.x.ai/docs/api-reference#create-video
+const xaiVideoProviderOptions: ProviderOption[] = [
+  { flag: 'mode', providerKey: 'mode', description: 'Video operation mode', values: ['edit-video', 'extend-video', 'reference-to-video'], type: 'string' },
+  { flag: 'video-url', providerKey: 'videoUrl', description: 'Source video URL for editing or extension', type: 'string' },
+  { flag: 'reference-images', providerKey: 'referenceImageUrls', description: 'Reference image URLs for R2V (1-7)', type: 'string', array: true },
+]
+
+// Source: node_modules/@ai-sdk/fal/dist/index.d.ts → FalVideoModelOptions
+// Docs:   https://ai-sdk.dev/providers/ai-sdk-providers/fal
+const falVideoProviderOptions: ProviderOption[] = [
+  { flag: 'negative-prompt', providerKey: 'negativePrompt', description: 'What to avoid in the video', type: 'string' },
+]
 
 const vertexImagen = {
   provider: 'vertex',
@@ -1321,13 +1400,14 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
     features: {
       textToVideo: true,
       imageToVideo: true,
-      capabilities: ['t2v', 'i2v', 'editing'],
+      capabilities: ['t2v', 'i2v', 'editing', 'extension', 'r2v'],
       aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
       resolutions: ['480p', '720p'],
       durationRangeSec: { min: 1, max: 15 },
       seed: false,
       multipleVideos: false,
     },
+    providerOptions: xaiVideoProviderOptions,
   },
   {
     id: 'kling-v2.6-t2v',
@@ -1394,6 +1474,7 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
       seed: true,
       multipleVideos: false,
     },
+    providerOptions: falVideoProviderOptions,
   },
   {
     id: 'minimax-video',
@@ -1410,6 +1491,7 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
       seed: false,
       multipleVideos: false,
     },
+    providerOptions: falVideoProviderOptions,
   },
   {
     id: 'hunyuan-video',
@@ -1426,8 +1508,61 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
       seed: true,
       multipleVideos: false,
     },
+    providerOptions: falVideoProviderOptions,
   },
 ]
+
+// ─── provider option helpers ─────────────────────────────────────────────────
+
+/**
+ * Collect the valid values for a CLI flag across all providers in the catalog.
+ * Returns a map of provider name → enum values array. Only includes providers
+ * that declare values for the given flag. Used by cli.ts to auto-generate
+ * flag descriptions like "xAI: low, medium, high. OpenAI: auto, low, medium, high".
+ */
+export function getProviderValuesForFlag(
+  flag: string,
+  catalogs: AnyModelEntry[][] = [CATALOG, VIDEO_CATALOG],
+): Map<string, string[]> {
+  const result = new Map<string, string[]>()
+  for (const catalog of catalogs) {
+    for (const entry of catalog) {
+      if (!entry.providerOptions) continue
+      for (const opt of entry.providerOptions) {
+        if (opt.flag === flag && opt.values?.length && !result.has(entry.provider)) {
+          result.set(entry.provider, opt.values)
+        }
+      }
+    }
+  }
+  return result
+}
+
+/**
+ * Build a human-readable description suffix listing provider-specific values
+ * for a flag. Example: "xAI: low, medium, high. OpenAI: auto, low, medium, high"
+ */
+export function describeProviderValues(
+  flag: string,
+  catalogs?: AnyModelEntry[][],
+): string {
+  const providerValues = getProviderValuesForFlag(flag, catalogs)
+  if (providerValues.size === 0) return ''
+  return [...providerValues.entries()]
+    .map(([provider, values]) => `${provider}: ${values.join(', ')}`)
+    .join('. ')
+}
+
+/**
+ * Find the ProviderOption definition for a given flag and provider from a model entry.
+ * Returns undefined if the model doesn't support this flag.
+ */
+export function findProviderOption(
+  entry: AnyModelEntry,
+  flag: string,
+): ProviderOption | undefined {
+  return entry.providerOptions?.find((opt) => opt.flag === flag)
+}
 
 // ─── lookup helpers ──────────────────────────────────────────────────────────
 

@@ -2,12 +2,13 @@
 // Reads and writes API keys from ~/.config/egaki/credentials.json.
 // Keys are stored per-provider and injected as env vars at runtime.
 //
-// Most providers store a plain API key string. The 'chatgpt' provider stores
-// a structured ChatGptAuth object with OAuth tokens for the Codex backend flow.
+// Most providers store a plain API key string. OAuth providers store structured
+// token objects for their custom backend flows.
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import type { ChatGptAuth } from './chatgpt-auth.js'
+import type { XaiAuth } from './xai-auth.js'
 
 export type ProviderInfo = {
   envVar: string
@@ -57,6 +58,17 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
     label: 'fal.ai (Flux, SDXL, Recraft)',
     hint: 'Get your key at https://fal.ai/dashboard/keys',
   },
+  xai: {
+    envVar: 'XAI_API_KEY',
+    label: 'xAI (API key)',
+    hint: 'Get your key at https://console.x.ai/team/default/api-keys',
+  },
+  'xai-oauth': {
+    envVar: 'XAI_API_KEY',
+    label: 'xAI Grok Build (use your subscription)',
+    hint: 'Sign in with your xAI / Grok account via browser',
+    oauth: true,
+  },
 }
 
 export const EGAKI_GATEWAY_URL = 'https://egaki.org/v3/ai'
@@ -72,8 +84,8 @@ function getCredentialsPath(): string {
   return path.join(getConfigDir(), 'credentials.json')
 }
 
-/** A credential value is either a plain API key string or a ChatGPT OAuth object. */
-export type CredentialValue = string | ChatGptAuth
+/** A credential value is a plain API key string, a ChatGPT OAuth object, or an xAI OAuth object. */
+export type CredentialValue = string | ChatGptAuth | XaiAuth
 export type Credentials = Record<string, CredentialValue>
 
 export function readCredentials(): Credentials {
@@ -115,6 +127,19 @@ export function getChatGptAuth(): ChatGptAuth | undefined {
   return undefined
 }
 
+export function saveXaiAuth(auth: XaiAuth): void {
+  const creds = readCredentials()
+  creds['xai-oauth'] = auth
+  writeCredentials(creds)
+}
+
+export function getXaiAuth(): XaiAuth | undefined {
+  const creds = readCredentials()
+  const val = creds['xai-oauth']
+  if (!val || typeof val !== 'object') return undefined
+  return val
+}
+
 export function removeProviderKey(provider: string): void {
   const creds = readCredentials()
   delete creds[provider]
@@ -127,17 +152,26 @@ export function getProviderKey(provider: string): string | undefined {
   return typeof val === 'string' ? val : undefined
 }
 
-// Inject all stored non-ChatGPT credentials as env vars so the AI SDK
+// Inject all stored non-OAuth credentials as env vars so the AI SDK
 // providers pick them up automatically. Env vars already set by the user take
 // precedence (we don't overwrite them).
+//
+// Special case: if xAI OAuth tokens exist, skip injecting the stored xai API
+// key so OAuth takes priority. Only an explicit XAI_API_KEY env var (set by
+// the user before egaki runs) will override OAuth.
 export function injectCredentialsToEnv(): void {
   const creds = readCredentials()
+  const hasXaiOAuth = Boolean(getXaiAuth())
   for (const [provider, value] of Object.entries(creds)) {
     const info = PROVIDERS[provider]
     if (!info) continue
 
-    // Skip ChatGPT OAuth entries — handled separately
+    // Skip OAuth entries — handled separately via custom fetch
     if (provider === 'chatgpt') continue
+    if (provider === 'xai-oauth') continue
+
+    // Skip stored xai key when OAuth tokens exist (OAuth takes priority)
+    if (provider === 'xai' && hasXaiOAuth && !process.env[info.envVar]) continue
 
     if (typeof value === 'string' && !process.env[info.envVar]) {
       process.env[info.envVar] = value
@@ -153,6 +187,16 @@ export function shouldUseChatGptBackend(): boolean {
   return !process.env['OPENAI_API_KEY'] && Boolean(getChatGptAuth())
 }
 
+/**
+ * Returns true when xAI models should use the OAuth flow instead of a direct
+ * XAI_API_KEY. Priority: explicit env var > xai-oauth tokens > stored xai key.
+ * Only an explicit XAI_API_KEY (set before egaki runs) overrides OAuth.
+ */
+export function shouldUseXaiOAuth(): boolean {
+  if (process.env['XAI_API_KEY']) return false
+  return Boolean(getXaiAuth())
+}
+
 // Check if a provider has a key available (from env or stored credentials).
 // Returns the source of the key for display purposes.
 export function getKeyStatus(provider: string): {
@@ -164,12 +208,31 @@ export function getKeyStatus(provider: string): {
     return { available: false, source: 'none' }
   }
 
-  // ChatGPT OAuth is a special case
+  // OAuth providers are special cases
   if (provider === 'chatgpt') {
     const auth = getChatGptAuth()
     if (auth) {
       return { available: true, source: 'oauth' }
     }
+    return { available: false, source: 'none' }
+  }
+
+  if (provider === 'xai-oauth') {
+    const auth = getXaiAuth()
+    if (auth) {
+      return { available: true, source: 'oauth' }
+    }
+    return { available: false, source: 'none' }
+  }
+
+  // For xai provider, report the same priority used by generation:
+  // explicit env var > xai-oauth tokens > stored xai key.
+  if (provider === 'xai') {
+    if (process.env[info.envVar]) return { available: true, source: 'env' }
+    const oauthAuth = getXaiAuth()
+    if (oauthAuth) return { available: true, source: 'oauth' }
+    const stored = getProviderKey(provider)
+    if (stored) return { available: true, source: 'stored' }
     return { available: false, source: 'none' }
   }
 

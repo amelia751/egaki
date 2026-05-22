@@ -39,7 +39,12 @@ import {
   createVideoModel,
   shouldUseResponsesApi,
 } from './models.js'
-import { CATALOG, VIDEO_CATALOG } from './model-catalog.js'
+import {
+  CATALOG,
+  VIDEO_CATALOG,
+  describeProviderValues,
+  findProviderOption,
+} from './model-catalog.js'
 import {
   loginInteractive,
   loginNonInteractive,
@@ -128,8 +133,8 @@ cli
 
     // Non-interactive: --provider + --key or stdin
     if (options.provider) {
-      // ChatGPT uses browser OAuth — skip key reading
-      if (options.provider === 'chatgpt') {
+      // OAuth providers use browser flow — skip key reading
+      if (options.provider === 'chatgpt' || options.provider === 'xai-oauth') {
         await loginNonInteractive({ provider: options.provider, key: '' })
         return
       }
@@ -226,7 +231,7 @@ cli
   )
   .option(
     '-m, --model [model]',
-    z.enum(IMAGE_MODELS).describe('Model ID for generation. If omitted, shows an interactive picker (or uses default in non-TTY mode)'),
+    z.string().describe('Model ID for generation. If omitted, shows an interactive picker (or uses default in non-TTY mode)'),
   )
   .option(
     '-o, --output [path]',
@@ -273,6 +278,38 @@ cli
       .string()
       .describe(
         'Mask image for inpainting. Accepts a local file path or URL (http/https). White areas in the mask are replaced with generated content. Used together with --input',
+      ),
+  )
+  .option(
+    '--quality [level]',
+    z
+      .string()
+      .describe(
+        `Image quality level. ${describeProviderValues('quality', [CATALOG])}`,
+      ),
+  )
+  .option(
+    '--resolution [res]',
+    z
+      .string()
+      .describe(
+        `Output resolution. ${describeProviderValues('resolution', [CATALOG])}`,
+      ),
+  )
+  .option(
+    '--output-format [format]',
+    z
+      .string()
+      .describe(
+        `Output image format. ${describeProviderValues('output-format', [CATALOG])}`,
+      ),
+  )
+  .option(
+    '--negative-prompt [text]',
+    z
+      .string()
+      .describe(
+        'Describe what to avoid in the generated image (Fal models)',
       ),
   )
   .option(
@@ -357,6 +394,10 @@ cli
         inputImages,
         maskImage,
         allowPeople: options.allowPeople || false,
+        quality: options.quality,
+        resolution: options.resolution,
+        outputFormat: options.outputFormat,
+        negativePrompt: options.negativePrompt,
         json: options.json || false,
         stdout: options.stdout || false,
       })
@@ -389,7 +430,7 @@ cli
   )
   .option(
     '-m, --model [model]',
-    z.enum(VIDEO_MODELS).describe('Video model ID for generation. If omitted, shows an interactive picker (or uses default in non-TTY mode)'),
+    z.string().describe('Video model ID for generation. If omitted, shows an interactive picker (or uses default in non-TTY mode)'),
   )
   .option(
     '-o, --output [path]',
@@ -430,6 +471,38 @@ cli
       .string()
       .describe(
         'Optional reference image for image-to-video. Accepts local file path or URL (http/https)',
+      ),
+  )
+  .option(
+    '--mode [mode]',
+    z
+      .enum(['edit-video', 'extend-video', 'reference-to-video'])
+      .describe(
+        `Video operation mode. ${describeProviderValues('mode', [VIDEO_CATALOG])}`,
+      ),
+  )
+  .option(
+    '--video-url [url]',
+    z
+      .string()
+      .describe(
+        'Source video URL for editing or extension. Required with --mode edit-video or extend-video (xAI)',
+      ),
+  )
+  .option(
+    '--reference-images [url]',
+    z
+      .array(z.string())
+      .describe(
+        'Reference image URLs for R2V generation, repeatable, 1-7 URLs (xAI)',
+      ),
+  )
+  .option(
+    '--negative-prompt [text]',
+    z
+      .string()
+      .describe(
+        'Describe what to avoid in the generated video (Fal models)',
       ),
   )
   .option(
@@ -484,6 +557,10 @@ cli
       fps: options.fps,
       seed: options.seed,
       inputImage,
+      mode: options.mode,
+      videoUrl: options.videoUrl,
+      referenceImages: options.referenceImages,
+      negativePrompt: options.negativePrompt,
       json: options.json || false,
       stdout: options.stdout || false,
     })
@@ -706,6 +783,10 @@ async function generateWithImageModel({
   inputImages,
   maskImage,
   allowPeople,
+  quality,
+  resolution,
+  outputFormat,
+  negativePrompt,
   json,
   stdout,
 }: {
@@ -718,6 +799,10 @@ async function generateWithImageModel({
   inputImages: Uint8Array[]
   maskImage?: Uint8Array
   allowPeople: boolean
+  quality?: string
+  resolution?: string
+  outputFormat?: string
+  negativePrompt?: string
   json: boolean
   stdout: boolean
 }) {
@@ -729,8 +814,36 @@ async function generateWithImageModel({
   const config = getModelConfig(model)
   const imageModel = await createImageModel(model)
 
-  // Use the correct providerOptions key based on provider (google vs vertex)
-  const providerOptionsKey = config.provider === 'vertex' ? 'vertex' : 'google'
+  // Build provider-specific options from CLI flags using the catalog as schema.
+  // Each provider has different keys (e.g. xAI uses 'output_format', OpenAI uses 'outputFormat').
+  // The findProviderOption helper looks up the correct providerKey for each flag.
+  const providerOpts: Record<string, string | number | boolean | string[]> = {}
+
+  if (allowPeople && (config.provider === 'google' || config.provider === 'vertex')) {
+    providerOpts.personGeneration = 'allow_all'
+  }
+  if (aspectRatio && (config.provider === 'google' || config.provider === 'vertex')) {
+    providerOpts.aspectRatio = aspectRatio
+  }
+
+  // Map generic CLI flags to provider-specific keys via catalog
+  const flagValues: [string, string | undefined][] = [
+    ['quality', quality],
+    ['resolution', resolution],
+    ['output-format', outputFormat],
+    ['negative-prompt', negativePrompt],
+  ]
+  for (const [flag, value] of flagValues) {
+    if (value === undefined) continue
+    const opt = findProviderOption(config, flag)
+    if (opt) {
+      providerOpts[opt.providerKey] = value
+    }
+  }
+
+  // Use the correct providerOptions key based on provider
+  const providerOptionsKey =
+    config.provider === 'vertex' ? 'vertex' : config.provider
 
   if (!stdout) {
     console.error(pc.cyan('Generating...'))
@@ -743,10 +856,7 @@ async function generateWithImageModel({
     ...(aspectRatio ? { aspectRatio } : {}),
     ...(seed !== undefined ? { seed } : {}),
     providerOptions: {
-      [providerOptionsKey]: {
-        ...(allowPeople ? { personGeneration: 'allow_all' } : {}),
-        ...(aspectRatio ? { aspectRatio } : {}),
-      },
+      [providerOptionsKey]: providerOpts,
     },
   })
 
@@ -1075,6 +1185,10 @@ async function generateWithVideoModel({
   fps,
   seed,
   inputImage,
+  mode,
+  videoUrl,
+  referenceImages,
+  negativePrompt,
   json,
   stdout,
 }: {
@@ -1088,10 +1202,33 @@ async function generateWithVideoModel({
   fps?: number
   seed?: number
   inputImage?: Uint8Array
+  mode?: string
+  videoUrl?: string
+  referenceImages?: string[]
+  negativePrompt?: string
   json: boolean
   stdout: boolean
 }) {
   const videoModel = await createVideoModel(model)
+  const config = getModelConfig(model)
+
+  // Build provider-specific options from CLI flags via catalog
+  const providerOpts: Record<string, string | number | boolean | string[]> = {}
+  const videoFlagValues: [string, string | string[] | undefined][] = [
+    ['mode', mode],
+    ['video-url', videoUrl],
+    ['reference-images', referenceImages],
+    ['negative-prompt', negativePrompt],
+  ]
+  for (const [flag, value] of videoFlagValues) {
+    if (value === undefined) continue
+    const opt = findProviderOption(config, flag)
+    if (opt) {
+      providerOpts[opt.providerKey] = value
+    }
+  }
+
+  const hasProviderOpts = Object.keys(providerOpts).length > 0
 
   if (!stdout) {
     console.error(pc.cyan('Generating...'))
@@ -1108,6 +1245,7 @@ async function generateWithVideoModel({
     ...(duration != null ? { duration } : {}),
     ...(fps != null ? { fps } : {}),
     ...(seed != null ? { seed } : {}),
+    ...(hasProviderOpts ? { providerOptions: { [config.provider]: providerOpts } } : {}),
   })
 
   const files = result.videos.map((v: { uint8Array: Uint8Array; mediaType: string }) => ({
@@ -1121,7 +1259,6 @@ async function generateWithVideoModel({
   }
 
   const savedFiles = saveGeneratedFiles(files, outputPath)
-  const config = getModelConfig(model)
   const cost = calculateCost(config.cost, {
     videosGenerated: result.videos.length,
     durationSeconds: duration,

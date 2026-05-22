@@ -7,12 +7,20 @@
 // adding a new provider is one map entry instead of touching 3 switch blocks.
 //
 // Provider resolution priority:
-//   1. Provider-specific key (e.g. GOOGLE_GENERATIVE_AI_API_KEY) → direct SDK
+//   1. Provider-specific auth (API key, or xAI/ChatGPT OAuth) → direct/custom backend
 //   2. Egaki API key (EGAKI_API_KEY) → route through egaki gateway
 //   3. No key → error with subscription recommendation
 import type { ImageModel, LanguageModel } from 'ai'
 import pc from 'picocolors'
-import { PROVIDERS, EGAKI_GATEWAY_URL, shouldUseChatGptBackend } from './credentials.js'
+import {
+  PROVIDERS,
+  EGAKI_GATEWAY_URL,
+  shouldUseChatGptBackend,
+  shouldUseXaiOAuth,
+  getXaiAuth,
+  saveXaiAuth,
+} from './credentials.js'
+import { getValidXaiAuth } from './xai-auth.js'
 import {
   CATALOG,
   VIDEO_CATALOG,
@@ -94,9 +102,63 @@ const PROVIDER_SDKS: Record<string, ProviderSdk> = {
     image: async (id) => (await import('@ai-sdk/fal')).fal.image(id),
     video: async (id) => (await import('@ai-sdk/fal')).fal.video(id),
   },
+  xai: {
+    image: async (id) => {
+      const xaiProvider = await getXaiProviderInstance()
+      return xaiProvider.image(id)
+    },
+    video: async (id) => {
+      const xaiProvider = await getXaiProviderInstance()
+      return xaiProvider.video(id)
+    },
+  },
   // Providers routed exclusively through the egaki gateway (no direct SDK).
   // They only need catalog entries and gateway routing, no local SDK factory.
-  // bfl, recraft, xai, klingai, alibaba — all handled by the gateway fallback.
+  // bfl, recraft, klingai, alibaba — all handled by the gateway fallback.
+}
+
+// ─── xAI provider instance ───────────────────────────────────────────────────
+// Creates an @ai-sdk/xai provider instance with either a direct API key or
+// OAuth tokens from the Grok Build subscription. OAuth tokens are injected via
+// a custom fetch that replaces the Authorization header on every request.
+
+async function getXaiProviderInstance() {
+  const { createXai } = await import('@ai-sdk/xai')
+
+  // Direct API key path (env or stored)
+  if (!shouldUseXaiOAuth()) {
+    return createXai({
+      apiKey: process.env['XAI_API_KEY'],
+    })
+  }
+
+  // OAuth path: inject bearer token via custom fetch
+  const storedAuth = getXaiAuth()
+  if (!storedAuth) {
+    console.error(pc.red('Missing xAI OAuth tokens. Please run `egaki login` and select xAI Grok Build.'))
+    process.exit(1)
+  }
+
+  const auth = await getValidXaiAuth(storedAuth, saveXaiAuth)
+  if (auth instanceof Error) {
+    console.error(pc.red(auth.message))
+    process.exit(1)
+  }
+
+  return createXai({
+    // Dummy key to satisfy the SDK's apiKey requirement; the custom fetch
+    // overrides the Authorization header with the real OAuth token.
+    apiKey: 'xai-oauth-placeholder',
+    fetch: async (input, init) => {
+      const headers = new Headers(input instanceof Request ? input.headers : undefined)
+      if (init?.headers) {
+        const initHeaders = new Headers(init.headers)
+        initHeaders.forEach((value, key) => headers.set(key, value))
+      }
+      headers.set('authorization', `Bearer ${auth.access}`)
+      return fetch(input, { ...init, headers })
+    },
+  })
 }
 
 // ─── key checking ────────────────────────────────────────────────────────────
@@ -110,12 +172,14 @@ function hasEgakiKey(): boolean {
 function hasDirectProviderKey(providerName: string): boolean {
   const info = PROVIDERS[providerName]
   if (!info) return false
-  return Boolean(process.env[info.envVar])
+  if (Boolean(process.env[info.envVar])) return true
+  // xAI OAuth counts as having a direct provider key since we use @ai-sdk/xai directly
+  if (providerName === 'xai' && shouldUseXaiOAuth()) return true
+  return false
 }
 
-// Check that the provider's API key is available before making API calls.
+// Check that the provider's API key or OAuth login is available before making API calls.
 // Prints a user-friendly error with instructions on how to configure it.
-// Prioritizes egaki subscription over individual provider keys.
 export function ensureProviderKey(providerName: string): void {
   if (hasDirectProviderKey(providerName)) return
 
@@ -209,21 +273,86 @@ export function shouldUseResponsesApi(modelId: string): boolean {
   return config.provider === 'openai' && config.strategy === 'image' && shouldUseChatGptBackend()
 }
 
+// ─── auth source detection ───────────────────────────────────────────────────
+
+type AuthSource =
+  | { type: 'api-key'; label: string }
+  | { type: 'oauth'; label: string }
+  | { type: 'egaki-gateway' }
+
+/**
+ * Determine which auth source will be used for a given provider.
+ * Returns the auth type for logging. Does NOT check if the key is valid.
+ */
+function resolveAuthSource(providerName: string): AuthSource {
+  const info = PROVIDERS[providerName]
+
+  // xAI has special OAuth handling
+  if (providerName === 'xai') {
+    if (process.env['XAI_API_KEY'] && !shouldUseXaiOAuth()) {
+      return { type: 'api-key', label: 'XAI_API_KEY' }
+    }
+    if (shouldUseXaiOAuth()) {
+      return { type: 'oauth', label: 'xAI Grok Build OAuth' }
+    }
+  }
+
+  // ChatGPT OAuth
+  if (providerName === 'openai' && shouldUseChatGptBackend()) {
+    return { type: 'oauth', label: 'ChatGPT OAuth' }
+  }
+
+  // Direct provider env var
+  if (info && process.env[info.envVar]) {
+    return { type: 'api-key', label: info.envVar }
+  }
+
+  // Egaki gateway
+  if (hasEgakiKey()) {
+    return { type: 'egaki-gateway' }
+  }
+
+  // Should not reach here if ensureProviderKey passed
+  return { type: 'api-key', label: 'unknown' }
+}
+
+function logAuthSource(source: AuthSource): void {
+  switch (source.type) {
+    case 'api-key':
+      console.error(pc.dim(`Auth: ${source.label}`))
+      break
+    case 'oauth':
+      console.error(pc.dim(`Auth: ${source.label}`))
+      break
+    case 'egaki-gateway':
+      console.error(pc.dim('Auth: Egaki subscription (gateway)'))
+      break
+  }
+}
+
 // ─── public model factories ──────────────────────────────────────────────────
-// Priority: direct provider key > egaki gateway > error.
+// Priority for xAI: explicit XAI_API_KEY > xai-oauth tokens > egaki gateway > error.
+// Priority for others: direct provider key > egaki gateway > error.
 // Uses PROVIDER_SDKS map for direct provider creation, eliminating switch blocks.
 
 export async function createImageModel(modelId: string): Promise<ImageModel> {
   const config = getModelConfig(modelId)
   ensureProviderKey(config.provider)
 
-  // Each factory in PROVIDER_SDKS handles its own prefix stripping if needed
-  // (only Vertex strips the vertex/ prefix). All others receive the original ID.
+  const authSource = resolveAuthSource(config.provider)
+  logAuthSource(authSource)
+
   if (hasDirectProviderKey(config.provider)) {
     const factory = PROVIDER_SDKS[config.provider]?.image
     if (factory) {
       return factory(modelId)
     }
+    console.error(
+      pc.red(
+        `Direct image generation is not supported for provider: ${config.provider}.`,
+      ),
+    )
+    process.exit(1)
   }
 
   if (hasEgakiKey()) {
@@ -241,6 +370,9 @@ export async function createTextModel(modelId: string): Promise<LanguageModel> {
     process.exit(1)
   }
   ensureProviderKey(config.provider)
+
+  const authSource = resolveAuthSource(config.provider)
+  logAuthSource(authSource)
 
   if (hasDirectProviderKey(config.provider)) {
     const factory = PROVIDER_SDKS[config.provider]?.text
@@ -271,6 +403,9 @@ export async function createVideoModel(modelId: string): Promise<any> {
   }
 
   ensureProviderKey(config.provider)
+
+  const authSource = resolveAuthSource(config.provider)
+  logAuthSource(authSource)
 
   if (hasDirectProviderKey(config.provider)) {
     const factory = PROVIDER_SDKS[config.provider]?.video
