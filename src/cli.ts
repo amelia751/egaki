@@ -23,6 +23,7 @@ import type { XaiImageModelOptions, XaiVideoModelOptions } from '@ai-sdk/xai'
 import type { GoogleImageModelOptions, GoogleLanguageModelOptions, GoogleVideoModelOptions } from '@ai-sdk/google'
 import type { GoogleVertexImageModelOptions, GoogleVertexVideoModelOptions } from '@ai-sdk/google-vertex'
 import type { FalImageModelOptions, FalVideoModelOptions } from '@ai-sdk/fal'
+import type { ByteDanceVideoProviderOptions } from '@ai-sdk/bytedance'
 import { select, isCancel, cancel } from '@clack/prompts'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -501,7 +502,7 @@ cli
     z
       .array(z.string())
       .describe(
-        'Reference images for R2V generation, repeatable, 1-7 files or URLs (xAI)',
+        'Reference images for R2V generation, repeatable. xAI: 1-7 images. Seedance: 1-9 images (use @Image1 etc. in prompt)',
       ),
   )
   .option(
@@ -749,6 +750,18 @@ function printErrorDetails(error: ErrorDetailsInput, operation?: string): void {
   if (error instanceof Error) {
     printKeyValue('name', error.name)
     printKeyValue('message', error.message)
+    // @ai-sdk/xai discards statusResponse.error when status==='failed',
+    // so XAI_VIDEO_GENERATION_FAILED carries no useful info. Add a hint.
+    if (error.name === 'XAI_VIDEO_GENERATION_FAILED') {
+      console.error(
+        pc.dim(
+          'hint: xAI returned status "failed" but @ai-sdk/xai discards the error details.\n' +
+            'Common causes: invalid/corrupt input image, content policy violation, or transient backend error.\n' +
+            'To see the real error, poll the video status endpoint manually:\n' +
+            '  curl https://api.x.ai/v1/videos/<request_id> -H "Authorization: Bearer $TOKEN"',
+        ),
+      )
+    }
     printJsonBlock('details', serializeOwnProperties(error))
     printCause(error.cause)
     printStack(error)
@@ -1110,6 +1123,17 @@ function buildVideoProviderOptions(
       if (Object.keys(base).length === 0) return undefined
       const xaiOpts = { ...base } satisfies XaiVideoModelOptions
       return { xai: xaiOpts }
+    }
+    case 'bytedance': {
+      // Seedance r2v: pass reference image URLs via providerOptions.bytedance.referenceImages.
+      // In the prompt, reference images with @Image1, @Image2, etc. (Seedance 2.0) or
+      // [Image 1], [Image 2] (Seedance 1.0 Lite I2V).
+      const bytedanceOpts = {
+        ...(opts.resolution ? { resolution: opts.resolution } : {}),
+        ...(opts.referenceImages ? { referenceImages: opts.referenceImages } : {}),
+      } satisfies ByteDanceVideoProviderOptions
+      if (Object.keys(bytedanceOpts).length === 0) return undefined
+      return { bytedance: bytedanceOpts }
     }
     case 'fal': {
       const falOpts = {
