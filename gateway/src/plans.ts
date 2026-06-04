@@ -136,7 +136,7 @@ function normalizeResolution(resolution?: string): string | undefined {
 
 function getVideoPerSecondProviderCost(
   model: VideoModelEntry,
-  params: { resolution?: string; mode?: string; audio?: boolean },
+  params: { resolution?: string; mode?: string; audio?: boolean; hasVideoInput?: boolean },
 ): number {
   if (model.cost.type !== 'per-video-second') {
     return DEFAULT_VIDEO_COST_PER_SECOND
@@ -148,6 +148,7 @@ function getVideoPerSecondProviderCost(
     if (tier.resolution && normalizeResolution(tier.resolution) !== resolution) return false
     if (tier.mode && tier.mode !== params.mode) return false
     if (tier.audio != null && tier.audio !== params.audio) return false
+    if (tier.hasVideoInput != null && tier.hasVideoInput !== params.hasVideoInput) return false
     return true
   })
   if (exact) {
@@ -188,6 +189,7 @@ export function getVideoUserCost(
     resolution?: string
     mode?: string
     audio?: boolean
+    hasVideoInput?: boolean
   },
 ): number {
   const normalizedModelId = normalizeModelId(modelId)
@@ -201,6 +203,7 @@ export function getVideoUserCost(
         resolution: params.resolution,
         mode: params.mode,
         audio: params.audio,
+        hasVideoInput: params.hasVideoInput,
       })
     : DEFAULT_VIDEO_COST_PER_SECOND
 

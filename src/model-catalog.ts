@@ -47,6 +47,8 @@ export type VideoDurationPricingTier = {
   mode?: string
   /** Optional audio discriminator */
   audio?: boolean
+  /** Optional discriminator for whether image/video input is present (i2v/r2v vs t2v) */
+  hasVideoInput?: boolean
 }
 
 export type PerVideoSecondCost = {
@@ -496,13 +498,27 @@ export const CATALOG: ModelEntry[] = [
   },
 
   {
+    id: 'flux-2-pro',
+    name: 'FLUX.2 Pro',
+    released: '2025-12',
+    ...bflImage,
+    cost: { type: 'per-image', perImage: 0.03 },
+    features: {
+      editing: true,
+      inpainting: false,
+      aspectRatios: fluxAspectRatios,
+      seed: true,
+      multipleImages: false,
+    },
+  },
+  {
     id: 'flux-2-max',
     name: 'FLUX.2 Max',
     released: '2025-12',
     ...bflImage,
     cost: { type: 'per-image', perImage: 0.07 },
     features: {
-      editing: false,
+      editing: true,
       inpainting: false,
       aspectRatios: fluxAspectRatios,
       seed: true,
@@ -516,7 +532,7 @@ export const CATALOG: ModelEntry[] = [
     ...bflImage,
     cost: { type: 'per-image', perImage: 0.05 },
     features: {
-      editing: false,
+      editing: true,
       inpainting: false,
       aspectRatios: fluxAspectRatios,
       seed: true,
@@ -530,7 +546,7 @@ export const CATALOG: ModelEntry[] = [
     ...bflImage,
     cost: { type: 'per-image', perImage: 0.015 },
     features: {
-      editing: false,
+      editing: true,
       inpainting: false,
       aspectRatios: fluxAspectRatios,
       seed: true,
@@ -544,7 +560,7 @@ export const CATALOG: ModelEntry[] = [
     ...bflImage,
     cost: { type: 'per-image', perImage: 0.014 },
     features: {
-      editing: false,
+      editing: true,
       inpainting: false,
       aspectRatios: fluxAspectRatios,
       seed: true,
@@ -613,7 +629,7 @@ export const CATALOG: ModelEntry[] = [
   {
     id: 'recraft-v4.1',
     name: 'Recraft v4.1',
-    released: '2026-07',
+    released: '2026-05',
     ...recraftImage,
     cost: { type: 'per-image', perImage: 0.04 },
     features: {
@@ -627,7 +643,7 @@ export const CATALOG: ModelEntry[] = [
   {
     id: 'recraft-v4.1-pro',
     name: 'Recraft v4.1 Pro',
-    released: '2026-07',
+    released: '2026-05',
     ...recraftImage,
     cost: { type: 'per-image', perImage: 0.25 },
     features: {
@@ -641,7 +657,7 @@ export const CATALOG: ModelEntry[] = [
   {
     id: 'recraft-v4.1-utility',
     name: 'Recraft v4.1 Utility',
-    released: '2026-07',
+    released: '2026-05',
     ...recraftImage,
     cost: { type: 'per-image', perImage: 0.04 },
     features: {
@@ -655,7 +671,7 @@ export const CATALOG: ModelEntry[] = [
   {
     id: 'recraft-v4.1-utility-pro',
     name: 'Recraft v4.1 Utility Pro',
-    released: '2026-07',
+    released: '2026-05',
     ...recraftImage,
     cost: { type: 'per-image', perImage: 0.25 },
     features: {
@@ -671,7 +687,7 @@ export const CATALOG: ModelEntry[] = [
   {
     id: 'seedream-5.0-lite',
     name: 'Seedream 5.0 Lite',
-    released: '2026-06',
+    released: '2026-01',
     provider: 'bytedance',
     strategy: 'image' as const,
     cost: { type: 'per-image' as const, perImage: 0.035 },
@@ -686,12 +702,12 @@ export const CATALOG: ModelEntry[] = [
   {
     id: 'seedream-4.5',
     name: 'Seedream 4.5',
-    released: '2026-01',
+    released: '2025-11',
     provider: 'bytedance',
     strategy: 'image' as const,
     cost: { type: 'per-image' as const, perImage: 0.04 },
     features: {
-      editing: false,
+      editing: true,
       inpainting: false,
       aspectRatios: ['1:1', '3:4', '4:3', '9:16', '16:9'],
       seed: false,
@@ -706,7 +722,7 @@ export const CATALOG: ModelEntry[] = [
     strategy: 'image' as const,
     cost: { type: 'per-image' as const, perImage: 0.03 },
     features: {
-      editing: false,
+      editing: true,
       inpainting: false,
       aspectRatios: ['1:1', '3:4', '4:3', '9:16', '16:9'],
       seed: false,
@@ -1969,7 +1985,7 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
     name: 'Seedance 2.0',
     description:
       'ByteDance C-Dense multimodal video model. Supports text, image, audio, and video inputs. ' +
-      'Native audio generation with lip-sync. Up to 1080p, 4-15s.',
+      'Native audio generation with lip-sync. Up to 720p, 4-15s.',
     provider: 'bytedance',
     strategy: 'video',
     released: '2026-04',
@@ -1977,9 +1993,10 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
       type: 'per-video-second',
       defaultDurationSec: 8,
       tiers: [
-        { resolution: '480p', costPerSecond: 0.07 },
-        { resolution: '720p', costPerSecond: 0.15 },
-        { resolution: '1080p', costPerSecond: 0.15 },
+        { resolution: '480p', hasVideoInput: false, costPerSecond: 0.07 },
+        { resolution: '480p', hasVideoInput: true, costPerSecond: 0.12 },
+        { resolution: '720p', hasVideoInput: false, costPerSecond: 0.15 },
+        { resolution: '720p', hasVideoInput: true, costPerSecond: 0.26 },
       ],
     },
     features: {
@@ -1987,7 +2004,7 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
       imageToVideo: true,
       capabilities: ['t2v', 'i2v', 'r2v'],
       aspectRatios: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9'],
-      resolutions: ['480p', '720p', '1080p'],
+      resolutions: ['480p', '720p'],
       durationRangeSec: { min: 4, max: 15 },
       seed: false,
       multipleVideos: false,
@@ -2006,10 +2023,13 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
       type: 'per-video-second',
       defaultDurationSec: 8,
       tiers: [
-        { resolution: '480p', costPerSecond: 0.05 },
-        { resolution: '720p', costPerSecond: 0.12 },
+        { resolution: '480p', hasVideoInput: false, costPerSecond: 0.05 },
+        { resolution: '480p', hasVideoInput: true, costPerSecond: 0.09 },
+        { resolution: '720p', hasVideoInput: false, costPerSecond: 0.12 },
+        { resolution: '720p', hasVideoInput: true, costPerSecond: 0.20 },
       ],
     },
+    providerOptions: bytedanceVideoProviderOptions,
     features: {
       textToVideo: true,
       imageToVideo: true,
@@ -2020,8 +2040,8 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
       seed: false,
       multipleVideos: false,
     },
-    providerOptions: bytedanceVideoProviderOptions,
   },
+
   {
     id: 'seedance-v1.5-pro',
     name: 'Seedance v1.5 Pro',
@@ -2086,7 +2106,7 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
       'Cost-efficient fast variant of Seedance 1.0 Pro.',
     provider: 'bytedance',
     strategy: 'video',
-    released: '2026-01',
+    released: '2025-10',
     cost: {
       type: 'per-video-second',
       defaultDurationSec: 5,
