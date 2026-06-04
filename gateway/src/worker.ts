@@ -82,6 +82,7 @@ function parseVideoRequest(bodyText: string | null): {
   count: number
   durationSec?: number
   resolution?: string
+  hasVideoInput?: boolean
 } {
   if (!bodyText) {
     return { count: 1 }
@@ -98,6 +99,8 @@ function parseVideoRequest(bodyText: string | null): {
     > & {
       // AI Gateway can expose provider-specific aliases like "720p" in some routes.
       resolution?: Experimental_VideoModelV3CallOptions['resolution'] | string
+      // The image field is present for i2v (image-to-video) requests.
+      image?: unknown
     }
 
     const parsed = parsedUnknown as GatewayVideoRequestBody
@@ -106,10 +109,21 @@ function parseVideoRequest(bodyText: string | null): {
     const durationSec = typeof parsed.duration === 'number' ? parsed.duration : undefined
     const resolution = readString(parsed.resolution)
 
+    // Detect whether the request includes image/video input for pricing differentiation.
+    // Present when: i2v (image field), r2v (providerOptions.bytedance.referenceImages), or
+    // edit/extend (providerOptions.xai.videoUrl).
+    const hasImageField = parsed.image != null
+    const providerOpts = parsed.providerOptions as Record<string, Record<string, unknown>> | undefined
+    const hasReferenceImages = Array.isArray(providerOpts?.bytedance?.referenceImages) &&
+      (providerOpts?.bytedance?.referenceImages as unknown[]).length > 0
+    const hasVideoUrl = typeof providerOpts?.xai?.videoUrl === 'string'
+    const hasVideoInput = hasImageField || hasReferenceImages || hasVideoUrl || undefined
+
     return {
       count: Math.max(1, Number(count)),
       durationSec,
       resolution,
+      hasVideoInput,
     }
   } catch {
     return { count: 1 }
@@ -332,6 +346,7 @@ const handleAiProxy = async (c: Context<{ Bindings: Env }>) => {
           count: videoRequest.count,
           durationSec: videoRequest.durationSec,
           resolution: videoRequest.resolution,
+          hasVideoInput: videoRequest.hasVideoInput,
         })
       : getModelUserCost(modelId) * imageCount
     await kv.incrementUsage(apiKey, userCost)

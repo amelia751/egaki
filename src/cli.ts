@@ -564,6 +564,10 @@ cli
       console.error(pc.red('--reference-images is required with --mode reference-to-video. Pass 1-7 image files or URLs.'))
       process.exit(1)
     }
+    if (options.referenceImages?.length && !config.providerOptions?.some((opt) => opt.flag === 'reference-images')) {
+      console.error(pc.red(`Model ${model} does not support --reference-images`))
+      process.exit(1)
+    }
 
     let inputImage: Uint8Array | undefined
     let videoUrl: string | undefined
