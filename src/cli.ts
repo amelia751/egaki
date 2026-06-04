@@ -555,6 +555,12 @@ cli
     // - everything else (i2v, t2v): input is a reference image, passed as bytes
     const isVideoInputMode = options.mode === 'edit-video' || options.mode === 'extend-video'
 
+    // Auto-set --mode reference-to-video for providers that require it (xAI) when
+    // --reference-images is provided without an explicit --mode.
+    if (options.referenceImages?.length && !options.mode && config.provider === 'xai') {
+      options.mode = 'reference-to-video'
+    }
+
     // Validate mode-specific required inputs
     if (isVideoInputMode && !options.input) {
       console.error(pc.red(`--input is required with --mode ${options.mode}. Pass a local video file or URL.`))
@@ -1640,6 +1646,7 @@ async function generateWithVideoModel({
     videosGenerated: result.videos.length,
     durationSeconds: duration,
     resolution,
+    hasVideoInput: Boolean(inputImage || videoUrl || referenceImages?.length),
   }, result.videos.length)
   printCost(cost)
 
@@ -1720,7 +1727,7 @@ function calculateCost(
   } | {
     type: 'per-video-second'
     defaultDurationSec: number
-    tiers: Array<{ resolution?: string; costPerSecond: number }>
+    tiers: Array<{ resolution?: string; costPerSecond: number; hasVideoInput?: boolean }>
   } | {
     type: 'unknown'
   },
@@ -1731,6 +1738,7 @@ function calculateCost(
     videosGenerated?: number
     durationSeconds?: number
     resolution?: string
+    hasVideoInput?: boolean
   },
   count: number = 1,
 ): number | null {
@@ -1745,7 +1753,12 @@ function calculateCost(
   if (cost.type === 'per-video-second') {
     const durationSec = usage.durationSeconds ?? cost.defaultDurationSec
     const resolution = normalizeResolutionKey(usage.resolution)
+    const hasVideoInput = usage.hasVideoInput ?? false
     const tier =
+      cost.tiers.find((t) =>
+        normalizeResolutionKey(t.resolution) === resolution &&
+        (t.hasVideoInput == null || t.hasVideoInput === hasVideoInput),
+      ) ??
       cost.tiers.find((t) => normalizeResolutionKey(t.resolution) === resolution) ??
       cost.tiers[0]
     if (!tier) {
