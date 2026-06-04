@@ -117,7 +117,9 @@ function parseVideoRequest(bodyText: string | null): {
     const hasReferenceImages = Array.isArray(providerOpts?.bytedance?.referenceImages) &&
       (providerOpts?.bytedance?.referenceImages as unknown[]).length > 0
     const hasVideoUrl = typeof providerOpts?.xai?.videoUrl === 'string'
-    const hasVideoInput = hasImageField || hasReferenceImages || hasVideoUrl || undefined
+    // false (not undefined) when no input detected so tier matching works correctly.
+    // undefined only when the body is unparseable and we truly lack metadata.
+    const hasVideoInput = hasImageField || hasReferenceImages || hasVideoUrl ? true : false
 
     return {
       count: Math.max(1, Number(count)),
