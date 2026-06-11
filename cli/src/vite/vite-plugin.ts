@@ -5,7 +5,7 @@
  * spiceflow app entry, and auto-injects spiceflow + react plugins.
  *
  * Usage in vite.config.ts:
- *   import { video } from 'holocron-video/vite'
+ *   import { video } from 'egaki/vite'
  *   export default defineConfig({ plugins: [video({ entry: './video.mdx' })] })
  */
 
@@ -32,7 +32,7 @@ const RESOLVED_MDX = '\0' + VIRTUAL_MDX
 const VIRTUAL_MODULES = 'virtual:egaki-modules'
 const RESOLVED_MODULES = '\0' + VIRTUAL_MODULES
 
-const PKG_NAME = 'holocron-video'
+const PKG_NAME = 'egaki'
 
 export interface VideoPluginOptions {
   /** Path to the MDX entry file (relative to vite root or absolute) */

@@ -9,7 +9,7 @@
   "dependencies": {
     "@remotion/google-fonts": "4.0.475",
     "@remotion/player": "4.0.475",
-    "holocron-video": "workspace:^",
+    "egaki": "workspace:^",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "remotion": "4.0.475",

@@ -3,7 +3,7 @@
  * Fast Refresh works (it requires files to only export components).
  */
 
-import type { TerminalLine } from 'holocron-video/src/components'
+import type { TerminalLine } from 'egaki/src/vite/components'
 
 export const CREATE_LINES: TerminalLine[] = [
   { text: 'npx -y @holocron.so/cli create my-docs', type: 'command', delay: 0 },

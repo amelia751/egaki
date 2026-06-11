@@ -221,7 +221,7 @@ export function ZoomIn({ children, duration = 20 }: EnterExitProps) {
   })
   const scale = interpolate(progress, [0, 1], [0.5, 1])
   return (
-    <AbsoluteFill style={{ opacity: progress, transform: subpx(`scale(${scale})`), ...SUBPX_STYLE }}>
+    <AbsoluteFill style={{ opacity: progress, transform: `scale(${scale})` }}>
       {children}
     </AbsoluteFill>
   )
@@ -259,7 +259,7 @@ export function SlideIn({ children, duration = 20, direction = 'up' }: SlideProp
     right: `translateX(${(progress - 1) * d}px)`,
   }
   return (
-    <AbsoluteFill style={{ opacity: progress, transform: subpx(transforms[direction]), ...SUBPX_STYLE }}>
+    <AbsoluteFill style={{ opacity: progress, transform: transforms[direction] }}>
       {children}
     </AbsoluteFill>
   )
@@ -474,10 +474,10 @@ export function keyframes(
   }
 
   if (kfs.length === 1) {
-    return kfs[0].value
+    return kfs[0]!.value
   }
 
-  const first = kfs[0].value
+  const first = kfs[0]!.value
   const isVector = Array.isArray(first)
 
   if (isVector) {
@@ -498,7 +498,7 @@ function evaluateScalar(
 
   const easings: ((t: number) => number)[] = []
   for (let i = 0; i < kfs.length - 1; i++) {
-    const kf = kfs[i]
+    const kf = kfs[i]!
     if (kf.hold) {
       easings.push(stepEasing)
     } else {
@@ -518,17 +518,17 @@ function evaluateVector(
   kfs: Keyframe<number[]>[],
   options?: KeyframesDimensionOptions,
 ): number[] {
-  const dimensions = kfs[0].value.length
+  const dimensions = kfs[0]!.value.length
   const result: number[] = new Array(dimensions)
 
   for (let dim = 0; dim < dimensions; dim++) {
     const inputRange = kfs.map((kf) => kf.time)
-    const outputRange = kfs.map((kf) => kf.value[dim])
+    const outputRange = kfs.map((kf) => kf.value[dim]!)
     const dimEasing = options?.dimensionEasing?.[dim]
 
     const easings: ((t: number) => number)[] = []
     for (let i = 0; i < kfs.length - 1; i++) {
-      const kf = kfs[i]
+      const kf = kfs[i]!
       if (kf.hold) {
         easings.push(stepEasing)
       } else {
@@ -536,7 +536,7 @@ function evaluateVector(
       }
     }
 
-    result[dim] = interpolate(frame, inputRange, outputRange, {
+    result[dim] = interpolate(frame, inputRange, outputRange as number[], {
       easing: easings,
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
@@ -612,7 +612,7 @@ export function fromLottieProperty(
   const lottieKfs = property.k as LottieKeyframe[]
 
   // Detect if this is a scalar or vector property from the first keyframe's value
-  const firstValue = lottieKfs[0].s
+  const firstValue = lottieKfs[0]!.s
   if (!firstValue || firstValue.length === 0) {
     return [{ time: 0, value: 0 }]
   }
@@ -698,10 +698,10 @@ function extractBezier(
   into: LottieEasingHandle,
   dimension: number,
 ): BezierCurve {
-  const ox = Array.isArray(out.x) ? (out.x[dimension] ?? out.x[0]) : out.x
-  const oy = Array.isArray(out.y) ? (out.y[dimension] ?? out.y[0]) : out.y
-  const ix = Array.isArray(into.x) ? (into.x[dimension] ?? into.x[0]) : into.x
-  const iy = Array.isArray(into.y) ? (into.y[dimension] ?? into.y[0]) : into.y
+  const ox = Array.isArray(out.x) ? (out.x[dimension] ?? out.x[0]!) : out.x
+  const oy = Array.isArray(out.y) ? (out.y[dimension] ?? out.y[0]!) : out.y
+  const ix = Array.isArray(into.x) ? (into.x[dimension] ?? into.x[0]!) : into.x
+  const iy = Array.isArray(into.y) ? (into.y[dimension] ?? into.y[0]!) : into.y
   return [ox, oy, ix, iy]
 }
 

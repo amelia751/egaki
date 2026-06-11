@@ -13,7 +13,7 @@ import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
-import { splitIntoSections, calculateTotalDuration } from './mdx-parse'
+import { splitIntoSections, calculateTotalDuration } from './mdx-parse.ts'
 
 // Helper: parse MDX and split into sections in one call
 function split(mdx: string) {
@@ -102,8 +102,8 @@ bpm: 140
 
 Content
     `)
-    expect(result.sections[0].heading).toBe('Opening')
-    expect(result.sections[0].durationInFrames).toBe(99) // 3.3 * 30fps
+    expect(result.sections[0]!.heading).toBe('Opening')
+    expect(result.sections[0]!.durationInFrames).toBe(99) // 3.3 * 30fps
   })
 
   test('duration in heading (frames)', () => {
@@ -112,7 +112,7 @@ Content
 
 Content
     `)
-    expect(result.sections[0].durationInFrames).toBe(200)
+    expect(result.sections[0]!.durationInFrames).toBe(200)
   })
 
   test('duration in heading (beats)', () => {
@@ -126,7 +126,7 @@ bpm: 120
 Content
     `)
     // 120bpm = 2 beats/sec, 1 beat = 15 frames, 4 beats = 60 frames
-    expect(result.sections[0].durationInFrames).toBe(60)
+    expect(result.sections[0]!.durationInFrames).toBe(60)
   })
 
   test('background before first heading goes to preamble, not a section', () => {
@@ -141,7 +141,7 @@ Content
     `)
     // Content before the first heading goes to preamble, not an implicit section
     expect(result.sections).toHaveLength(1)
-    expect(result.sections[0].heading).toBe('Scene')
+    expect(result.sections[0]!.heading).toBe('Scene')
     expect(result.preamble.length).toBeGreaterThan(0)
   })
 
@@ -157,7 +157,7 @@ Content
     `)
     // Background is included in section.nodes alongside content
     expect(result.sections).toHaveLength(1)
-    expect(result.sections[0].nodes).toBe(2) // Background + Content paragraph
+    expect(result.sections[0]!.nodes).toBe(2) // Background + Content paragraph
   })
 
   test('each section keeps its own background nodes', () => {
@@ -178,8 +178,8 @@ Content 1
 
 Content 2
     `)
-    expect(result.sections[0].nodes).toBe(2) // Background + Content
-    expect(result.sections[1].nodes).toBe(2) // Background + Content
+    expect(result.sections[0]!.nodes).toBe(2) // Background + Content
+    expect(result.sections[1]!.nodes).toBe(2) // Background + Content
   })
 
   test('import statements are skipped (not treated as content)', () => {
@@ -192,7 +192,7 @@ Content
     `)
     // Import should not create an implicit section before the heading
     expect(result.sections).toHaveLength(1)
-    expect(result.sections[0].heading).toBe('Scene')
+    expect(result.sections[0]!.heading).toBe('Scene')
   })
 
   test('transition in heading (frames)', () => {
@@ -205,10 +205,10 @@ Content
 
 More content
     `)
-    expect(result.sections[0].heading).toBe('Scene 1')
-    expect(result.sections[0].durationInFrames).toBe(150) // 5s * 30fps
-    expect(result.sections[0].transitionFrames).toBe(20)
-    expect(result.sections[1].transitionFrames).toBe(0)
+    expect(result.sections[0]!.heading).toBe('Scene 1')
+    expect(result.sections[0]!.durationInFrames).toBe(150) // 5s * 30fps
+    expect(result.sections[0]!.transitionFrames).toBe(20)
+    expect(result.sections[1]!.transitionFrames).toBe(0)
   })
 
   test('transition in heading (seconds)', () => {
@@ -221,7 +221,7 @@ Content
 
 More
     `)
-    expect(result.sections[0].transitionFrames).toBe(15) // 0.5s * 30fps
+    expect(result.sections[0]!.transitionFrames).toBe(15) // 0.5s * 30fps
   })
 
   test('calculateTotalDuration subtracts transition overlaps', () => {
@@ -247,7 +247,7 @@ Some orphan content
 More content
     `)
     expect(result.sections).toHaveLength(1)
-    expect(result.sections[0].heading).toBe('Scene')
+    expect(result.sections[0]!.heading).toBe('Scene')
     expect(result.preamble.length).toBeGreaterThan(0)
   })
 })
@@ -286,7 +286,7 @@ Content
     const result = splitIntoSections(ast)
 
     // Background is a regular node in section.nodes
-    const bgNode = result.sections[0].nodes.find((n: any) => n.name === 'Background')
+    const bgNode = result.sections[0]!.nodes.find((n: any) => n.name === 'Background')
     expect(bgNode).toBeDefined()
     expect(bgNode.children.length).toBeGreaterThan(0)
   })
@@ -398,7 +398,7 @@ import { Missing } from './nonexistent'
     const result = visitor.run()
     renderToStaticMarkup(result)
     expect(visitor.errors.length).toBeGreaterThan(0)
-    expect(visitor.errors[0].message).toContain('Unresolved import')
+    expect(visitor.errors[0]!.message).toContain('Unresolved import')
   })
 
   test('multiple imports from different files', () => {
@@ -435,7 +435,7 @@ import { CONFIG } from './config'
 // keyframes() — animation interpolation
 // ---------------------------------------------------------------------------
 
-import { keyframes, fromLottieProperty, extractLottieDimensionEasing } from './mdx-video'
+import { keyframes, fromLottieProperty, extractLottieDimensionEasing } from './mdx-video.tsx'
 
 describe('keyframes', () => {
   test('single keyframe returns its value', () => {
@@ -865,7 +865,7 @@ import Missing from './missing.mdx'
     const { jsx, errors } = renderWithMdxImports(mainCode, {})
     renderToStaticMarkup(jsx)
     expect(errors.length).toBeGreaterThan(0)
-    expect(errors[0].message).toContain('Unresolved import')
+    expect(errors[0]!.message).toContain('Unresolved import')
   })
 
   test('imported .mdx with multiple elements', () => {

@@ -15,8 +15,8 @@ import './styles.css'
 import { Player, type PlayerRef } from '@remotion/player'
 import { Suspense, useCallback, useEffect, useRef, useSyncExternalStore, useState, type ReactNode } from 'react'
 import { AbsoluteFill, Series, useDelayRender } from 'remotion'
-import { renderInBrowser } from './render-client'
-import { egakiSDK } from './sdk'
+import { renderInBrowser } from './render-client.ts'
+import { egakiSDK } from './sdk.ts'
 import { LayoutEditor, type SectionMeta } from './layout-editor.tsx'
 
 // Module-level stable callbacks for useSyncExternalStore (never re-subscribes)

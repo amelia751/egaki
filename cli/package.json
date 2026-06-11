@@ -2,25 +2,33 @@
   "name": "egaki",
   "version": "0.6.0",
   "type": "module",
-  "description": "AI image and video generation CLI",
-  "main": "./dist/cli.js",
-  "types": "./dist/cli.d.ts",
+  "description": "AI image and video generation CLI with MDX-to-video framework",
+  "main": "./dist/cli/cli.js",
+  "types": "./dist/cli/cli.d.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "types": "./dist/cli.d.ts",
-      "default": "./dist/cli.js"
+      "types": "./dist/cli/cli.d.ts",
+      "default": "./dist/cli/cli.js"
     },
-    "./src": {
-      "types": "./src/cli.ts",
-      "default": "./src/cli.ts"
+    "./video": {
+      "types": "./src/vite/mdx-video.tsx",
+      "default": "./src/vite/mdx-video.tsx"
     },
-    "./src/*": {
-      "types": "./src/*.ts",
-      "default": "./src/*.ts"
+    "./vite": {
+      "types": "./src/vite/vite-plugin.ts",
+      "default": "./src/vite/vite-plugin.ts"
+    },
+    "./src/cli/*": {
+      "types": "./src/cli/*.ts",
+      "default": "./src/cli/*.ts"
+    },
+    "./src/vite/*": {
+      "types": "./src/vite/*.tsx",
+      "default": "./src/vite/*.tsx"
     }
   },
-  "bin": "dist/cli.js",
+  "bin": "dist/cli/cli.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/remorses/egaki.git",
@@ -34,12 +42,12 @@
     "src",
     "dist",
     "skills",
-    "README.md",
     "CHANGELOG.md"
   ],
   "scripts": {
-    "dev": "tsx src/cli.ts",
-    "build": "tsc && chmod +x dist/cli.js",
+    "dev": "tsx src/cli/cli.ts",
+    "build": "tsc && chmod +x dist/cli/cli.js",
+    "test": "vitest run",
     "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && pnpm build"
   },
   "keywords": [
@@ -48,7 +56,10 @@
     "video",
     "generation",
     "cli",
-    "gemini"
+    "gemini",
+    "remotion",
+    "mdx",
+    "vite"
   ],
   "license": "MIT",
   "dependencies": {
@@ -60,15 +71,39 @@
     "@ai-sdk/replicate": "2.0.20",
     "@ai-sdk/xai": "^3.0.92",
     "@clack/prompts": "^1.0.1",
+    "@remotion/media": "4.0.475",
+    "@remotion/player": "4.0.475",
+    "@remotion/transitions": "4.0.475",
+    "@remotion/web-renderer": "4.0.475",
+    "@tailwindcss/vite": "^4.2.2",
     "ai": "6.0.103",
     "eventsource-parser": "^3.0.6",
     "goke": "^6.12.1",
     "js-yaml": "^4.1.1",
+    "moveable": "^0.53.0",
     "picocolors": "^1.1.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "4.0.475",
+    "safe-mdx": "^1.11.1",
     "string-dedent": "^3.0.2",
+    "tailwindcss": "^4.3.0",
+    "yaml": "^2.9.0",
     "zod": "^4.3.6"
   },
+  "peerDependencies": {
+    "@vitejs/plugin-react": ">=6",
+    "spiceflow": ">=1.26.0-rsc.5"
+  },
+  "peerDependenciesMeta": {
+    "@vitejs/plugin-react": { "optional": true },
+    "spiceflow": { "optional": true }
+  },
   "devDependencies": {
-    "@types/js-yaml": "^4.0.9"
+    "@types/js-yaml": "^4.0.9",
+    "@types/react": "^19",
+    "@vitejs/plugin-react": "^6.0.1",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.8"
   }
 }

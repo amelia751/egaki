@@ -6,7 +6,7 @@
  * Data constants live in data.ts.
  */
 
-import { FeaturePill } from 'holocron-video/src/components'
+import { FeaturePill } from 'egaki/src/vite/components'
 import type { FEATURES } from './data'
 
 export function FeatureGrid({ features }: { features: typeof FEATURES }) {

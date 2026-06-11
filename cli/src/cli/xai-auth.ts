@@ -15,7 +15,7 @@ import { spinner, log, note } from '@clack/prompts'
 import pc from 'picocolors'
 import { z } from 'zod'
 import { openUrlInBrowser } from './open-browser.js'
-import pkg from '../package.json' with { type: 'json' }
+import pkg from '../../package.json' with { type: 'json' }
 
 // Public Grok-CLI OAuth client. xAI's auth server rejects loopback OAuth from
 // non-allowlisted clients, so we reuse the Grok-CLI client_id that xAI ships

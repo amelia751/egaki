@@ -331,17 +331,17 @@ export function TerminalSimulator({
   const starts: number[] = []
   let acc = 8
   for (let i = 0; i < lines.length; i++) {
-    const delay = lines[i].delay ?? 6
+    const delay = lines[i]!.delay ?? 6
     acc += delay
     starts.push(acc)
     // Must match TermLine's interpolation range: [0, totalChars / charsPerFrame]
-    const typingFrames = Math.ceil(lines[i].text.length / charsPerFrame)
-    acc += typingFrames + autoPause(lines[i])
+    const typingFrames = Math.ceil(lines[i]!.text.length / charsPerFrame)
+    acc += typingFrames + autoPause(lines[i]!)
   }
 
   let translateY = 0
   for (let i = visibleLines; i < lines.length; i++) {
-    if (frame >= starts[i]) translateY -= lineHeight
+    if (frame >= starts[i]!) translateY -= lineHeight
   }
 
   // Entry animation for the whole window
@@ -1007,7 +1007,7 @@ export function AnimatedChart({
     CHART_DATA.length - 1,
     Math.max(0, Math.round(sweepProgress * (CHART_DATA.length - 1))),
   )
-  const nearest = points[nearestIdx]
+  const nearest = points[nearestIdx]!
 
   // Chart entry animation
   const chartScale = spring({ frame, fps, config: { damping: 20, stiffness: 80 } })

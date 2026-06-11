@@ -3,14 +3,14 @@
 How to read a Lottie JSON file and reproduce its animations in Remotion. The `keyframes()` function in this package wraps Remotion's `interpolate()` + `Easing.bezier()` with a clean, type-safe API that maps directly to Lottie's keyframe model.
 
 ```ts
-import { keyframes, fromLottieProperty } from 'holocron-video'
+import { keyframes, fromLottieProperty } from 'egaki/video'
 ```
 
 ## Quick example
 
 ```ts
 import { useCurrentFrame } from 'remotion'
-import { keyframes } from 'holocron-video'
+import { keyframes } from 'egaki/video'
 
 const frame = useCurrentFrame()
 
@@ -120,7 +120,7 @@ const value = keyframes(frame, [
 `fromLottieProperty()` converts a raw Lottie animated property (`{ a, k }`) into a `Keyframe[]` array:
 
 ```ts
-import { keyframes, fromLottieProperty } from 'holocron-video'
+import { keyframes, fromLottieProperty } from 'egaki/video'
 import lottieJson from './animation.json'
 
 const frame = useCurrentFrame()
@@ -137,7 +137,7 @@ const [x, y] = keyframes(frame, posKfs)
 For vector properties with per-dimension easing, use `extractLottieDimensionEasing()`:
 
 ```ts
-import { keyframes, fromLottieProperty, extractLottieDimensionEasing } from 'holocron-video'
+import { keyframes, fromLottieProperty, extractLottieDimensionEasing } from 'egaki/video'
 
 const posProperty = lottieJson.layers[0].ks.p
 const posKfs = fromLottieProperty(posProperty)

@@ -3,7 +3,8 @@
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
     "lib": [
-      "ESNext"
+      "ESNext",
+      "DOM"
     ],
     "target": "ESNext",
     "module": "nodenext",
@@ -15,6 +16,7 @@
     "useUnknownInCatchVariables": false,
     "moduleResolution": "nodenext",
     "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
     "noEmit": false,
     "strict": true,
     "skipLibCheck": true,

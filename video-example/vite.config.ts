@@ -1,4 +1,4 @@
-import { video } from 'holocron-video/vite'
+import { video } from 'egaki/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig({

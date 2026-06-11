@@ -29,7 +29,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import pc from 'picocolors'
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
-import pkg from '../package.json' with { type: 'json' }
+import pkg from '../../package.json' with { type: 'json' }
 import {
   injectCredentialsToEnv,
   PROVIDERS,
@@ -1442,7 +1442,7 @@ async function generateWithResponsesApi({
     method: 'POST',
     headers: {
       Authorization: `Bearer ${auth.access}`,
-      'ChatGPT-Account-ID': auth.accountId,
+      ...(auth.accountId && { 'ChatGPT-Account-ID': auth.accountId }),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -1518,7 +1518,7 @@ async function generateWithResponsesApi({
 
   const decoder = new TextDecoder()
 
-  for await (const chunk of response.body) {
+  for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
     parser.feed(decoder.decode(chunk, { stream: true }))
   }
   parser.feed(decoder.decode())
