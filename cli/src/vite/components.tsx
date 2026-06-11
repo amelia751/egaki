@@ -316,7 +316,7 @@ function autoPause(line: TerminalLine): number {
 export function TerminalSimulator({
   lines,
   prompt = '$',
-  title = '~/holocron',
+  title = '~/egaki',
   width = 880,
   height = 460,
   fontSize = 17,

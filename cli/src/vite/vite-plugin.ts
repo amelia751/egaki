@@ -19,7 +19,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 // Resolve the package src/ directory from this file's location.
 // Used for resolve.alias so the RSC module runner can resolve relative
-// imports from app.tsx (same pattern as @holocron.so/vite).
+// imports from app.tsx (same pattern as egaki/vite).
 const __srcDir = fileURLToPath(new URL('.', import.meta.url))
 const APP_SRC_PATH = path.join(__srcDir, 'app.tsx')
 

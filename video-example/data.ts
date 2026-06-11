@@ -6,7 +6,7 @@
 import type { TerminalLine } from 'egaki/src/vite/components'
 
 export const CREATE_LINES: TerminalLine[] = [
-  { text: 'npx -y @holocron.so/cli create my-docs', type: 'command', delay: 0 },
+  { text: 'npx -y egaki create my-video', type: 'command', delay: 0 },
   { text: '', type: 'dim', delay: 12 },
   { text: '  Creating project in ./my-docs...', type: 'log', delay: 8 },
   { text: '  Scaffolding files...', type: 'log', delay: 6, pause: 20 },
@@ -24,7 +24,7 @@ export const CREATE_LINES: TerminalLine[] = [
 ]
 
 export const DEPLOY_LINES: TerminalLine[] = [
-  { text: 'npx -y @holocron.so/cli deploy', type: 'command', delay: 0 },
+  { text: 'npx -y egaki deploy', type: 'command', delay: 0 },
   { text: '', type: 'dim', delay: 10 },
   { text: '  Building docs...', type: 'log', delay: 6, pause: 24 },
   { text: '  ✓ 12 pages compiled', type: 'success', delay: 4 },
@@ -33,7 +33,7 @@ export const DEPLOY_LINES: TerminalLine[] = [
   { text: '', type: 'dim', delay: 4 },
   { text: '  Deploying to edge...', type: 'log', delay: 6, pause: 18 },
   { text: '', type: 'dim', delay: 4 },
-  { text: '  ✓ Live at https://my-docs.holocron.so', type: 'success', delay: 6 },
+  { text: '  ✓ Live at https://egaki.org', type: 'success', delay: 6 },
 ]
 
 export const DOCS_JSON_CODE = `{

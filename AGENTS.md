@@ -173,7 +173,7 @@ npx opensrc crates:<package>    # Rust crate (e.g., npx opensrc crates:serde)
 npx opensrc <owner>/<repo>      # GitHub repo (e.g., npx opensrc vercel/ai)
 ```
 
-# holocron-video
+# egaki video
 
 MDX-to-video framework built on Remotion and Spiceflow. Write MDX with headings as section boundaries; each heading becomes a timed Remotion `Series.Sequence`. Section duration is controlled via heading suffixes (`duration=3s`, `duration=90fps`, `duration=8beats`). Frontmatter sets global `fps` and `bpm`.
 
@@ -265,7 +265,7 @@ Content inside sections (after a heading) is scoped to that section's `Series.Se
 
 ## Client-side rendering constraints
 
-holocron-video always renders in the browser via `@remotion/web-renderer` (WebCodecs, no FFmpeg). This means every component and style must be compatible with the web-renderer's canvas-based emulation. Full list of limitations: https://remotion.dev/docs/client-side-rendering/limitations
+egaki video always renders in the browser via `@remotion/web-renderer` (WebCodecs, no FFmpeg). This means every component and style must be compatible with the web-renderer's canvas-based emulation. Full list of limitations: https://remotion.dev/docs/client-side-rendering/limitations
 
 ### Things you must NOT do
 
