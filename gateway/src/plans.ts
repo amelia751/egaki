@@ -9,8 +9,8 @@
 // Stripe Price IDs come from env secrets (not hardcoded) so we can
 // rotate them or switch Stripe accounts without redeploying code.
 
-import { CATALOG, type ModelEntry } from '../../src/model-catalog.js'
-import { VIDEO_CATALOG, type VideoModelEntry } from '../../src/video-model-catalog.js'
+import { CATALOG, type ModelEntry } from '../../cli/src/model-catalog.js'
+import { VIDEO_CATALOG, type VideoModelEntry } from '../../cli/src/video-model-catalog.js'
 
 
 export type PlanId = 'plus' | 'pro'

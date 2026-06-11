@@ -1,76 +1,8 @@
 {
-  "name": "egaki",
-  "version": "0.6.0",
-  "type": "module",
-  "main": "./dist/cli.js",
-  "types": "./dist/cli.d.ts",
-  "exports": {
-    "./package.json": "./package.json",
-    ".": {
-      "types": "./dist/cli.d.ts",
-      "default": "./dist/cli.js"
-    },
-    "./src": {
-      "types": "./src/cli.ts",
-      "default": "./src/cli.ts"
-    },
-    "./src/*": {
-      "types": "./src/*.ts",
-      "default": "./src/*.ts"
-    }
-  },
-  "description": "AI image and video generation CLI",
-  "bin": "dist/cli.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/remorses/egaki.git",
-    "directory": "."
-  },
-  "homepage": "https://github.com/remorses/egaki#readme",
-  "bugs": {
-    "url": "https://github.com/remorses/egaki/issues"
-  },
-  "files": [
-    "src",
-    "dist",
-    "skills",
-    "README.md",
-    "CHANGELOG.md"
-  ],
-  "scripts": {
-    "dev": "tsx src/cli.ts",
-    "build": "tsc && chmod +x dist/cli.js",
-    "prepublishOnly": "pnpm build"
-  },
-  "keywords": [
-    "ai",
-    "image",
-    "video",
-    "generation",
-    "cli",
-    "gemini"
-  ],
-  "license": "MIT",
-  "dependencies": {
-    "@ai-sdk/bytedance": "^1.0.14",
-    "@ai-sdk/fal": "2.0.34",
-    "@ai-sdk/google": "3.0.33",
-    "@ai-sdk/google-vertex": "^4.0.137",
-    "@ai-sdk/openai": "3.0.36",
-    "@ai-sdk/replicate": "2.0.20",
-    "@ai-sdk/xai": "^3.0.92",
-    "@clack/prompts": "^1.0.1",
-    "ai": "6.0.103",
-    "eventsource-parser": "^3.0.6",
-    "goke": "^6.12.1",
-    "js-yaml": "^4.1.1",
-    "picocolors": "^1.1.1",
-    "string-dedent": "^3.0.2",
-    "zod": "^4.3.6"
-  },
+  "private": true,
   "devDependencies": {
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.3.0",
+    "rimraf": "^6.0.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

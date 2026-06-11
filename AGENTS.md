@@ -1,7 +1,7 @@
 ## Conventions
 
 **CLI framework:** Built with [goke](https://github.com/remorses/goke), a type-safe CLI
-framework for TypeScript. Commands, options, and help text are defined in `src/cli.ts`
+framework for TypeScript. Commands, options, and help text are defined in `cli/src/cli.ts`
 using goke's API. Run `egaki --help` to see everything.
 
 **Model discovery:** `egaki --help` shows commands and flags, but it does **not** list
@@ -82,7 +82,7 @@ through the Vercel AI Gateway. It handles Stripe subscriptions, API key validati
 and dollar-based usage tracking.
 
 **Model costs are derived from the catalog.** `gateway/src/plans.ts` imports
-`CATALOG` from `src/model-catalog.ts` directly. Wrangler's bundler resolves the
+`CATALOG` from `cli/src/model-catalog.ts` directly. Wrangler's bundler resolves the
 cross-directory import at build time, so there's no duplication. When you add or
 update models in the catalog, the gateway picks up the costs automatically.
 
@@ -100,12 +100,12 @@ GET https://ai-gateway.vercel.sh/v1/models
 ```
 
 No auth required. Returns JSON with all available models, capabilities, and pricing.
-Use this to discover new models and update `src/model-catalog.ts`.
+Use this to discover new models and update `cli/src/model-catalog.ts`.
 
 When updating model support in the CLI, always:
 
 1. Check `https://ai-gateway.vercel.sh/v1/models` for new model IDs.
-2. Add missing image-capable models to `src/model-catalog.ts`.
+2. Add missing image-capable models to `cli/src/model-catalog.ts`.
 3. If `/v1/models` lacks per-image pricing, source price from provider docs and
    record it manually in the catalog.
 

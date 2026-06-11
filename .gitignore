@@ -2,9 +2,10 @@ node_modules
 dist
 tmp
 .env
-gateway/.env
 *.tgz
+*.tsbuildinfo
 bun.lock
+.DS_Store
 
 # opensrc - source code for packages
 opensrc/
