@@ -33,13 +33,21 @@ const COMP_W = 1920
 const COMP_H = 1080
 const PADDING = 40
 
-/** How much to scale the 1076x1076 clip to fill the composition height */
+/** How much to scale the bento to fill the composition height */
 const BENTO_SCALE = (COMP_H - PADDING * 2) / BENTO.clipSize
-/** Pixel size of the bento after scaling */
+/** Rendered pixel size of the bento clip */
 const BENTO_RENDERED = BENTO.clipSize * BENTO_SCALE
-/** Center horizontally in the composition */
+/** Center the 1076-wide clip area horizontally */
 const BENTO_LEFT = (COMP_W - BENTO_RENDERED) / 2
 const BENTO_TOP = PADDING
+/**
+ * Width of the outer container in local (pre-scale) coordinates.
+ * Sized so that after scaling it spans the full composition width,
+ * allowing cards to animate off-screen without being clipped early.
+ */
+const CONTAINER_LOCAL_W = COMP_W / BENTO_SCALE
+/** Offset to center the 1076 clip within the wider container */
+const CLIP_OFFSET_X = (CONTAINER_LOCAL_W - BENTO.clipSize) / 2
 
 // Overlay sits below the bento, filling the bottom of the composition
 const OVERLAY_TOP = BENTO_TOP + BENTO_RENDERED - 80
@@ -204,38 +212,39 @@ export function BentoShowreel() {
         rel="stylesheet"
       />
 
-      {/* Bento container: scales the 1076x1076 local coords to fill the scene */}
+      {/*
+        Wide container: spans the full composition width (in local coords)
+        so cards animating horizontally aren't clipped early. Clips only
+        at the composition edges. The rounded visual background and the
+        animated cards are siblings, not parent/child, so the rounded
+        border doesn't clip the cards.
+      */}
       <div
         style={{
           position: 'absolute',
-          left: BENTO_LEFT,
+          left: 0,
           top: BENTO_TOP,
-          width: BENTO.clipSize,
+          width: CONTAINER_LOCAL_W,
           height: BENTO.clipSize,
           transform: `scale(${BENTO_SCALE})`,
           transformOrigin: 'top left',
+          overflow: 'hidden',
         }}
       >
-        {/* Clip mask — rounded rectangle viewport */}
+        {/* Rounded visual background — purely decorative, no clipping */}
         <div
           style={{
+            position: 'absolute',
+            left: CLIP_OFFSET_X,
+            top: 0,
             width: BENTO.clipSize,
             height: BENTO.clipSize,
             borderRadius: BENTO.clipRadius,
+            backgroundColor: '#b3b3b3',
             overflow: 'hidden',
-            position: 'relative',
           }}
         >
-          {/* Grey mask background */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundColor: '#b3b3b3',
-            }}
-          />
-
-          {/* White backing glow (slightly larger, behind cards) */}
+          {/* White backing glow */}
           <div
             style={{
               position: 'absolute',
@@ -247,14 +256,19 @@ export function BentoShowreel() {
               opacity: 0.5,
             }}
           />
-
-          {/* Screens and cards */}
-          {SCREENS.map((screen) =>
-            screen.cards.map((card) => (
-              <AnimatedCard key={card.id} card={card} screenX={screen.x} screenY={screen.y} />
-            )),
-          )}
         </div>
+
+        {/* Cards layer — positioned relative to the clip center, NOT clipped by rounded rect */}
+        {SCREENS.map((screen) =>
+          screen.cards.map((card) => (
+            <AnimatedCard
+              key={card.id}
+              card={card}
+              screenX={CLIP_OFFSET_X + screen.x}
+              screenY={screen.y}
+            />
+          )),
+        )}
       </div>
 
       {/* Bottom overlay with gradient and text */}
