@@ -73,7 +73,6 @@
     "@clack/prompts": "^1.0.1",
     "@remotion/media": "4.0.475",
     "@remotion/player": "4.0.475",
-    "@remotion/transitions": "4.0.475",
     "@remotion/web-renderer": "4.0.475",
     "@tailwindcss/vite": "^4.2.2",
     "ai": "6.0.103",

@@ -14,10 +14,23 @@
 import './styles.css'
 import { Player, type PlayerRef } from '@remotion/player'
 import { Suspense, useCallback, useEffect, useRef, useSyncExternalStore, useState, type ReactNode } from 'react'
-import { AbsoluteFill, Series, useDelayRender } from 'remotion'
+import {
+  AbsoluteFill,
+  Freeze,
+  Sequence,
+  Series,
+  useCurrentFrame,
+  useDelayRender,
+  useVideoConfig,
+} from 'remotion'
 import { renderInBrowser } from './render-client.ts'
 import { egakiSDK } from './sdk.ts'
 import { LayoutEditor, type SectionMeta } from './layout-editor.tsx'
+import {
+  LayoutAnimationLayer,
+  LayoutGhost,
+  LayoutTransitionProvider,
+} from './mdx-video.tsx'
 
 // Module-level stable callbacks for useSyncExternalStore (never re-subscribes)
 const subscribeNoop = () => () => {}
@@ -102,6 +115,99 @@ interface SectionProps {
   jsx: ReactNode
 }
 
+// Shared by the visible section content and the hidden ghost copy of the
+// previous section — element positions only match across the two containers
+// if both use the exact same layout styles.
+const SECTION_CONTENT_STYLE: React.CSSProperties = {
+  zIndex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '5% 8%',
+  gap: 'clamp(1rem, 2vw, 2.5rem)',
+  // Force Chrome GPU compositing for subpixel text rendering.
+  // Without this, Chrome snaps text positions to whole pixels
+  // causing visible stutter on slow translate/scale animations.
+  // Not supported by the web-renderer canvas export, but the
+  // canvas renderer doesn't have Chrome's pixel snapping issue.
+  // See: https://remotion.dev/docs/troubleshooting/subpixel-rendering
+  perspective: '1000px',
+  willChange: 'transform',
+}
+
+// How long (in seconds) the hidden ghost copy of the previous section stays
+// mounted at the start of a section. LayoutTransition springs (default 20
+// frames) settle well within this window. A constant is used because
+// per-element durations are only known after children render — the ghost
+// mount decision happens before that.
+const GHOST_WINDOW_SECONDS = 5
+
+/**
+ * Section content wrapper enabling <LayoutTransition> FLIP animations
+ * across section boundaries.
+ *
+ * Renders the PREVIOUS section in a hidden ghost container, pinned at its
+ * last frame via <Freeze>, so LayoutAnimationLayer can measure where each
+ * LayoutTransition element was when the viewer last saw it. Seek-safe: the
+ * ghost is derived purely from the current frame, never from playback order.
+ *
+ * Known limitation: the ghost's useVideoConfig().durationInFrames is clamped
+ * by the CURRENT section's Series.Sequence (Remotion Sequences take
+ * min(parent, own) duration). Exit animations in the previous section that
+ * depend on durationInFrames measure slightly off when the current section
+ * is shorter than the previous one. Position measurement is unaffected for
+ * static layouts.
+ */
+function SectionWithLayoutTransition({
+  jsx,
+  prevJsx,
+  prevDurationInFrames,
+}: {
+  jsx: ReactNode
+  prevJsx: ReactNode | null
+  prevDurationInFrames: number
+}) {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
+  const showGhost =
+    prevJsx != null && frame < fps * GHOST_WINDOW_SECONDS
+
+  return (
+    <LayoutTransitionProvider>
+      <AbsoluteFill style={{ background: '#050505' }}>
+        {showGhost ? (
+          // Ghost: hidden but laid out (visibility:hidden keeps geometry).
+          // opacity:0 is added for web-renderer safety, and the ghost comes
+          // FIRST in DOM order so the visible section paints over it even
+          // if a renderer ignores visibility (no z-index in web-renderer).
+          <AbsoluteFill
+            style={{ visibility: 'hidden', opacity: 0, pointerEvents: 'none' }}
+            aria-hidden
+          >
+            <LayoutGhost>
+              <Freeze frame={prevDurationInFrames - 1}>
+                <Sequence
+                  from={0}
+                  durationInFrames={prevDurationInFrames}
+                  layout="none"
+                  showInTimeline={false}
+                >
+                  <AbsoluteFill style={SECTION_CONTENT_STYLE}>
+                    {prevJsx}
+                  </AbsoluteFill>
+                </Sequence>
+              </Freeze>
+            </LayoutGhost>
+          </AbsoluteFill>
+        ) : null}
+        <AbsoluteFill style={SECTION_CONTENT_STYLE}>{jsx}</AbsoluteFill>
+        <LayoutAnimationLayer />
+      </AbsoluteFill>
+    </LayoutTransitionProvider>
+  )
+}
+
 function VideoComposition({
   sections,
   totalDuration,
@@ -129,29 +235,11 @@ function VideoComposition({
             <Suspense fallback={<SuspenseFallback />}>
               {/* Background components inside jsx self-position as AbsoluteFill
                   layers behind content via DOM order (rendered first = behind). */}
-              <AbsoluteFill style={{ background: '#050505' }}>
-                <AbsoluteFill
-                  style={{
-                    zIndex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '5% 8%',
-                    gap: 'clamp(1rem, 2vw, 2.5rem)',
-                    // Force Chrome GPU compositing for subpixel text rendering.
-                    // Without this, Chrome snaps text positions to whole pixels
-                    // causing visible stutter on slow translate/scale animations.
-                    // Not supported by the web-renderer canvas export, but the
-                    // canvas renderer doesn't have Chrome's pixel snapping issue.
-                    // See: https://remotion.dev/docs/troubleshooting/subpixel-rendering
-                    perspective: '1000px',
-                    willChange: 'transform',
-                  }}
-                >
-                  {section.jsx}
-                </AbsoluteFill>
-              </AbsoluteFill>
+              <SectionWithLayoutTransition
+                jsx={section.jsx}
+                prevJsx={i > 0 ? sections[i - 1]!.jsx : null}
+                prevDurationInFrames={i > 0 ? sections[i - 1]!.durationInFrames : 0}
+              />
             </Suspense>
           </Series.Sequence>
         ))}

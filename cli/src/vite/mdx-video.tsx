@@ -46,7 +46,24 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion'
-import { Audio, Video } from '@remotion/media'
+import { Audio as MediaAudio, Video as MediaVideo } from '@remotion/media'
+import {
+  naturalThrowSamples,
+  decelerateOvershootSamples,
+  decelerateElasticSamples,
+  accelerateImpulseSamples,
+  accelerateElasticSamples,
+  elasticSnapSamples,
+  bounceSamples,
+  bounceAnticipateSamples,
+  bounceThrowSamples,
+  impulseSlowSamples,
+  impulseOvershootSamples,
+  overshootSamples,
+  overshootElasticSamples,
+  overshootBouncySamples,
+  lerpSamples,
+} from './easing-curves.ts'
 
 // ---------------------------------------------------------------------------
 // springFromDuration() — Framer Motion-style spring API for Remotion
@@ -143,7 +160,179 @@ export const EASE = {
   snappy: Easing.bezier(0.87, 0, 0.13, 1),
   /** Luxurious, slow cinematic feel */
   cinematic: Easing.bezier(0.83, 0, 0.17, 1),
+
+  // --- Bezier presets (intensity 50 defaults) ---
+
+  /** Strong ease-out, snaps into place. The workhorse motion curve. */
+  smooth: Easing.bezier(0.5, 0, 0, 1),
+  /** Symmetric S-curve, natural feeling in-out */
+  natural: Easing.bezier(0.8, 0, 0.2, 1),
+  /** Pure deceleration, no ease-in. Objects arriving at full speed. */
+  decelerate: Easing.bezier(0, 0, 0, 1),
+  /** Pure acceleration, no ease-out. Objects leaving from rest. */
+  accelerate: Easing.bezier(1, 0, 1, 1),
+
+  // --- Sampled presets (intensity 50, spring/bounce/overshoot) ---
+  // Values can exceed 0-1 range. Use with interpolate().
+
+  /** Elastic snap into place with ringing oscillation */
+  elasticSnap: sampledEasing(elasticSnapSamples[50]),
+  /** Standard bounce, like a ball dropping */
+  bounce: sampledEasing(bounceSamples[50]),
+  /** Bounce with anticipation (pulls back first) */
+  bounceAnticipate: sampledEasing(bounceAnticipateSamples[50]),
+  /** Throw with bounce on landing */
+  bounceThrow: sampledEasing(bounceThrowSamples[50]),
+  /** Overshoot then settle back */
+  overshoot: sampledEasing(overshootSamples[50]),
+  /** Overshoot with elastic ringing */
+  overshootElastic: sampledEasing(overshootElasticSamples[50]),
+  /** Overshoot with bouncy settle */
+  overshootBouncy: sampledEasing(overshootBouncySamples[50]),
+  /** Deceleration with overshoot */
+  decelerateOvershoot: sampledEasing(decelerateOvershootSamples[50]),
+  /** Deceleration with elastic overshoot */
+  decelerateElastic: sampledEasing(decelerateElasticSamples[50]),
+  /** Natural throw with momentum */
+  naturalThrow: sampledEasing(naturalThrowSamples[50]),
+  /** Accelerating impulse burst */
+  accelerateImpulse: sampledEasing(accelerateImpulseSamples[50]),
+  /** Acceleration with elastic windup */
+  accelerateElastic: sampledEasing(accelerateElasticSamples[50]),
+  /** Slow impulse, gradual build then release */
+  impulseSlow: sampledEasing(impulseSlowSamples[50]),
+  /** Impulse with overshoot settle */
+  impulseOvershoot: sampledEasing(impulseOvershootSamples[50]),
 } as const
+
+// ---------------------------------------------------------------------------
+// Sampled easing helper — wraps a sample array into an EasingFunction
+// ---------------------------------------------------------------------------
+
+type EasingFunction = (t: number) => number
+
+/** Wrap a sampled curve into a Remotion-compatible easing function. */
+function sampledEasing(samples: readonly number[]): EasingFunction {
+  return (t: number) => lerpSamples(samples, t)
+}
+
+// ---------------------------------------------------------------------------
+// Intensity-parameterized easing constructors
+//
+// The default presets in EASE use intensity 50. These functions let you
+// pick any intensity from 0-100 (snapped to nearest 25).
+// Bezier types compute exact curves; sampled types look up the table.
+// ---------------------------------------------------------------------------
+
+type Intensity = 0 | 25 | 50 | 75 | 100
+function snapIntensity(i: number): Intensity {
+  return (Math.round(i / 25) * 25) as Intensity
+}
+
+/** smooth at custom intensity. Pattern: cubic-bezier(lerp(0.3, 0.9, i/100), 0, 0, 1) */
+export function smoothEasing(intensity: number): EasingFunction {
+  const x1 = 0.3 + 0.6 * (intensity / 100)
+  return Easing.bezier(x1, 0, 0, 1)
+}
+
+/** natural at custom intensity. Pattern: cubic-bezier(lerp(0.5, 1, i/100), 0, lerp(0.5, 0, i/100), 1) */
+export function naturalEasing(intensity: number): EasingFunction {
+  const x1 = 0.5 + 0.5 * (intensity / 100)
+  const x2 = 0.5 - 0.5 * (intensity / 100)
+  return Easing.bezier(x1, 0, x2, 1)
+}
+
+/** decelerate at custom intensity */
+export function decelerateEasing(intensity: number): EasingFunction {
+  // 0→(0, 0, 0.3, 1), 50→(0, 0, 0, 1), 75→(0, 0.45, 0, 1), 100→(0, 0.9, 0, 1)
+  if (intensity <= 50) {
+    const x2 = 0.3 * (1 - intensity / 50)
+    return Easing.bezier(0, 0, x2, 1)
+  }
+  const y1 = 0.9 * ((intensity - 50) / 50)
+  return Easing.bezier(0, y1, 0, 1)
+}
+
+/** accelerate at custom intensity */
+export function accelerateEasing(intensity: number): EasingFunction {
+  // 0→(0.7, 0, 1, 1), 50→(1, 0, 1, 1), 75→(1, 0, 1, 0.55), 100→(1, 0, 1, 0.1)
+  if (intensity <= 50) {
+    const x1 = 0.7 + 0.3 * (intensity / 50)
+    return Easing.bezier(x1, 0, 1, 1)
+  }
+  const y2 = 1 - 0.9 * ((intensity - 50) / 50)
+  return Easing.bezier(1, 0, 1, y2)
+}
+
+/** elasticSnap at custom intensity (sampled) */
+export function elasticSnapEasing(intensity: number): EasingFunction {
+  return sampledEasing(elasticSnapSamples[snapIntensity(intensity)])
+}
+
+/** bounce at custom intensity (sampled) */
+export function bounceEasing(intensity: number): EasingFunction {
+  return sampledEasing(bounceSamples[snapIntensity(intensity)])
+}
+
+/** bounceAnticipate at custom intensity (sampled) */
+export function bounceAnticipateEasing(intensity: number): EasingFunction {
+  return sampledEasing(bounceAnticipateSamples[snapIntensity(intensity)])
+}
+
+/** bounceThrow at custom intensity (sampled) */
+export function bounceThrowEasing(intensity: number): EasingFunction {
+  return sampledEasing(bounceThrowSamples[snapIntensity(intensity)])
+}
+
+/** overshoot at custom intensity (sampled) */
+export function overshootEasing(intensity: number): EasingFunction {
+  return sampledEasing(overshootSamples[snapIntensity(intensity)])
+}
+
+/** overshootElastic at custom intensity (sampled) */
+export function overshootElasticEasing(intensity: number): EasingFunction {
+  return sampledEasing(overshootElasticSamples[snapIntensity(intensity)])
+}
+
+/** overshootBouncy at custom intensity (sampled) */
+export function overshootBouncyEasing(intensity: number): EasingFunction {
+  return sampledEasing(overshootBouncySamples[snapIntensity(intensity)])
+}
+
+/** decelerateOvershoot at custom intensity (sampled) */
+export function decelerateOvershootEasing(intensity: number): EasingFunction {
+  return sampledEasing(decelerateOvershootSamples[snapIntensity(intensity)])
+}
+
+/** decelerateElastic at custom intensity (sampled) */
+export function decelerateElasticEasing(intensity: number): EasingFunction {
+  return sampledEasing(decelerateElasticSamples[snapIntensity(intensity)])
+}
+
+/** naturalThrow at custom intensity (sampled) */
+export function naturalThrowEasing(intensity: number): EasingFunction {
+  return sampledEasing(naturalThrowSamples[snapIntensity(intensity)])
+}
+
+/** accelerateImpulse at custom intensity (sampled) */
+export function accelerateImpulseEasing(intensity: number): EasingFunction {
+  return sampledEasing(accelerateImpulseSamples[snapIntensity(intensity)])
+}
+
+/** accelerateElastic at custom intensity (sampled) */
+export function accelerateElasticEasing(intensity: number): EasingFunction {
+  return sampledEasing(accelerateElasticSamples[snapIntensity(intensity)])
+}
+
+/** impulseSlow at custom intensity (sampled) */
+export function impulseSlowEasing(intensity: number): EasingFunction {
+  return sampledEasing(impulseSlowSamples[snapIntensity(intensity)])
+}
+
+/** impulseOvershoot at custom intensity (sampled) */
+export function impulseOvershootEasing(intensity: number): EasingFunction {
+  return sampledEasing(impulseOvershootSamples[snapIntensity(intensity)])
+}
 
 // ---------------------------------------------------------------------------
 // Background — real component that self-positions as an absolute layer
@@ -168,16 +357,24 @@ const FONT_MONO =
 //
 // Each reads useCurrentFrame() and useVideoConfig().durationInFrames
 // to animate at the start (enter) or end (exit) of a section.
+//
+// These use plain <div> wrappers (not AbsoluteFill) so they work both
+// as full-section overlays AND inline inside flex layouts. The div
+// inherits the parent's sizing naturally.
 // ---------------------------------------------------------------------------
 
 interface EnterExitProps {
   children: ReactNode
   /** Animation duration in frames */
   duration?: number
+  /** Custom easing function. Defaults to a dramatic ease-in (enter) or ease-out (exit). */
+  easing?: (t: number) => number
 }
 
 interface SlideProps extends EnterExitProps {
   direction?: 'up' | 'down' | 'left' | 'right'
+  /** Slide distance in pixels. Default 140 (visible at 1080p). */
+  distance?: number
 }
 
 // Ease-in for enters: starts slow, builds momentum, arrives fast.
@@ -190,68 +387,68 @@ const EXIT_EASING = Easing.bezier(0.0, 0.95, 0.05, 1)
 // Slide distance in px. 140px+ needed for visible motion at 1080p.
 const SLIDE_DISTANCE = 140
 
-export function FadeIn({ children, duration = 15 }: EnterExitProps) {
+export function FadeIn({ children, duration = 15, easing = ENTER_EASING }: EnterExitProps) {
   const frame = useCurrentFrame()
   const opacity = interpolate(frame, [0, duration], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: ENTER_EASING,
+    easing,
   })
-  return <AbsoluteFill style={{ opacity }}>{children}</AbsoluteFill>
+  return <div style={{ opacity }}>{children}</div>
 }
 
-export function FadeOut({ children, duration = 15 }: EnterExitProps) {
+export function FadeOut({ children, duration = 15, easing = EXIT_EASING }: EnterExitProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
   const start = durationInFrames - duration
   const opacity = interpolate(frame, [start, durationInFrames], [1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: EXIT_EASING,
+    easing,
   })
-  return <AbsoluteFill style={{ opacity }}>{children}</AbsoluteFill>
+  return <div style={{ opacity }}>{children}</div>
 }
 
-export function ZoomIn({ children, duration = 20 }: EnterExitProps) {
+export function ZoomIn({ children, duration = 20, easing = ENTER_EASING }: EnterExitProps) {
   const frame = useCurrentFrame()
   const progress = interpolate(frame, [0, duration], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: ENTER_EASING,
+    easing,
   })
   const scale = interpolate(progress, [0, 1], [0.5, 1])
   return (
-    <AbsoluteFill style={{ opacity: progress, transform: `scale(${scale})` }}>
+    <div style={{ opacity: progress, transform: `scale(${scale})` }}>
       {children}
-    </AbsoluteFill>
+    </div>
   )
 }
 
-export function ZoomOut({ children, duration = 20 }: EnterExitProps) {
+export function ZoomOut({ children, duration = 20, easing = EXIT_EASING }: EnterExitProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
   const start = durationInFrames - duration
   const progress = interpolate(frame, [start, durationInFrames], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: EXIT_EASING,
+    easing,
   })
   const scale = interpolate(progress, [0, 1], [1, 0.5])
   return (
-    <AbsoluteFill style={{ opacity: 1 - progress, transform: `scale(${scale})` }}>
+    <div style={{ opacity: 1 - progress, transform: `scale(${scale})` }}>
       {children}
-    </AbsoluteFill>
+    </div>
   )
 }
 
-export function SlideIn({ children, duration = 20, direction = 'up' }: SlideProps) {
+export function SlideIn({ children, duration = 20, direction = 'up', distance = SLIDE_DISTANCE, easing = ENTER_EASING }: SlideProps) {
   const frame = useCurrentFrame()
   const progress = interpolate(frame, [0, duration], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: ENTER_EASING,
+    easing,
   })
-  const d = SLIDE_DISTANCE
+  const d = distance
   const transforms: Record<string, string> = {
     up: `translateY(${(1 - progress) * d}px)`,
     down: `translateY(${(progress - 1) * d}px)`,
@@ -259,22 +456,22 @@ export function SlideIn({ children, duration = 20, direction = 'up' }: SlideProp
     right: `translateX(${(progress - 1) * d}px)`,
   }
   return (
-    <AbsoluteFill style={{ opacity: progress, transform: transforms[direction] }}>
+    <div style={{ opacity: progress, transform: transforms[direction] }}>
       {children}
-    </AbsoluteFill>
+    </div>
   )
 }
 
-export function SlideOut({ children, duration = 20, direction = 'down' }: SlideProps) {
+export function SlideOut({ children, duration = 20, direction = 'down', distance = SLIDE_DISTANCE, easing = EXIT_EASING }: SlideProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
   const start = durationInFrames - duration
   const progress = interpolate(frame, [start, durationInFrames], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: EXIT_EASING,
+    easing,
   })
-  const d = SLIDE_DISTANCE
+  const d = distance
   const transforms: Record<string, string> = {
     up: `translateY(${-progress * d}px)`,
     down: `translateY(${progress * d}px)`,
@@ -282,41 +479,41 @@ export function SlideOut({ children, duration = 20, direction = 'down' }: SlideP
     right: `translateX(${progress * d}px)`,
   }
   return (
-    <AbsoluteFill style={{ opacity: 1 - progress, transform: transforms[direction] }}>
+    <div style={{ opacity: 1 - progress, transform: transforms[direction] }}>
       {children}
-    </AbsoluteFill>
+    </div>
   )
 }
 
-export function BlurIn({ children, duration = 20 }: EnterExitProps) {
+export function BlurIn({ children, duration = 20, easing = ENTER_EASING }: EnterExitProps) {
   const frame = useCurrentFrame()
   const progress = interpolate(frame, [0, duration], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: ENTER_EASING,
+    easing,
   })
   const blur = interpolate(progress, [0, 1], [24, 0])
   return (
-    <AbsoluteFill style={{ opacity: progress, filter: `blur(${blur}px)` }}>
+    <div style={{ opacity: progress, filter: `blur(${blur}px)` }}>
       {children}
-    </AbsoluteFill>
+    </div>
   )
 }
 
-export function BlurOut({ children, duration = 20 }: EnterExitProps) {
+export function BlurOut({ children, duration = 20, easing = EXIT_EASING }: EnterExitProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
   const start = durationInFrames - duration
   const progress = interpolate(frame, [start, durationInFrames], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: EXIT_EASING,
+    easing,
   })
   const blur = interpolate(progress, [0, 1], [0, 24])
   return (
-    <AbsoluteFill style={{ opacity: 1 - progress, filter: `blur(${blur}px)` }}>
+    <div style={{ opacity: 1 - progress, filter: `blur(${blur}px)` }}>
       {children}
-    </AbsoluteFill>
+    </div>
   )
 }
 
@@ -706,286 +903,283 @@ function extractBezier(
 }
 
 // ---------------------------------------------------------------------------
-// Shared layout transitions — FLIP-based element identity across sections
+// LayoutTransition — FLIP-based layout animation across section boundaries
 //
-// <Shared id="x"> wraps an element that should visually persist across
-// section boundaries. When two sections both contain <Shared id="x">,
-// during the TransitionSeries overlap the element animates from its
-// position in the exiting section to its position in the entering section.
+// <LayoutTransition id="x"> wraps an element that should animate from its
+// position in the previous section to its position in the current section.
+// When two consecutive sections both contain <LayoutTransition id="x">,
+// the element in the current section starts at the previous section's
+// position and springs to its natural position.
 //
-// Architecture:
-// - SharedRegistry (context) holds refs + rects for all mounted Shared elements
-// - Each Shared component registers itself on mount and measures its rect
-// - SharedAnimationLayer (rendered above the TransitionSeries) renders
-//   a FLIP clone during transitions using interpolated transforms
-// - Both the exiting and entering Shared elements go visibility:hidden
-//   during the transition so only the animation layer clone is visible
+// Architecture (no temporal state — seek-safe by design):
+// - The previous section is re-rendered in a hidden "ghost" container,
+//   pinned at its last frame via Remotion <Freeze>. This happens in
+//   SectionWithLayoutTransition (player-page.tsx).
+// - LayoutContainerContext tells each LayoutTransition whether it lives
+//   in the ghost or the visible container.
+// - Entries register into LayoutRegistryContext in useLayoutEffect.
+//   React runs effects in tree order, so all LayoutTransition effects
+//   (descendants of containers rendered before the layer) complete before
+//   LayoutAnimationLayer's effect runs.
+// - LayoutAnimationLayer measures ghost vs visible rects every frame and
+//   writes interpolated FLIP transforms directly to the visible wrappers.
+//
+// Hard-won correctness details (do not "simplify" these away):
+// - getBoundingClientRect() INCLUDES CSS transforms. Transforms must be
+//   reset before measuring, or each frame compounds the previous frame's
+//   FLIP offset and the element drifts.
+// - The Remotion Player scales the composition to fit the viewport.
+//   Client-px deltas must be divided by that scale before being used as
+//   transform values in composition space. The layer measures the scale
+//   from its own composition-sized AbsoluteFill.
+// - The web-renderer does not support z-index; layer order is DOM order.
+//   The ghost renders BEFORE the visible content so the visible section
+//   paints over it even if a renderer ignores visibility:hidden.
 // ---------------------------------------------------------------------------
 
-import { createContext, useContext, useLayoutEffect, useRef, useCallback, type RefObject } from 'react'
-import { useTransitionProgress } from '@remotion/transitions'
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type RefObject,
+} from 'react'
 
-interface SharedEntry {
+type LayoutContainerKind = 'ghost' | 'visible'
+
+interface LayoutEntry {
   id: string
+  container: LayoutContainerKind
   ref: RefObject<HTMLDivElement | null>
-  children: ReactNode
-  /** 'entering' | 'exiting' | 'stable' */
-  direction: string
-  /** Cached bounding rect, measured each frame in useLayoutEffect */
-  rect: DOMRect | null
+  /** Transition duration in frames */
+  durationInFrames: number
+  /** Spring bounce, 0 = no overshoot */
+  bounce: number
+  /** Custom easing function. When set, overrides the spring. */
+  easing: EasingFunction | null
 }
 
-interface SharedRegistryValue {
-  entries: Map<string, SharedEntry[]>
-  /** Ref to the composition root for coordinate normalization */
-  rootRef: RefObject<HTMLDivElement | null>
-  register(entry: SharedEntry): void
-  unregister(id: string, ref: RefObject<HTMLDivElement | null>): void
+interface LayoutRegistry {
+  entries: Set<LayoutEntry>
+  /** Returns an unregister function */
+  register(entry: LayoutEntry): () => void
 }
 
-export const SharedRegistryContext = createContext<SharedRegistryValue | null>(null)
+const LayoutRegistryContext = createContext<LayoutRegistry | null>(null)
+const LayoutContainerContext = createContext<LayoutContainerKind>('visible')
 
 /**
- * Provider that tracks all mounted Shared elements. Placed at the
- * VideoComposition level so it spans both the TransitionSeries and
- * the SharedAnimationLayer.
+ * Provides the registry that connects LayoutTransition elements (in both
+ * the ghost and visible containers) with the LayoutAnimationLayer.
+ * One provider per section — wraps ghost + visible + animation layer.
  */
-export function SharedRegistryProvider({
-  children,
-  rootRef,
-}: {
-  children: ReactNode
-  rootRef: RefObject<HTMLDivElement | null>
-}) {
-  const entriesRef = useRef(new Map<string, SharedEntry[]>())
-
-  const register = useCallback((entry: SharedEntry) => {
-    const list = entriesRef.current.get(entry.id) || []
-    // Replace existing entry with same ref, or add new
-    const idx = list.findIndex((e) => e.ref === entry.ref)
-    if (idx >= 0) {
-      list[idx] = entry
-    } else {
-      list.push(entry)
-    }
-    entriesRef.current.set(entry.id, list)
-  }, [])
-
-  const unregister = useCallback((id: string, ref: RefObject<HTMLDivElement | null>) => {
-    const list = entriesRef.current.get(id)
-    if (!list) return
-    const filtered = list.filter((e) => e.ref !== ref)
-    if (filtered.length === 0) {
-      entriesRef.current.delete(id)
-    } else {
-      entriesRef.current.set(id, filtered)
-    }
-  }, [])
-
-  // Recreate the value object each render so the animation layer
-  // always reads fresh entries. The entries Map is mutated in place
-  // by register/unregister (via refs), so the animation layer's
-  // render pass sees the latest state from Shared components that
-  // rendered earlier in the same pass.
-  const value: SharedRegistryValue = {
-    entries: entriesRef.current,
-    rootRef,
-    register,
-    unregister,
-  }
-
-  return (
-    <SharedRegistryContext.Provider value={value}>
-      {children}
-    </SharedRegistryContext.Provider>
-  )
-}
-
-/**
- * Shared element wrapper. Wraps children that should maintain visual
- * identity across section boundaries via FLIP animation.
- *
- * Usage in MDX:
- * ```mdx
- * # Scene 1 duration=5s transition=20
- *
- * <Shared id="title">
- *   <BlurReveal text="Hello" />
- * </Shared>
- *
- * # Scene 2 duration=5s
- *
- * <Shared id="title">
- *   <BlurReveal text="Hello" />
- * </Shared>
- * ```
- */
-export function Shared({ id, children }: { id: string; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const registry = useContext(SharedRegistryContext)
-  const { entering, exiting, isInTransitionSeries } = useTransitionProgress()
-
-  const direction = entering < 1 ? 'entering' : exiting > 0 ? 'exiting' : 'stable'
-
-  // Register with the registry on every render so the animation layer
-  // can find our ref and children. Registration is synchronous (mutates
-  // the Map via ref) so it's visible to sibling components in the same
-  // render pass.
-  if (registry) {
-    registry.register({ id, ref, children, direction, rect: null })
-  }
-
-  // Measure our rect after layout so the animation layer can read it
-  useLayoutEffect(() => {
-    if (!registry || !ref.current) return
-    const entries = registry.entries.get(id)
-    if (!entries) return
-    const entry = entries.find((e) => e.ref === ref)
-    if (entry) {
-      entry.rect = ref.current.getBoundingClientRect()
+export function LayoutTransitionProvider({ children }: { children: ReactNode }) {
+  const [registry] = useState<LayoutRegistry>(() => {
+    const entries = new Set<LayoutEntry>()
+    return {
+      entries,
+      register(entry: LayoutEntry) {
+        entries.add(entry)
+        return () => {
+          entries.delete(entry)
+        }
+      },
     }
   })
 
-  // Unregister on unmount
-  useLayoutEffect(() => {
-    return () => {
-      if (registry) registry.unregister(id, ref)
-    }
-  }, [registry, id]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // During a transition, if there's a peer with the same id,
-  // hide this element (the animation layer renders the FLIP clone).
-  const inTransition = direction !== 'stable'
-  let hasPeer = false
-  if (inTransition && registry) {
-    const entries = registry.entries.get(id)
-    if (entries && entries.length > 1) {
-      hasPeer = true
-    }
-  }
-  const shouldHide = inTransition && hasPeer
-
   return (
-    <div
-      ref={ref}
-      style={{ visibility: shouldHide ? 'hidden' : 'visible' }}
-      data-shared-id={id}
-    >
+    <LayoutRegistryContext.Provider value={registry}>
+      {children}
+    </LayoutRegistryContext.Provider>
+  )
+}
+
+/**
+ * Marks its subtree as the hidden ghost copy of the previous section.
+ * LayoutTransition elements inside register as 'ghost' and are only
+ * used as measurement sources, never animated.
+ */
+export function LayoutGhost({ children }: { children: ReactNode }) {
+  return (
+    <LayoutContainerContext.Provider value="ghost">
+      {children}
+    </LayoutContainerContext.Provider>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Ghost-aware media components
+//
+// @remotion/media's Audio/Video register audio assets in layout effects even
+// when their DOM is hidden, so a raw re-export would leak/duplicate audio
+// when the previous section is re-rendered inside the hidden ghost. These
+// wrappers neutralize media inside the ghost: Audio renders nothing (it has
+// no layout footprint anyway), Video stays mounted for layout but muted.
+// ---------------------------------------------------------------------------
+
+export function Audio(props: ComponentProps<typeof MediaAudio>) {
+  const container = useContext(LayoutContainerContext)
+  if (container === 'ghost') return null
+  return <MediaAudio {...props} />
+}
+
+export function Video(props: ComponentProps<typeof MediaVideo>) {
+  const container = useContext(LayoutContainerContext)
+  if (container === 'ghost') {
+    return <MediaVideo {...props} muted volume={0} />
+  }
+  return <MediaVideo {...props} />
+}
+
+/**
+ * Wraps an element that should keep visual continuity across section
+ * boundaries. Matching is by `id`: if the previous section also rendered
+ * <LayoutTransition id="x">, the element springs from its old position
+ * to its new one at the start of the section.
+ *
+ * Usage in MDX:
+ * ```mdx
+ * # Scene 1 duration=5s
+ *
+ * <LayoutTransition id="title">
+ *   <BlurReveal text="Hello" />
+ * </LayoutTransition>
+ *
+ * # Scene 2 duration=5s
+ *
+ * <LayoutTransition id="title" duration={25} bounce={0.2}>
+ *   <BlurReveal text="Hello" />
+ * </LayoutTransition>
+ * ```
+ *
+ * If no matching id exists in the previous section, children render
+ * normally with no animation.
+ */
+export function LayoutTransition({
+  id,
+  duration = 20,
+  bounce = 0.15,
+  easing,
+  children,
+}: {
+  id: string
+  /** Transition duration in frames. Default 20. */
+  duration?: number
+  /** Spring bounce, 0 = no overshoot, 1 = max. Default 0.15. */
+  bounce?: number
+  /** Custom easing function. When set, uses interpolate() over `duration`
+   *  frames instead of the spring. Pass any `EASE.*` preset or a custom
+   *  `Easing.bezier(...)`. */
+  easing?: EasingFunction
+  children: ReactNode
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const registry = useContext(LayoutRegistryContext)
+  const container = useContext(LayoutContainerContext)
+
+  // One stable entry object per component instance. Fields are refreshed
+  // on every render (cheap own-ref mutation) so the animation layer always
+  // reads current props without re-registration.
+  const entryRef = useRef<LayoutEntry | null>(null)
+  if (entryRef.current === null) {
+    entryRef.current = { id, container, ref, durationInFrames: duration, bounce, easing: easing ?? null }
+  }
+  entryRef.current.id = id
+  entryRef.current.container = container
+  entryRef.current.durationInFrames = duration
+  entryRef.current.bounce = bounce
+  entryRef.current.easing = easing ?? null
+
+  useLayoutEffect(() => {
+    if (!registry) return
+    return registry.register(entryRef.current!)
+  }, [registry])
+
+  // transformOrigin '0 0': FLIP deltas are computed from top-left corners,
+  // so the scale component must also originate from the top-left.
+  return (
+    <div ref={ref} data-layout-id={id} style={{ transformOrigin: '0 0' }}>
       {children}
     </div>
   )
 }
 
 /**
- * Animation layer rendered above the TransitionSeries. During transitions,
- * for each Shared id that has both an entering and exiting copy, it renders
- * the children at an interpolated position using FLIP transforms.
+ * Measures ghost vs visible LayoutTransition elements after every render
+ * and writes FLIP transforms to the visible wrappers. Must be rendered
+ * AFTER both containers (sibling order matters: its layout effect has to
+ * run after all LayoutTransition registrations).
  *
- * Uses the composition root ref for coordinate normalization (converting
- * viewport-relative getBoundingClientRect to composition-relative coords).
+ * Renders an empty composition-sized AbsoluteFill used only to measure
+ * the Player's scale factor (composition px vs client px).
  */
-export function SharedAnimationLayer() {
-  const registry = useContext(SharedRegistryContext)
+export function LayoutAnimationLayer() {
+  const registry = useContext(LayoutRegistryContext)
   const frame = useCurrentFrame()
+  const { fps, width } = useVideoConfig()
+  const rootRef = useRef<HTMLDivElement>(null)
 
-  if (!registry) return null
+  // No dependency array: must re-run on every frame (the Player re-renders
+  // each frame, and rect positions can change with frame-driven layout).
+  useLayoutEffect(() => {
+    if (!registry) return
+    const entries = [...registry.entries]
+    const visible = entries.filter((e) => e.container === 'visible')
+    const ghosts = entries.filter((e) => e.container === 'ghost')
 
-  const pairs: Array<{
-    id: string
-    exitingEntry: SharedEntry
-    enteringEntry: SharedEntry
-  }> = []
-
-  for (const [id, entries] of registry.entries) {
-    if (entries.length < 2) continue
-    const exiting = entries.find((e) => e.direction === 'exiting')
-    const entering = entries.find((e) => e.direction === 'entering')
-    if (exiting && entering) {
-      pairs.push({ id, exitingEntry: exiting, enteringEntry: entering })
+    // Reset transforms BEFORE measuring: getBoundingClientRect() includes
+    // transforms, so measuring a transformed element would compound the
+    // previous frame's FLIP offset. This also clears stale transforms once
+    // the ghost unmounts (no pairs left).
+    for (const e of visible) {
+      if (e.ref.current) {
+        e.ref.current.style.transform = ''
+      }
     }
-  }
+    if (ghosts.length === 0) return
 
-  if (pairs.length === 0) return null
+    const rootRect = rootRef.current?.getBoundingClientRect()
+    if (!rootRect || rootRect.width === 0) return
+    // Player scale: composition is 1920 wide but rendered smaller/larger
+    // in the viewport. Translate deltas are measured in client px and
+    // applied in composition px, so divide by this scale. Scale ratios
+    // (sx, sy) are dimensionless and unaffected.
+    const playerScale = rootRect.width / width
 
-  // Get root rect for coordinate normalization
-  const rootRect = registry.rootRef.current?.getBoundingClientRect()
-  if (!rootRect) return null
+    for (const e of visible) {
+      const el = e.ref.current
+      if (!el) continue
+      const ghost = ghosts.find((g) => g.id === e.id)
+      const ghostEl = ghost?.ref.current
+      if (!ghostEl) continue
 
-  return (
-    <AbsoluteFill style={{ pointerEvents: 'none' }}>
-      {pairs.map(({ id, exitingEntry, enteringEntry }) => (
-        <SharedFlipElement
-          key={id}
-          exitingEntry={exitingEntry}
-          enteringEntry={enteringEntry}
-          rootRect={rootRect}
-        />
-      ))}
-    </AbsoluteFill>
-  )
-}
+      const progress = e.easing
+        ? interpolate(frame, [0, e.durationInFrames], [0, 1], {
+            extrapolateLeft: 'clamp',
+            extrapolateRight: 'clamp',
+            easing: e.easing,
+          })
+        : dspring(frame, fps, e.durationInFrames / fps, e.bounce)
+      if (progress > 0.999) continue
 
-/**
- * Single FLIP-animated element. Reads rects from the exiting and entering
- * Shared entries and renders the exiting entry's children at an interpolated
- * position. Uses the entering transition progress (0→1) as the animation
- * driver.
- */
-function SharedFlipElement({
-  exitingEntry,
-  enteringEntry,
-  rootRect,
-}: {
-  exitingEntry: SharedEntry
-  enteringEntry: SharedEntry
-  rootRect: DOMRect
-}) {
-  const { entering } = useTransitionProgress()
-  const progress = entering // 0→1 during the transition
+      const from = ghostEl.getBoundingClientRect()
+      const to = el.getBoundingClientRect()
+      if (to.width === 0 || to.height === 0 || from.width === 0) continue
 
-  const exitRect = exitingEntry.rect
-  const enterRect = enteringEntry.rect
+      // FLIP: at progress 0 the element appears exactly at the ghost
+      // (previous section) position/size; at progress 1 it is untransformed.
+      const inv = 1 - progress
+      const dx = ((from.x - to.x) / playerScale) * inv
+      const dy = ((from.y - to.y) / playerScale) * inv
+      const sx = 1 + (from.width / to.width - 1) * inv
+      const sy = 1 + (from.height / to.height - 1) * inv
+      el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+    }
+  })
 
-  if (!exitRect || !enterRect) {
-    // Rects not measured yet (first frame). Render nothing; next frame
-    // useLayoutEffect will have populated them.
-    return null
-  }
-
-  // Normalize rects to composition-relative coordinates
-  const ex = exitRect.x - rootRect.x
-  const ey = exitRect.y - rootRect.y
-  const ew = exitRect.width
-  const eh = exitRect.height
-
-  const nx = enterRect.x - rootRect.x
-  const ny = enterRect.y - rootRect.y
-  const nw = enterRect.width
-  const nh = enterRect.height
-
-  // Interpolate position and size
-  const x = interpolate(progress, [0, 1], [ex, nx])
-  const y = interpolate(progress, [0, 1], [ey, ny])
-  const w = interpolate(progress, [0, 1], [ew, nw])
-  const h = interpolate(progress, [0, 1], [eh, nh])
-
-  // Use the exiting entry's children as the visual during the transition.
-  // This ensures continuity: the element you see moving IS the one from
-  // the section you're leaving.
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: x,
-        top: y,
-        width: w,
-        height: h,
-        overflow: 'hidden',
-      }}
-    >
-      {exitingEntry.children}
-    </div>
-  )
+  return <AbsoluteFill ref={rootRef} style={{ pointerEvents: 'none' }} />
 }
 
 // Visual components and animations are re-exported so they're available
@@ -1001,6 +1195,4 @@ export {
   SpringPopIn,
   AnimatedChart,
   FeaturePill,
-  Audio,
-  Video,
 }

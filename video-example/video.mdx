@@ -5,10 +5,29 @@ bpm: 120
 
 import { FeatureGrid } from './components'
 import { CREATE_LINES, DEPLOY_LINES, DOCS_JSON_CODE, FEATURES } from './data'
-import { AsyncStats } from './async-stats'
+import { AsyncStats, } from './async-stats'
 import Tagline from './tagline.mdx'
 
 <Audio src="/minecraft-soundtrack.mp3" />
+
+# Layout A duration=0.7s
+
+<div style={{ display: '', flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 30 }}>
+  <LayoutTransition id="hero">
+    <span style={{ fontSize: 160, fontWeight: 700, color: '#fafafa', letterSpacing: '-0.04em', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>egaki</span>
+  </LayoutTransition>
+</div>
+
+# Layout B duration=2s
+
+<div style={{  display: 'flex', flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 30 }}>
+  <LayoutTransition id="hero" duration={20} easing={EASE.overshootElastic}>
+    <span style={{ fontSize: 160, fontWeight: 700, color: '#fafafa', letterSpacing: '-0.04em', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>egaki</span>
+  </LayoutTransition>
+  <SlideIn duration={40} direction="right" distance={300} easing={EASE.overshootElastic}>
+    <span style={{ fontSize: 160, fontWeight: 700, color: '#818cf8', letterSpacing: '-0.04em', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>video</span>
+  </SlideIn>
+</div>
 
 # Opening duration=3.3s
 
@@ -22,7 +41,7 @@ import Tagline from './tagline.mdx'
 
 # Arrakis duration=6s
 
-<Video src="/arrakis.mp4" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+<Video  src="/arrakis.mp4" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 
 # Tagline duration=2.8s
 

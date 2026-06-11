@@ -235,6 +235,60 @@ const x = interpolate(frame, [0, 30], [0, 100], {
 
 **`EASE` presets**: `apple` (tight S-curve), `enterFast` (arrive with momentum), `exitSlow` (leave with gravity), `snappy` (social media punch), `cinematic` (luxurious slow).
 
+### Motion curve presets
+
+`EASE` also includes motion design curves for smooth transitions, bounces, and
+overshoots. Each preset is a function compatible with `interpolate()`. Default
+presets use intensity 50; use the `*Easing(intensity)` functions for custom feel.
+
+```tsx
+import { EASE, smoothEasing, bounceEasing, overshootEasing } from 'egaki/video'
+import { interpolate } from 'remotion'
+
+// Smooth snap — strong ease-out, the workhorse for sliding elements
+const x = interpolate(frame, [0, 60], [0, 500], {
+  easing: EASE.smooth,
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+
+// Bounce — like a ball dropping, great for landing animations
+const y = interpolate(frame, [0, 45], [0, 300], {
+  easing: EASE.bounce,
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+
+// Overshoot with elastic settle — elements pop past target then ring back
+const scale = interpolate(frame, [0, 30], [0, 1], {
+  easing: EASE.overshootElastic,
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+
+// Custom intensity — higher = more extreme effect
+const gentleSmooth = interpolate(frame, [0, 60], [0, 1], {
+  easing: smoothEasing(25),  // gentler ease-out
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+
+const hardBounce = interpolate(frame, [0, 60], [0, 1], {
+  easing: bounceEasing(100), // extreme bouncing
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+```
+
+**Bezier presets** (clean curves, no overshoot):
+`smooth`, `natural`, `decelerate`, `accelerate`
+
+**Spring/bounce presets** (values can exceed 0-1):
+`elasticSnap`, `bounce`, `bounceAnticipate`, `bounceThrow`, `overshoot`,
+`overshootElastic`, `overshootBouncy`, `decelerateOvershoot`, `decelerateElastic`,
+`naturalThrow`, `accelerateImpulse`, `accelerateElastic`, `impulseSlow`,
+`impulseOvershoot`
+
 Never use raw `spring({ config: { damping: 15, stiffness: 150 } })` in new code. Convert to `springFromDuration(duration, bounce)` instead.
 
 ## Preamble — composition-level content
@@ -262,6 +316,51 @@ This content appears on top of the ambient background video.
 ```
 
 Content inside sections (after a heading) is scoped to that section's `Series.Sequence` and only visible during that section's duration. Preamble content has no such scoping; it renders for the entire composition and sits behind the sections in z-order.
+
+## LayoutTransition — FLIP animation across section boundaries
+
+`<LayoutTransition id="x">` makes an element animate from its position in the
+previous section to its new position in the current section. Matching is by
+`id`: when two consecutive sections both contain `<LayoutTransition id="x">`,
+the element in the new section springs from where the viewer last saw it.
+
+```mdx
+# Scene 1 duration=3s
+
+<LayoutTransition id="title">**Hello**</LayoutTransition>
+
+# Scene 2 duration=3s
+
+<LayoutTransition id="title" duration={25} bounce={0.2}>**Hello**</LayoutTransition>
+
+<LayoutTransition id="subtitle">**World**</LayoutTransition>
+```
+
+In Scene 2, "Hello" animates from its centered Scene-1 position to its new
+slot above "World". "World" has no match in Scene 1 so it just appears
+normally. Props: `id` (required), `duration` (frames, default 20), `bounce`
+(spring bounce 0-1, default 0.15).
+
+**Seek-safe by design.** No temporal state is used. The previous section is
+re-rendered in a hidden ghost container pinned at its last frame via Remotion
+`<Freeze>`; the animation layer measures ghost vs visible positions every
+frame and derives FLIP transforms purely from the current frame. Seeking
+backward, forward, or mid-transition always produces the correct frame.
+
+**Constraints:**
+- The wrapped child must be **flow content** (text, spans, divs in the flex
+  column). Components that render a full-frame `AbsoluteFill` (like
+  `BlurReveal`) measure as zero-size wrappers and the transition no-ops.
+- Works for elements inside imported TSX components too (React context).
+- The ghost stays mounted for the first 5 seconds of a section
+  (`GHOST_WINDOW_SECONDS` in `player-page.tsx`); springs must settle within
+  that window.
+
+Implementation lives in `cli/src/vite/mdx-video.tsx` (`LayoutTransition`,
+`LayoutTransitionProvider`, `LayoutGhost`, `LayoutAnimationLayer`) and
+`cli/src/vite/player-page.tsx` (`SectionWithLayoutTransition`, ghost
+mounting). Manual demo: `video-example/layout-test.mdx` via
+`pnpm vite --config vite.layout-test.config.ts` in `video-example/`.
 
 ## Client-side rendering constraints
 

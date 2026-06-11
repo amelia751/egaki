@@ -32,6 +32,8 @@ import { PlayerPage } from './player-page.tsx'
 // Remotion's Player render loop.
 import {
   Background,
+  EASE,
+  LayoutTransition,
   FadeIn, FadeOut, ZoomIn, ZoomOut,
   SlideIn, SlideOut, BlurIn, BlurOut, Animate,
   MeshGradientBg, BlurReveal, MaskedSlideReveal, StaggeredFadeUp,
@@ -68,6 +70,11 @@ function buildVideoMdxComponents(): Record<string, any> {
     // Enter/exit animations
     FadeIn, FadeOut, ZoomIn, ZoomOut,
     SlideIn, SlideOut, BlurIn, BlurOut, Animate,
+
+    // FLIP layout animation across section boundaries (matched by id)
+    LayoutTransition,
+    // Easing presets for LayoutTransition and interpolate()
+    EASE,
 
     // Standard element overrides
     p: ({ children }: { children: ReactNode }) => (

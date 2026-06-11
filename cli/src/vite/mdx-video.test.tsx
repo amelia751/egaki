@@ -916,3 +916,37 @@ import Snippet from './snippet.mdx'
     expect(errors).toMatchInlineSnapshot(`[]`)
   })
 })
+
+describe('LayoutTransition', () => {
+  test('renders wrapper div with data-layout-id and children', async () => {
+    const { LayoutTransition, LayoutTransitionProvider, LayoutGhost } =
+      await import('./mdx-video.tsx')
+    const html = renderToStaticMarkup(
+      <LayoutTransitionProvider>
+        <LayoutGhost>
+          <LayoutTransition id="title">
+            <span>Hello</span>
+          </LayoutTransition>
+        </LayoutGhost>
+        <LayoutTransition id="title" duration={25} bounce={0.2}>
+          <span>Hello</span>
+        </LayoutTransition>
+      </LayoutTransitionProvider>,
+    )
+    expect(html).toMatchInlineSnapshot(
+      `"<div data-layout-id="title" style="transform-origin:0 0"><span>Hello</span></div><div data-layout-id="title" style="transform-origin:0 0"><span>Hello</span></div>"`,
+    )
+  })
+
+  test('renders children without provider (used outside sections)', async () => {
+    const { LayoutTransition } = await import('./mdx-video.tsx')
+    const html = renderToStaticMarkup(
+      <LayoutTransition id="solo">
+        <span>Alone</span>
+      </LayoutTransition>,
+    )
+    expect(html).toMatchInlineSnapshot(
+      `"<div data-layout-id="solo" style="transform-origin:0 0"><span>Alone</span></div>"`,
+    )
+  })
+})
