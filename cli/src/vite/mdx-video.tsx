@@ -449,11 +449,13 @@ export function SlideIn({ children, duration = 20, direction = 'up', distance = 
     easing,
   })
   const d = distance
+  // direction = where the element comes FROM.
+  // "right" means starts offset to the right, slides to center.
   const transforms: Record<string, string> = {
-    up: `translateY(${(1 - progress) * d}px)`,
-    down: `translateY(${(progress - 1) * d}px)`,
-    left: `translateX(${(1 - progress) * d}px)`,
-    right: `translateX(${(progress - 1) * d}px)`,
+    up: `translateY(${-(1 - progress) * d}px)`,
+    down: `translateY(${(1 - progress) * d}px)`,
+    left: `translateX(${-(1 - progress) * d}px)`,
+    right: `translateX(${(1 - progress) * d}px)`,
   }
   return (
     <div style={{ opacity: progress, transform: transforms[direction] }}>
