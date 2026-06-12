@@ -223,7 +223,7 @@ function serializeTweakpanePrompt(
     }
   }
 
-  parts.push('Apply these values as the new prop defaults in the component code.')
+  parts.push('Apply these values as the new props in the component code.')
   return parts.join('\n')
 }
 
@@ -341,6 +341,10 @@ export function useTweakpane<T extends ParamSchema>(
         }
 
         folder.addBinding(params, key, opts).on('change', (ev) => {
+          // Pause the player on user interaction so the user can see
+          // the effect of their change on the current frame.
+          const player = contextRef?.playerRef.current
+          if (player?.isPlaying()) player.pause()
           // Update the mutable params object (already done by tweakpane)
           // and trigger a React re-render
           setValues((prev) => ({ ...prev, [key]: ev.value }))
