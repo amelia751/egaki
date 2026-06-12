@@ -127,7 +127,6 @@ const SECTION_CONTENT_STYLE: React.CSSProperties = {
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '5% 8%',
   gap: 'clamp(1rem, 2vw, 2.5rem)',
   // Force Chrome GPU compositing for subpixel text rendering.
   // Without this, Chrome snaps text positions to whole pixels
