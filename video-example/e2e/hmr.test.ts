@@ -125,8 +125,8 @@ test.describe.serial('video HMR @dev', () => {
     // from data.ts.
     const playerContainer = page.locator('[style*="aspect-ratio"]').first()
     await expect(playerContainer).toBeVisible()
-    await page.waitForFunction(() => (window as any).egakiSDK?.seekTo)
-    await page.evaluate(() => (window as any).egakiSDK.seekTo(1050))
+    await page.waitForFunction(() => window.egakiSDK?.seekTo)
+    await page.evaluate(() => window.egakiSDK.seekTo(1050))
     await expect(playerContainer.locator('text=MDX Components')).toBeVisible({ timeout: 5000 })
 
     await page.evaluate(() => { (window as any).__hmr_marker = true })
@@ -156,8 +156,8 @@ test.describe.serial('video HMR @dev', () => {
     // (imported from tagline.mdx) renders "Beautiful docs from MDX."
     const playerContainer = page.locator('[style*="aspect-ratio"]').first()
     await expect(playerContainer).toBeVisible()
-    await page.waitForFunction(() => (window as any).egakiSDK?.seekTo)
-    await page.evaluate(() => (window as any).egakiSDK.seekTo(470))
+    await page.waitForFunction(() => window.egakiSDK?.seekTo)
+    await page.evaluate(() => window.egakiSDK.seekTo(470))
     await expect(playerContainer.locator('text=Beautiful')).toBeVisible({ timeout: 5000 })
 
     await page.evaluate(() => { (window as any).__hmr_marker = true })
@@ -189,8 +189,8 @@ test.describe.serial('video HMR @dev', () => {
     // the server, streamed through flight, spliced in by line number.
     const playerContainer = page.locator('[style*="aspect-ratio"]').first()
     await expect(playerContainer).toBeVisible()
-    await page.waitForFunction(() => (window as any).egakiSDK?.seekTo)
-    await page.evaluate(() => (window as any).egakiSDK.seekTo(1200))
+    await page.waitForFunction(() => window.egakiSDK?.seekTo)
+    await page.evaluate(() => window.egakiSDK.seekTo(1200))
     await expect(playerContainer.locator('text=Pages Built')).toBeVisible({ timeout: 10_000 })
     await expect(playerContainer.locator('text=100,847')).toBeVisible()
 
@@ -206,8 +206,8 @@ test.describe.serial('video HMR @dev', () => {
 
     const playerContainer = page.locator('[style*="aspect-ratio"]').first()
     await expect(playerContainer).toBeVisible()
-    await page.waitForFunction(() => (window as any).egakiSDK?.seekTo)
-    await page.evaluate(() => (window as any).egakiSDK.seekTo(1200))
+    await page.waitForFunction(() => window.egakiSDK?.seekTo)
+    await page.evaluate(() => window.egakiSDK.seekTo(1200))
     await expect(playerContainer.locator('text=100,847')).toBeVisible({ timeout: 10_000 })
 
     await page.evaluate(() => { (window as any).__hmr_marker = true })
@@ -224,7 +224,7 @@ test.describe.serial('video HMR @dev', () => {
       fs.writeFileSync(serverStatsPath, updatedStats + `\n// hmr ${Date.now()}`)
       const markerAlive = await page.evaluate(() => (window as any).__hmr_marker === true)
       if (!markerAlive) return 'full-reload'
-      await page.evaluate(() => (window as any).egakiSDK.seekTo(1200))
+      await page.evaluate(() => window.egakiSDK.seekTo(1200))
       const visible = await playerContainer.locator('text=55,555').isVisible().catch(() => false)
       return visible ? 'updated' : 'waiting'
     }, { timeout: 20_000, message: 'server component HMR: new value did not appear' }).toBe('updated')
@@ -235,7 +235,7 @@ test.describe.serial('video HMR @dev', () => {
     await page.waitForLoadState('networkidle')
     const playerContainer = page.locator('[style*="aspect-ratio"]').first()
     await expect(playerContainer).toBeVisible()
-    await page.waitForFunction(() => (window as any).egakiSDK?.seekTo)
+    await page.waitForFunction(() => window.egakiSDK?.seekTo)
     await page.evaluate(() => { (window as any).__hmr_marker = true })
 
     // Wrapping FeatureGrid in <Server> means app.tsx now dynamically
@@ -255,7 +255,7 @@ test.describe.serial('video HMR @dev', () => {
       // NOTE: assert on a FEATURES label that the data.ts test does NOT
       // rename ('MDX Components' becomes 'HMR DATA EDIT' in that test and
       // data.ts is only restored in afterAll).
-      await page.evaluate(() => (window as any).egakiSDK.seekTo(1050))
+      await page.evaluate(() => window.egakiSDK.seekTo(1050))
       const visible = await playerContainer.locator('text=OpenAPI Reference').isVisible().catch(() => false)
       return visible ? 'updated' : 'waiting'
     }, { timeout: 15_000, message: 'server-rendered FeatureGrid did not appear' }).toBe('updated')

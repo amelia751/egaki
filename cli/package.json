@@ -84,6 +84,7 @@
     "eventsource-parser": "^3.0.6",
     "goke": "^6.12.1",
     "js-yaml": "^4.1.1",
+    "mediabunny": "^1.46.0",
     "moveable": "^0.53.0",
     "picocolors": "^1.1.1",
     "react": "19.2.4",

@@ -37,7 +37,8 @@ import {
 import { AngledScreen } from './angled-screen.tsx'
 
 export { splitIntoSections, calculateTotalDuration }
-export { useTweakpane } from './tweakpane-hook.tsx'
+import { useTweakpane } from './tweakpane-hook.tsx'
+export { useTweakpane }
 export type { MdxSection, SplitResult, VideoFrontmatter, EagerModules, SafeMdxError }
 
 // ---------------------------------------------------------------------------
@@ -1017,6 +1018,7 @@ function extractBezier(
 // ---------------------------------------------------------------------------
 
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -1094,6 +1096,11 @@ export function LayoutGhost({ children }: { children: ReactNode }) {
 // when the previous section is re-rendered inside the hidden ghost. These
 // wrappers neutralize media inside the ghost: Audio renders nothing (it has
 // no layout footprint anyway), Video stays mounted for layout but muted.
+//
+// Video also integrates with tweakpane: when not exporting, it loads the
+// source media duration and registers trimStart/trimEnd sliders (in seconds)
+// so users can interactively cut the video. The sliders convert to Remotion's
+// trimBefore/trimAfter frame props on the underlying @remotion/media Video.
 // ---------------------------------------------------------------------------
 
 export function Audio(props: ComponentProps<typeof MediaAudio>) {
@@ -1104,10 +1111,157 @@ export function Audio(props: ComponentProps<typeof MediaAudio>) {
 
 export function Video(props: ComponentProps<typeof MediaVideo>) {
   const container = useContext(LayoutContainerContext)
+  const isExporting = useIsExporting()
+
   if (container === 'ghost') {
     return <MediaVideo {...props} muted volume={0} />
   }
-  return <MediaVideo {...props} />
+
+  // During export, render directly without tweakpane UI
+  if (isExporting) {
+    return <MediaVideo {...props} />
+  }
+
+  return <VideoWithTweakpane {...props} />
+}
+
+/**
+ * Loads the source video's duration via mediabunny (Remotion's media parser),
+ * then delegates to VideoTrimControls which registers tweakpane sliders.
+ * Until duration is known, renders the video without trim controls.
+ */
+function VideoWithTweakpane(props: ComponentProps<typeof MediaVideo>) {
+  const [mediaDuration, setMediaDuration] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!props.src) return
+    let disposed = false
+
+    void (async () => {
+      try {
+        const { Input, UrlSource, ALL_FORMATS } = await import('mediabunny')
+        if (disposed) return
+        const input = new Input({
+          formats: ALL_FORMATS,
+          source: new UrlSource(props.src!),
+        })
+        const duration = await input.computeDuration()
+        input.dispose()
+        if (!disposed && isFinite(duration) && duration > 0) {
+          setMediaDuration(duration)
+        }
+      } catch {
+        // Source unreadable or unsupported format; skip trim controls
+      }
+    })()
+
+    return () => { disposed = true }
+  }, [props.src])
+
+  if (mediaDuration === null) {
+    return <MediaVideo {...props} />
+  }
+
+  return <VideoTrimControls {...props} mediaDuration={mediaDuration} />
+}
+
+/**
+ * Registers tweakpane trimStart/trimEnd sliders (in seconds) and converts
+ * them to Remotion's trimBefore/trimAfter frame props. The folder label
+ * is the video filename extracted from src.
+ *
+ * When the user drags a slider, the player pauses and seeks to the
+ * corresponding frame so the user can see exactly where the cut lands.
+ * Seeks are debounced to 50ms to avoid flooding the player during
+ * continuous dragging.
+ *
+ * Section offset computation: this component lives inside a Remotion
+ * Series.Sequence. useCurrentFrame() returns the frame relative to the
+ * sequence, while egakiSDK.getCurrentFrame() returns the absolute
+ * composition frame. The difference (absolute - relative) gives the
+ * section's start frame in the composition, cached on first render.
+ */
+function VideoTrimControls(
+  props: ComponentProps<typeof MediaVideo> & { mediaDuration: number },
+) {
+  const { mediaDuration, ...videoProps } = props
+  const { fps, durationInFrames: sectionDuration } = useVideoConfig()
+  const relativeFrame = useCurrentFrame()
+
+  // Compute the absolute frame offset of this section once on first render.
+  // useCurrentFrame() = relative, egakiSDK.getCurrentFrame() = absolute.
+  const sectionOffsetRef = useRef<number | null>(null)
+  if (sectionOffsetRef.current === null) {
+    try {
+      const absoluteFrame = window.egakiSDK?.getCurrentFrame() ?? 0
+      sectionOffsetRef.current = absoluteFrame - relativeFrame
+    } catch {
+      sectionOffsetRef.current = 0
+    }
+  }
+
+  // Use the filename from src as the tweakpane folder label
+  const src = typeof props.src === 'string' ? props.src : 'Video'
+  const label = src.split('/').pop()?.split('?')[0] || 'Video'
+
+  // Convert any existing trim props (in frames) to seconds for defaults
+  const defaultStart = props.trimBefore != null ? props.trimBefore / fps : 0
+  const defaultEnd = props.trimAfter != null ? props.trimAfter / fps : mediaDuration
+
+  const tp = useTweakpane(label, {
+    trimStart: { value: defaultStart, min: 0, max: mediaDuration, step: 0.1 },
+    trimEnd: { value: defaultEnd, min: 0, max: mediaDuration, step: 0.1 },
+  })
+
+  // Debounced seek: pause the player and seek to the trim point so the
+  // user sees the exact frame they're cutting to. Debounce at 50ms so
+  // continuous slider dragging doesn't flood the player with seeks.
+  const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevTrimStartRef = useRef(tp.trimStart)
+  const prevTrimEndRef = useRef(tp.trimEnd)
+
+  useEffect(() => {
+    const sdk = window.egakiSDK
+    if (!sdk) return
+
+    const offset = sectionOffsetRef.current ?? 0
+    let targetFrame: number | null = null
+
+    if (tp.trimStart !== prevTrimStartRef.current) {
+      // trimStart changed → seek to section start (where source shows trimStart)
+      targetFrame = offset
+      prevTrimStartRef.current = tp.trimStart
+    } else if (tp.trimEnd !== prevTrimEndRef.current) {
+      // trimEnd changed → seek to the section-relative frame where source
+      // shows the trimEnd point: F = (trimEnd - trimStart) * fps - 1
+      const endRelative = Math.round((tp.trimEnd - tp.trimStart) * fps) - 1
+      targetFrame = offset + Math.max(0, Math.min(endRelative, sectionDuration - 1))
+      prevTrimEndRef.current = tp.trimEnd
+    }
+
+    if (targetFrame === null) return
+
+    if (seekTimerRef.current) clearTimeout(seekTimerRef.current)
+    const frame = targetFrame
+    seekTimerRef.current = setTimeout(() => {
+      try {
+        sdk.pause()
+        sdk.seekTo(Math.max(0, frame))
+      } catch {
+        // SDK not ready, ignore
+      }
+    }, 50)
+
+    return () => {
+      if (seekTimerRef.current) clearTimeout(seekTimerRef.current)
+    }
+  }, [tp.trimStart, tp.trimEnd, fps, sectionDuration])
+
+  // Convert seconds back to frames for Remotion
+  const trimBefore = tp.trimStart > 0 ? Math.round(tp.trimStart * fps) : undefined
+  const trimAfter = tp.trimEnd < mediaDuration ? Math.round(tp.trimEnd * fps) : undefined
+
+  return <MediaVideo {...videoProps} trimBefore={trimBefore} trimAfter={trimAfter} />
 }
 
 /**

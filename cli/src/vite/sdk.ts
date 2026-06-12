@@ -412,11 +412,21 @@ class EgakiSDK {
 }
 
 // ---------------------------------------------------------------------------
+// Global type augmentation so window.egakiSDK is typed everywhere
+// ---------------------------------------------------------------------------
+
+declare global {
+  interface Window {
+    egakiSDK: EgakiSDK
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Singleton — mounted on window for Playwriter access
 // ---------------------------------------------------------------------------
 
 export const egakiSDK = new EgakiSDK()
 
 if (typeof window !== 'undefined') {
-  ;(window as any).egakiSDK = egakiSDK
+  window.egakiSDK = egakiSDK
 }
