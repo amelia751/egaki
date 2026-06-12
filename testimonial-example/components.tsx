@@ -140,11 +140,11 @@ function cardRect(frame: number, fps: number) {
 // ---------------------------------------------------------------------------
 
 /** Full-bleed background image (z bottom). Scale 1.5→1 from its own center. */
-function BackgroundVisual({ frame, fps }: { frame: number; fps: number }) {
+function BackgroundVisual({ src, frame, fps }: { src: string; frame: number; fps: number }) {
   const scale = interpClamp({ frame, startMs: 0, endMs: 1490, from: 1.5, to: 1, fps, easing: smooth50 })
   return (
     <img
-      src='/images/visual.jpg'
+      src={src}
       style={{
         position: 'absolute',
         left: -11,
@@ -159,7 +159,7 @@ function BackgroundVisual({ frame, fps }: { frame: number; fps: number }) {
   )
 }
 
-function FrostedCard({ frame, fps }: { frame: number; fps: number }) {
+function FrostedCard({ src, frame, fps }: { src: string; frame: number; fps: number }) {
   const rect = cardRect(frame, fps)
   const imgScale = interpClamp({ frame, startMs: 0, endMs: 1490, from: 1.5, to: 1, fps, easing: smooth50 })
 
@@ -181,7 +181,7 @@ function FrostedCard({ frame, fps }: { frame: number; fps: number }) {
         }}
       >
         <img
-          src='/images/visual.jpg'
+          src={src}
           style={{
             position: 'absolute',
             left: 280 - rect.left,
@@ -324,12 +324,15 @@ function Heart({ frame, fps }: { frame: number; fps: number }) {
 
 // ---------------------------------------------------------------------------
 // Portrait bubble — mask rect resizes 0 → 72x72 from center.
-// Group at (709, 652); image local rect (-15, -4) 93x111.
+// Group at (709, 652); image local rect (-15, -4) 93x111. The image rect is
+// expressed as a fraction of the bubble size so any portrait image gets the
+// same zoomed-in framing as the Jitter original.
 // ---------------------------------------------------------------------------
 
 const PORTRAIT_SIZE = 72
+const PORTRAIT_IMG = { x: -15 / 72, y: -4 / 72, width: 93 / 72, height: 111 / 72 } as const
 
-function PortraitBubble({ frame, fps }: { frame: number; fps: number }) {
+function PortraitBubble({ src, frame, fps }: { src: string; frame: number; fps: number }) {
   const p = interpClamp({ frame, startMs: 1262, endMs: 2062, from: 0, to: 1, fps, easing: smooth50 })
   const size = PORTRAIT_SIZE * p
   const offset = (PORTRAIT_SIZE - size) / 2
@@ -358,13 +361,13 @@ function PortraitBubble({ frame, fps }: { frame: number; fps: number }) {
         }}
       >
         <img
-          src='/images/portrait.jpg'
+          src={src}
           style={{
             position: 'absolute',
-            left: -15 - offset,
-            top: -4 - offset,
-            width: 93,
-            height: 111,
+            left: PORTRAIT_IMG.x * PORTRAIT_SIZE - offset,
+            top: PORTRAIT_IMG.y * PORTRAIT_SIZE - offset,
+            width: PORTRAIT_IMG.width * PORTRAIT_SIZE,
+            height: PORTRAIT_IMG.height * PORTRAIT_SIZE,
             maxWidth: 'none',
           }}
         />
@@ -393,7 +396,7 @@ const LOGO_VECTORS = [
   { src: '/svg/logo-12.svg', x: 25, y: 14, width: 9, height: 9 },
 ] as const
 
-function LogoAndUrl() {
+function LogoAndUrl({ url }: { url: string }) {
   return (
     <>
       <div
@@ -429,7 +432,7 @@ function LogoAndUrl() {
           textAlign: 'right',
         }}
       >
-        buildmango.co
+        {url}
       </div>
     </>
   )
@@ -439,7 +442,26 @@ function LogoAndUrl() {
 // Main composition
 // ---------------------------------------------------------------------------
 
-export function TestimonialCard() {
+export interface TestimonialCardProps {
+  /** Quote body. Opening/closing quote marks are added automatically. */
+  quote?: string
+  /** Author line shown next to the portrait, e.g. 'John Doe, CEO of Acme'. */
+  author?: string
+  /** Portrait image url. Gets the same zoomed framing as the original. */
+  portraitSrc?: string
+  /** Full-bleed background photo, also used for the card's frosted blur. */
+  backgroundSrc?: string
+  /** Website url shown top-right. */
+  url?: string
+}
+
+export function TestimonialCard({
+  quote = "Mango's AI templates save us hours and make every campaign feel personalized. Highly recommend!",
+  author = 'John Doe, CEO of Acme',
+  portraitSrc = '/images/portrait.jpg',
+  backgroundSrc = '/images/visual.jpg',
+  url = 'buildmango.co',
+}: TestimonialCardProps) {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
 
@@ -470,8 +492,8 @@ export function TestimonialCard() {
           fontFamily: FONT_FAMILY,
         }}
       >
-        <BackgroundVisual frame={frame} fps={fps} />
-        <FrostedCard frame={frame} fps={fps} />
+        <BackgroundVisual src={backgroundSrc} frame={frame} fps={fps} />
+        <FrostedCard src={backgroundSrc} frame={frame} fps={fps} />
 
         {/* Quote mark “ */}
         <div
@@ -501,12 +523,7 @@ export function TestimonialCard() {
             color: '#FFEFFB',
           }}
         >
-          <MaskedWordsText
-            text={"Mango's AI templates save us hours and make every campaign feel personalized. Highly recommend!\u201D"}
-            startMs={500}
-            frame={frame}
-            fps={fps}
-          />
+          <MaskedWordsText text={`${quote}\u201D`} startMs={500} frame={frame} fps={fps} />
         </div>
 
         {/* Author text */}
@@ -521,12 +538,12 @@ export function TestimonialCard() {
             color: '#ffffff80',
           }}
         >
-          <MaskedWordsText text='John Doe, CEO of Acme' startMs={1490} frame={frame} fps={fps} />
+          <MaskedWordsText text={author} startMs={1490} frame={frame} fps={fps} />
         </div>
 
         <Heart frame={frame} fps={fps} />
-        <PortraitBubble frame={frame} fps={fps} />
-        <LogoAndUrl />
+        <PortraitBubble src={portraitSrc} frame={frame} fps={fps} />
+        <LogoAndUrl url={url} />
       </div>
     </AbsoluteFill>
   )
