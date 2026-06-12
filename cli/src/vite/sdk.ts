@@ -11,7 +11,9 @@
  * the Playwriter sandbox with fetch().then(r => r.arrayBuffer()).
  */
 
+import React from 'react'
 import { renderStillOnWeb, renderMediaOnWeb } from '@remotion/web-renderer'
+import { ExportContext } from './mdx-video.tsx'
 import type {
   FrameRange,
   RenderStillOnWebImageFormat,
@@ -331,6 +333,15 @@ class EgakiSDK {
     return this.screenshot({ ...options, frame: this.getCurrentFrame() })
   }
 
+  /** Wrap the composition component with ExportContext so children can
+   *  detect they're inside an export render via useIsExporting(). */
+  private wrapForExport(component: React.FC): React.FC {
+    const Wrapped: React.FC = () =>
+      React.createElement(ExportContext.Provider, { value: true },
+        React.createElement(component))
+    return Wrapped
+  }
+
   /** Render a single frame and return a data URL string. */
   async screenshot(options: ScreenshotOptions = {}): Promise<string> {
     const c = this.getConfig()
@@ -365,7 +376,7 @@ class EgakiSDK {
 
     const { getBlob } = await renderMediaOnWeb({
       composition: {
-        component: c.component,
+        component: this.wrapForExport(c.component),
         durationInFrames: c.totalDuration,
         fps: c.fps,
         width: c.width,

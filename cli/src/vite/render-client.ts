@@ -5,6 +5,8 @@
  */
 
 import { renderMediaOnWeb } from '@remotion/web-renderer'
+import { ExportContext } from './mdx-video.tsx'
+import React from 'react'
 
 /**
  * Cover the web-renderer scaffold during export. The scaffold wrapper has
@@ -46,10 +48,14 @@ export async function renderInBrowser(options: {
 }) {
   const removeCover = injectScaffoldCover()
 
+  const ExportWrapped: React.FC = () =>
+    React.createElement(ExportContext.Provider, { value: true },
+      React.createElement(options.component))
+
   try {
     const { getBlob } = await renderMediaOnWeb({
       composition: {
-        component: options.component,
+        component: ExportWrapped,
         durationInFrames: options.durationInFrames,
         fps: options.fps ?? 30,
         width: options.width ?? 1920,
