@@ -255,6 +255,59 @@ Conventions and rules:
 
 **Media components**: `<Video>` and `<Audio>` from `@remotion/media` are available in MDX.
 
+## Making components configurable with `useTweakpane`
+
+`useTweakpane(label, schema)` registers a folder of tweakable parameters
+in a shared tweakpane pane (fixed top-right in the player). When the
+component unmounts, its folder is removed. Only visible components show
+parameters.
+
+Import from `egaki/video` or directly from `./tweakpane-hook.tsx`:
+
+```tsx
+import { useTweakpane } from 'egaki/video'
+```
+
+### Pattern: accept props, pass to useTweakpane as defaults
+
+Do **not** destructure tweakpane-managed props from the props object.
+Instead, reference `props.value ?? default` in the schema so the prop
+serves as the default and tweakpane overrides it live.
+
+```tsx
+export function MyComponent(props: MyComponentProps) {
+  // Non-tweakable props: destructure normally
+  const { children, style } = props
+
+  // Tweakable props: pass as defaults, let user override in the pane
+  const tp = useTweakpane('MyComponent', {
+    // Slider with explicit range
+    blur: { value: props.blur ?? 12, min: 0, max: 50, step: 0.5 },
+    // Boolean toggle (checkbox)
+    visible: props.visible ?? true,
+    // String (text input)
+    label: props.label ?? 'Hello',
+    // Color (string starting with #)
+    color: props.color ?? '#ff0055',
+    // Point 2D (object with x, y)
+    offset: props.offset ?? { x: 50, y: 25 },
+  })
+
+  // Use tp values directly, no isExporting branching needed
+  return <div style={{ filter: `blur(${tp.blur}px)`, color: tp.color }}>
+    {children}
+  </div>
+}
+```
+
+Ghost renders (layout-transition FLIP measurement) are automatically
+skipped. A single "Copy changes" button at the top of the pane
+serializes all active component params as structured markdown for AI
+agents, including current frame, section heading, and only params that
+differ from their defaults.
+
+Tweakpane docs: https://tweakpane.github.io/docs/input-bindings/
+
 ## Animation utilities — `springFromDuration`, `dspring`, and `EASE` presets
 
 Always use `springFromDuration()` or `dspring()` instead of raw `spring({ config: { damping, stiffness, mass } })`. The physics parameters are hard to reason about; `(duration, bounce)` is intuitive and matches Framer Motion's API.
