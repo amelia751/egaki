@@ -35,6 +35,7 @@ import {
   FeaturePill,
 } from './components.tsx'
 import { AngledScreen } from './angled-screen.tsx'
+import { CodeBlock, CODE_THEMES } from './code-block.tsx'
 
 export { splitIntoSections, calculateTotalDuration }
 import { useTweakpane } from './tweakpane-hook.tsx'
@@ -1098,7 +1099,7 @@ export function LayoutGhost({ children }: { children: ReactNode }) {
 // no layout footprint anyway), Video stays mounted for layout but muted.
 //
 // Video also integrates with tweakpane: when not exporting, it loads the
-// source media duration and registers trimStart/trimEnd sliders (in seconds)
+// source media duration and registers start/end sliders (in seconds)
 // so users can interactively cut the video. The sliders convert to Remotion's
 // trimBefore/trimAfter frame props on the underlying @remotion/media Video.
 // ---------------------------------------------------------------------------
@@ -1166,7 +1167,7 @@ function VideoWithTweakpane(props: ComponentProps<typeof MediaVideo>) {
 }
 
 /**
- * Registers tweakpane trimStart/trimEnd sliders (in seconds) and converts
+ * Registers tweakpane start/end sliders (in seconds) and converts
  * them to Remotion's trimBefore/trimAfter frame props. The folder label
  * is the video filename extracted from src.
  *
@@ -1209,16 +1210,16 @@ function VideoTrimControls(
   const defaultEnd = props.trimAfter != null ? props.trimAfter / fps : mediaDuration
 
   const tp = useTweakpane(label, {
-    trimStart: { value: defaultStart, min: 0, max: mediaDuration, step: 0.1 },
-    trimEnd: { value: defaultEnd, min: 0, max: mediaDuration, step: 0.1 },
+    start: { value: defaultStart, min: 0, max: mediaDuration, step: 0.1 },
+    end: { value: defaultEnd, min: 0, max: mediaDuration, step: 0.1 },
   })
 
   // Debounced seek: pause the player and seek to the trim point so the
   // user sees the exact frame they're cutting to. Debounce at 50ms so
   // continuous slider dragging doesn't flood the player with seeks.
   const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const prevTrimStartRef = useRef(tp.trimStart)
-  const prevTrimEndRef = useRef(tp.trimEnd)
+  const prevTrimStartRef = useRef(tp.start)
+  const prevTrimEndRef = useRef(tp.end)
 
   useEffect(() => {
     const sdk = window.egakiSDK
@@ -1227,16 +1228,16 @@ function VideoTrimControls(
     const offset = sectionOffsetRef.current ?? 0
     let targetFrame: number | null = null
 
-    if (tp.trimStart !== prevTrimStartRef.current) {
-      // trimStart changed → seek to section start (where source shows trimStart)
+    if (tp.start !== prevTrimStartRef.current) {
+      // start changed → seek to section start (where source shows start)
       targetFrame = offset
-      prevTrimStartRef.current = tp.trimStart
-    } else if (tp.trimEnd !== prevTrimEndRef.current) {
-      // trimEnd changed → seek to the section-relative frame where source
-      // shows the trimEnd point: F = (trimEnd - trimStart) * fps - 1
-      const endRelative = Math.round((tp.trimEnd - tp.trimStart) * fps) - 1
+      prevTrimStartRef.current = tp.start
+    } else if (tp.end !== prevTrimEndRef.current) {
+      // end changed → seek to the section-relative frame where source
+      // shows the end point: F = (end - start) * fps - 1
+      const endRelative = Math.round((tp.end - tp.start) * fps) - 1
       targetFrame = offset + Math.max(0, Math.min(endRelative, sectionDuration - 1))
-      prevTrimEndRef.current = tp.trimEnd
+      prevTrimEndRef.current = tp.end
     }
 
     if (targetFrame === null) return
@@ -1255,11 +1256,11 @@ function VideoTrimControls(
     return () => {
       if (seekTimerRef.current) clearTimeout(seekTimerRef.current)
     }
-  }, [tp.trimStart, tp.trimEnd, fps, sectionDuration])
+  }, [tp.start, tp.end, fps, sectionDuration])
 
   // Convert seconds back to frames for Remotion
-  const trimBefore = tp.trimStart > 0 ? Math.round(tp.trimStart * fps) : undefined
-  const trimAfter = tp.trimEnd < mediaDuration ? Math.round(tp.trimEnd * fps) : undefined
+  const trimBefore = tp.start > 0 ? Math.round(tp.start * fps) : undefined
+  const trimAfter = tp.end < mediaDuration ? Math.round(tp.end * fps) : undefined
 
   return <MediaVideo {...videoProps} trimBefore={trimBefore} trimAfter={trimAfter} />
 }
@@ -1426,6 +1427,8 @@ export {
   AnimatedChart,
   FeaturePill,
   AngledScreen,
+  CodeBlock,
+  CODE_THEMES,
 }
 
 /** Built-in JSX names available in MDX without user imports. Shared by
@@ -1441,6 +1444,7 @@ export const MDX_BUILTIN_COMPONENTS = {
   StaggeredFadeUp,
   TerminalSimulator,
   GlassCodeBlock,
+  CodeBlock,
   ShimmerSweep,
   SpringPopIn,
   AnimatedChart,
