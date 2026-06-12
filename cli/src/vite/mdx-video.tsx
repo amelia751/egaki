@@ -34,6 +34,7 @@ import {
   AnimatedChart,
   FeaturePill,
 } from './components.tsx'
+import { AngledScreen } from './angled-screen.tsx'
 
 export { splitIntoSections, calculateTotalDuration }
 export type { MdxSection, SplitResult, VideoFrontmatter, EagerModules, SafeMdxError }
@@ -1260,6 +1261,7 @@ export {
   SpringPopIn,
   AnimatedChart,
   FeaturePill,
+  AngledScreen,
 }
 
 /** Built-in JSX names available in MDX without user imports. Shared by
@@ -1268,6 +1270,7 @@ export {
 export const MDX_BUILTIN_COMPONENTS = {
   Background,
   LayoutTransition,
+  AngledScreen,
   MeshGradientBg,
   BlurReveal,
   MaskedSlideReveal,

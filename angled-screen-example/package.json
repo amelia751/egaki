@@ -1,0 +1,23 @@
+{
+  "name": "angled-screen-example",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@remotion/media": "4.0.475",
+    "@remotion/player": "4.0.475",
+    "egaki": "workspace:^",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "4.0.475",
+    "spiceflow": "1.26.0-rsc.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.10"
+  }
+}

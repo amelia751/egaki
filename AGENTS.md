@@ -483,13 +483,11 @@ Implementation lives in `cli/src/vite/mdx-video.tsx` (`LayoutTransition`,
 mounting). Manual demo: `video-example/layout-test.mdx` via
 `pnpm vite --config vite.layout-test.config.ts` in `video-example/`.
 
-## Client-side rendering constraints
+## Client-side rendering — HtmlInCanvas mode
 
-egaki video always renders in the browser via `@remotion/web-renderer` (WebCodecs, no FFmpeg). This means every component and style must be compatible with the web-renderer's canvas-based emulation. Full list of limitations: https://remotion.dev/docs/client-side-rendering/limitations
+egaki video renders in the browser via `@remotion/web-renderer` (WebCodecs, no FFmpeg) with **`allowHtmlInCanvas: true`** (set in `render-client.ts` and `sdk.ts`). This uses Chromium's `drawElementImage` API, which takes a **full screenshot per frame**. All CSS features work, including `perspective`, `transform-style: preserve-3d`, `backdrop-filter`, `mask-image`, `radial-gradient`, `mix-blend-mode`, `filter`, `clip-path`, and everything else. Write components assuming full CSS support.
 
-### Things you must NOT do
-
-**Media imports:**
+**Media imports** (still applies regardless of renderer mode):
 - Do NOT import `<Audio>`, `<Video>`, or `<OffthreadVideo>` from `remotion`. Those are `Html5Audio`/`Html5Video` wrappers that throw in the web-renderer.
 - Always import `<Audio>` and `<Video>` from `@remotion/media`.
 - Do NOT use `<AnimatedEmoji>` from `@remotion/animated-emoji` (use `<Lottie>` instead).
@@ -502,26 +500,25 @@ egaki video always renders in the browser via `@remotion/web-renderer` (WebCodec
 | `<Video>` | `remotion` (Html5Video) | not supported |
 | `<OffthreadVideo>` | `remotion` | not supported |
 
-**CSS properties that do NOT work:**
-- `backdrop-filter` (no frosted glass in exported video)
-- `mix-blend-mode`, `background-blend-mode`
-- `z-index` (control layer order via DOM order instead)
-- `perspective`, `perspective-origin`, `transform-style`
-- `text-decoration`
-- `writing-mode`
-- `object-position` (content is always centered)
-- `inset` box shadows and shadow spread radius
-- `background-image` with anything other than `linear-gradient` (no `radial-gradient`, no `url()`)
-- `mask-image` with anything other than `linear-gradient`
-- `clip-path: url()` referencing SVG `<clipPath>` elements
-- `filter: url()` referencing inline SVG filters
-- `corner-shape`
-
 **Other constraints:**
-- Filters (`blur`, `brightness`, etc.) do NOT work in Safari/WebKit. Use Chrome or Firefox.
+- HtmlInCanvas is **Chromium-only**. Export must happen in Chrome or Chromium-based browsers.
 - No multithreading; rendering is single-threaded.
 - Background browser tabs throttle `requestAnimationFrame`, slowing down export. Keep the tab in the foreground during export.
-- The `<HtmlInCanvas>` flag bypasses most CSS limitations (takes a full screenshot per frame) but is Chromium-only and experimental.
+
+<details>
+<summary>Walk renderer CSS limitations (NOT applicable to egaki, listed for reference only)</summary>
+
+The walk renderer (used when `allowHtmlInCanvas` is false) has these CSS limitations. egaki never uses the walk renderer, so these do not apply:
+
+- `backdrop-filter`, `mix-blend-mode`, `background-blend-mode`
+- `z-index`, `perspective`, `perspective-origin`, `transform-style`
+- `text-decoration`, `writing-mode`, `object-position`
+- `inset` box shadows and shadow spread radius
+- `background-image` with anything other than `linear-gradient`
+- `mask-image` with anything other than `linear-gradient`
+- `clip-path: url()`, `filter: url()`, `corner-shape`
+- Filters (`blur`, `brightness`, etc.) do not work in Safari/WebKit
+</details>
 
 ## Remotion resources
 

@@ -21,6 +21,7 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
   test('registry keys match client and server slot maps', () => {
     expect(Object.keys(MDX_BUILTIN_COMPONENTS).sort()).toMatchInlineSnapshot(`
       [
+        "AngledScreen",
         "Animate",
         "AnimatedChart",
         "Audio",
