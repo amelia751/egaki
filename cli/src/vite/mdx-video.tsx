@@ -65,6 +65,27 @@ import {
   lerpSamples,
 } from './easing-curves.ts'
 
+// Re-export the raw sampled curves so user projects can blend between
+// intensity levels (e.g. Jitter easings at non-standard intensities like
+// impulseAndOvershoot:96 — lerp the 75 and 100 sample arrays).
+export {
+  naturalThrowSamples,
+  decelerateOvershootSamples,
+  decelerateElasticSamples,
+  accelerateImpulseSamples,
+  accelerateElasticSamples,
+  elasticSnapSamples,
+  bounceSamples,
+  bounceAnticipateSamples,
+  bounceThrowSamples,
+  impulseSlowSamples,
+  impulseOvershootSamples,
+  overshootSamples,
+  overshootElasticSamples,
+  overshootBouncySamples,
+  lerpSamples,
+}
+
 // ---------------------------------------------------------------------------
 // springFromDuration() — Framer Motion-style spring API for Remotion
 //
