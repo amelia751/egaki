@@ -301,6 +301,7 @@ export function PlayerPage({
   const [rendering, setRendering] = useState(false)
   const [progress, setProgress] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
+  const [playbackRate, setPlaybackRate] = useState(1)
 
   // Force pause while editing — catches play via spacebar, API calls, etc.
   useEffect(() => {
@@ -312,6 +313,162 @@ export function PlayerPage({
     player.addEventListener('play', onPlay)
     return () => player.removeEventListener('play', onPlay)
   }, [editing])
+
+  // Keyboard shortcuts — modeled after After Effects / Premiere / DaVinci.
+  // Disabled when the layout editor is active (it may use arrow keys).
+  //
+  //   Left/Right        ±1 frame
+  //   Shift+Left/Right  ±10 frames
+  //   Up/Down           prev/next section
+  //   , / .             ±1 frame (Premiere convention)
+  //   Home / End        first / last frame
+  //   J / K / L         rewind 2s / pause / play (L×2=2x, ×3=4x, ×4=8x)
+  //   0-9               jump to 0%-90% of timeline
+  useEffect(() => {
+    if (editing) return
+
+    // Precompute section start frames for Up/Down navigation
+    const sectionStarts: number[] = []
+    let acc = 0
+    for (const s of sections) {
+      sectionStarts.push(acc)
+      acc += s.durationInFrames
+    }
+
+    const clamp = (frame: number) => Math.max(0, Math.min(totalDuration - 1, frame))
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const player = playerRef.current
+      if (!player) return
+      // Ignore when focus is on an input/textarea/contenteditable
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return
+
+      const frame = player.getCurrentFrame()
+
+      // --- Frame stepping ---
+      if (e.key === 'ArrowLeft' && !e.shiftKey) {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        player.seekTo(clamp(frame - 1))
+        return
+      }
+      if (e.key === 'ArrowRight' && !e.shiftKey) {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        player.seekTo(clamp(frame + 1))
+        return
+      }
+      if (e.key === ',') {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        player.seekTo(clamp(frame - 1))
+        return
+      }
+      if (e.key === '.') {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        player.seekTo(clamp(frame + 1))
+        return
+      }
+
+      // --- 10-frame jump (Shift+Arrow) ---
+      if (e.key === 'ArrowLeft' && e.shiftKey) {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        player.seekTo(clamp(frame - 10))
+        return
+      }
+      if (e.key === 'ArrowRight' && e.shiftKey) {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        player.seekTo(clamp(frame + 10))
+        return
+      }
+
+      // --- Section navigation (Up/Down) ---
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        // Find the section start that is strictly before the current frame
+        let target = 0
+        for (let i = sectionStarts.length - 1; i >= 0; i--) {
+          if (sectionStarts[i]! < frame) {
+            target = sectionStarts[i]!
+            break
+          }
+        }
+        player.seekTo(target)
+        return
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        // Find the next section start after the current frame
+        let target = totalDuration - 1
+        for (const start of sectionStarts) {
+          if (start > frame) {
+            target = start
+            break
+          }
+        }
+        player.seekTo(target)
+        return
+      }
+
+      // --- Home / End ---
+      if (e.key === 'Home') {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        player.seekTo(0)
+        return
+      }
+      if (e.key === 'End') {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        player.seekTo(totalDuration - 1)
+        return
+      }
+
+      // --- J / K / L (NLE transport) ---
+      // L = play, tap again to double speed (1→2→4→8 cap)
+      // K = pause, reset rate to 1
+      // J = rewind 2 seconds (reverse playback is unreliable in browsers)
+      if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault()
+        if (!player.isPlaying()) {
+          setPlaybackRate(1)
+          player.play()
+        } else {
+          setPlaybackRate((prev) => Math.min(prev * 2, 8))
+        }
+        return
+      }
+      if (e.key === 'k' || e.key === 'K') {
+        e.preventDefault()
+        player.pause()
+        setPlaybackRate(1)
+        return
+      }
+      if (e.key === 'j' || e.key === 'J') {
+        e.preventDefault()
+        // Seek backward 2 seconds (60 frames at 30fps)
+        if (player.isPlaying()) player.pause()
+        player.seekTo(clamp(frame - 60))
+        return
+      }
+
+      // --- 0-9: jump to percentage of timeline ---
+      if (e.key >= '0' && e.key <= '9' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault()
+        const pct = parseInt(e.key, 10) / 10
+        player.seekTo(Math.floor(totalDuration * pct))
+        return
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [editing, totalDuration, sections])
 
   const handleExport = useCallback(async () => {
     setRendering(true)
@@ -370,6 +527,7 @@ export function PlayerPage({
             controls
             clickToPlay={!editing}
             spaceKeyToPlayOrPause
+            playbackRate={playbackRate}
             style={{ width: '100%' }}
             errorFallback={({ error }) => (
               <AbsoluteFill
