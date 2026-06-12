@@ -464,16 +464,18 @@ function useHighlightedHtml(code: string, lang: string, highlightLines: number[]
 const FONT_SANS = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif'
 
 /** Vercel: gridlines extending beyond the code + corner brackets */
+/** Gridlines that extend beyond the code window to the edges of the
+ *  nearest overflow:hidden ancestor (the CodeBlock outer container).
+ *  Uses large fixed offsets instead of vw/vh so they stay contained
+ *  when multiple CodeBlocks sit in a grid. */
 function VercelGridlines({ color }: { color: string }) {
-  const line = { position: 'absolute' as const, background: color, content: '""' }
+  const line = { position: 'absolute' as const, background: color }
   return (
     <>
-      {/* Horizontal lines at top and bottom */}
-      <span style={{ ...line, top: 0, left: -150, width: 1200, height: 1 }} />
-      <span style={{ ...line, bottom: 0, left: -150, width: 1200, height: 1 }} />
-      {/* Vertical lines at left and right */}
-      <span style={{ ...line, top: -150, left: 0, width: 1, height: 'calc(100% + 300px)' }} />
-      <span style={{ ...line, top: -150, right: 0, width: 1, height: 'calc(100% + 300px)' }} />
+      <span style={{ ...line, top: 0, left: -9999, width: 99999, height: 1 }} />
+      <span style={{ ...line, bottom: 0, left: -9999, width: 99999, height: 1 }} />
+      <span style={{ ...line, top: -9999, left: 0, width: 1, height: 99999 }} />
+      <span style={{ ...line, top: -9999, right: 0, width: 1, height: 99999 }} />
     </>
   )
 }

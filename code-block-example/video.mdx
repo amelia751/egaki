@@ -2,23 +2,15 @@
 fps: 30
 ---
 
-import { ThemeGrid, SingleTheme, HighlightDemo, AnimatedCodeBlock } from './components'
+import { ThemeGrid, SingleTheme, HighlightDemo, AnimatedCodeBlock, AngledCodeBlock, ZoomingCodeBlock } from './components'
 
-# Vercel duration=3s
+# Vercel Zoom duration=3s
 
-<Background>
-  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
-</Background>
+<ZoomingCodeBlock />
 
-<SingleTheme theme="vercel" title="vercel.ts" />
+# Angled Stripe duration=4s
 
-# Stripe duration=3s
-
-<Background>
-  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
-</Background>
-
-<SingleTheme theme="stripe" title="stripe.ts" />
+<AngledCodeBlock theme="stripe" />
 
 # OpenAI duration=3s
 

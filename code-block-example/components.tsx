@@ -3,8 +3,8 @@
  * Shows multiple themes in a grid layout for visual comparison.
  */
 
-import { AbsoluteFill } from 'remotion'
-import { CodeBlock } from 'egaki/video'
+import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion'
+import { CodeBlock, AngledScreen, EASE } from 'egaki/video'
 
 const SAMPLE_CODE = `import { createServer } from 'node:http'
 
@@ -15,6 +15,7 @@ const server = createServer((req, res) => {
 
   res.writeHead(200, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify({ message: \`Hello, \${name}!\` }))
+
 })
 
 server.listen(3000, () => {
@@ -64,7 +65,7 @@ export function SingleTheme({ theme, title }: { theme: string; title?: string })
       <CodeBlock
         theme={theme}
         title={title || `example.ts`}
-        width={900}
+        width={'100%'}
         fontSize={16}
         showLineNumbers
         showBackground
@@ -112,6 +113,76 @@ export function AnimatedCodeBlock() {
       >
         {SAMPLE_CODE}
       </CodeBlock>
+    </AbsoluteFill>
+  )
+}
+
+export function AngledCodeBlock({ theme = 'stripe' }: { theme?: string }) {
+  const frame = useCurrentFrame()
+
+  const translateX = interpolate(frame, [0, 90], [-50, 50], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+    easing: EASE.cinematic,
+  })
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: '#0a0a0a' }}>
+      <AngledScreen
+        rotateX={10}
+        rotateY={-18}
+        translateZ={200}
+        perspective={800}
+        bokehBlur={8}
+        bokehOffset={0.6}
+        backgroundColor="#0a0a0a"
+        width="100%"
+        height="100%"
+        style={{ transform: `translateX(${translateX}px)` }}
+      >
+        <CodeBlock
+          theme={theme}
+          title="server.ts"
+          width="100%"
+          height="100%"
+          showLineNumbers
+          fontSize={14}
+        >
+          {SAMPLE_CODE}
+        </CodeBlock>
+      </AngledScreen>
+    </AbsoluteFill>
+  )
+}
+
+export function ZoomingCodeBlock() {
+  const frame = useCurrentFrame()
+
+  const scale = interpolate(frame, [0, 90], [1, 1.35], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+    easing: EASE.cinematic,
+  })
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: '#000' }}>
+      <div style={{
+        width: '100%',
+        height: '100%',
+        transform: `scale(${scale})`,
+        transformOrigin: '60% 45%',
+      }}>
+        <CodeBlock
+          theme="vercel"
+          title="server.ts"
+          width="100%"
+          height="100%"
+          showLineNumbers
+          fontSize={16}
+        >
+          {SAMPLE_CODE}
+        </CodeBlock>
+      </div>
     </AbsoluteFill>
   )
 }
