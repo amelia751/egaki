@@ -1,13 +1,10 @@
 /**
- * Async RSC component — tests that the video framework handles async
- * server components rendered through SafeMdxRenderer → RSC flight.
- * No 'use client' directive, so this runs on the server.
+ * Stats grid component. Used to be an async RSC demo; MDX now renders
+ * fully on the client, so this is a plain sync component. Async server
+ * components will return via explicit <Server> slots.
  */
 
-export async function AsyncStats() {
-  // Simulate async data fetch
-  await new Promise((resolve) => setTimeout(resolve, 500))
-
+export function AsyncStats() {
   const stats = [
     { label: 'Pages Built', value: '12,847' },
     { label: 'Avg Build Time', value: '1.2s' },

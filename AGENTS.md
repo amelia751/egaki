@@ -183,13 +183,15 @@ MDX-to-video framework built on Remotion and Spiceflow. Write MDX with headings 
 MDX file
   │
   ▼
-mdx-parse.ts ──► split into MdxSection[] by headings, parse durations
-  │
-  ▼
 app.tsx (server, Spiceflow RSC)
+  └── passes ONLY the raw MDX source string to the client via RSC flight
+        │
+        ▼
+mdx-client.tsx ('use client', runs in the browser)
   ├── safe-mdx parses AST, resolves user imports via virtual:egaki-modules
-  ├── renders each section to JSX with Remotion animation components as client refs
-  └── passes pre-rendered sections to PlayerPage via RSC flight
+  ├── mdx-parse.ts ──► split into MdxSection[] by headings, parse durations
+  ├── renders each section to JSX (everything is client-side React)
+  └── renders PlayerPage with the sections
         │
         ▼
 player-page.tsx (client)
@@ -200,7 +202,9 @@ player-page.tsx (client)
                                      (WebCodecs + HTML-in-canvas, fully in-browser)
 ```
 
-**Vite plugin** (`src/vite/vite-plugin.ts`): accepts `{ entry: './video.mdx' }`, generates virtual modules for the MDX source, user imports (eager glob of all `.tsx/.ts` in project root), and the Spiceflow app entry. Auto-injects `spiceflowPlugin` and `@vitejs/plugin-react`. HMR invalidates virtual modules and sends `rsc:update`.
+**MDX renders fully on the client.** There is no RSC serialization boundary between MDX content and components, so MDX expression props can be functions (`easing={x => x}`, evaluated by safe-mdx's safe AST interpreter with `evaluateOptions: { functions: true }` — no eval), and user `.tsx` components don't need a `'use client'` directive. Async server components are not currently supported in MDX; explicit `<Server>` slots rendered in app.tsx are the planned mechanism for that.
+
+**Vite plugin** (`src/vite/vite-plugin.ts`): accepts `{ entry: './video.mdx' }`, generates virtual modules for the MDX source, user imports (eager glob of all `.tsx/.ts` in project root), and the Spiceflow app entry. Auto-injects `spiceflowPlugin` and `@vitejs/plugin-react`. HMR: entry MDX edits invalidate virtual modules and send `rsc:update` (string flows through flight); user `.tsx`/`.ts`/imported-`.mdx` edits stay in the client module graph — component files get React Fast Refresh, everything else propagates through `virtual:egaki-modules` to `mdx-client.tsx`, which accepts the dep update via `import.meta.hot.accept('virtual:egaki-modules', cb)` and pushes the fresh map into React via `useSyncExternalStore`.
 
 **Components** (`components.tsx`): ported from [remocn](https://github.com/kapishdima/remocn). Includes `MeshGradientBg`, `BlurReveal`, `MaskedSlideReveal`, `StaggeredFadeUp`, `TerminalSimulator`, `GlassCodeBlock`, `ShimmerSweep`, `SpringPopIn`, `AnimatedChart`, `FeaturePill`. All use Remotion hooks (`useCurrentFrame`, `useVideoConfig`, `spring`, `interpolate`).
 
@@ -599,8 +603,9 @@ All option types are re-exported from `@remotion/web-renderer`. See Remotion doc
 | File | Role |
 |---|---|
 | `cli/src/vite/vite-plugin.ts` | Vite plugin entry, virtual modules, HMR |
-| `cli/src/vite/app.tsx` | Spiceflow RSC server, MDX parsing + rendering |
-| `cli/src/vite/mdx-parse.ts` | Server-safe section splitting and duration parsing |
+| `cli/src/vite/app.tsx` | Spiceflow RSC server, passes MDX source string to client |
+| `cli/src/vite/mdx-client.tsx` | Client MDX app: parsing, sections, safe-mdx rendering |
+| `cli/src/vite/mdx-parse.ts` | Environment-agnostic section splitting and duration parsing |
 | `cli/src/vite/mdx-video.tsx` | Client animation components + re-exports |
 | `cli/src/vite/components.tsx` | Visual components (remocn ports) |
 | `cli/src/vite/player-page.tsx` | Client Player wrapper + export UI |

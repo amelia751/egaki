@@ -772,7 +772,7 @@ describe('MDX file imports', () => {
     strong: ({ children }: { children?: React.ReactNode }) => <strong>{children}</strong>,
   }
 
-  /** Simulates the rendering pipeline from app.tsx: detect .mdx imports in the
+  /** Simulates the rendering pipeline from mdx-client.tsx: detect .mdx imports in the
    *  main MDX, render each one into a component, then merge into the modules map. */
   function renderWithMdxImports(mainCode: string, modules: EagerModules) {
     const ast = mdxParse(mainCode)

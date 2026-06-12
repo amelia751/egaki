@@ -30,28 +30,25 @@ test.describe.serial('video HMR @dev', () => {
   test('editing MDX text updates the Player content', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await expect(page.locator('h1')).toHaveText('Video Preview')
 
-    // The Opening section shows "Holocron" via <BlurReveal text="Holocron" />
-    // Verify it's in the Player's rendered HTML
+    // At frame 0 the Player shows the Layout A section with the "egaki"
+    // hero text. Only the current frame's section is mounted, so assert
+    // on frame-0 content.
     const playerContainer = page.locator('[style*="aspect-ratio"]').first()
     await expect(playerContainer).toBeVisible()
-    await expect(playerContainer.locator('text=Holocron')).toBeVisible({ timeout: 5000 })
+    await expect(playerContainer.locator('text=egaki').first()).toBeVisible({ timeout: 5000 })
 
     // Set HMR marker
     await page.evaluate(() => { (window as any).__hmr_marker = true })
 
-    // Edit MDX: change "Holocron" to "HMR Test Title"
-    const updatedMdx = originalMdx.replace(
-      '<BlurReveal text="Holocron" />',
-      '<BlurReveal text="HMR Test Title" />',
-    )
+    // Edit MDX: change the Layout A hero text (first occurrence)
+    const updatedMdx = originalMdx.replace('>egaki</span>', '>HMRTITLE</span>')
 
     await expect.poll(async () => {
       fs.writeFileSync(mdxPath, updatedMdx + `\n{/* hmr ${Date.now()} */}`)
       const markerAlive = await page.evaluate(() => (window as any).__hmr_marker === true)
       if (!markerAlive) return 'full-reload'
-      const visible = await playerContainer.locator('text=HMR Test Title').isVisible().catch(() => false)
+      const visible = await playerContainer.locator('text=HMRTITLE').isVisible().catch(() => false)
       return visible ? 'updated' : 'waiting'
     }, { timeout: 15_000, message: 'MDX HMR: new text did not appear in Player' }).toBe('updated')
   })
@@ -59,7 +56,6 @@ test.describe.serial('video HMR @dev', () => {
   test('editing component file does not cause full page reload', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
-    await expect(page.locator('h1')).toHaveText('Video Preview')
 
     // Set HMR marker
     await page.evaluate(() => { (window as any).__hmr_marker = true })
@@ -76,5 +72,35 @@ test.describe.serial('video HMR @dev', () => {
       if (!markerAlive) return 'full-reload'
       return 'ok'
     }, { timeout: 10_000, message: 'Component edit caused a full page reload' }).toBe('ok')
+  })
+
+  test('function props in MDX work (client-side rendering)', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+
+    const playerContainer = page.locator('[style*="aspect-ratio"]').first()
+    await expect(playerContainer).toBeVisible()
+    await page.evaluate(() => { (window as any).__hmr_marker = true })
+
+    // Inject a component that receives an arrow function as a prop into the
+    // frame-0 section. This only renders if MDX is evaluated on the client —
+    // functions cannot cross an RSC flight boundary.
+    const updatedMdx = originalMdx
+      .replace(
+        "import { FeatureGrid } from './components'",
+        "import { FeatureGrid, FnPropDemo } from './components'",
+      )
+      .replace(
+        '# Layout A duration=0.7s',
+        '# Layout A duration=0.7s\n\n<FnPropDemo format={(s) => s.toUpperCase()} />',
+      )
+
+    await expect.poll(async () => {
+      fs.writeFileSync(mdxPath, updatedMdx + `\n{/* hmr ${Date.now()} */}`)
+      const markerAlive = await page.evaluate(() => (window as any).__hmr_marker === true)
+      if (!markerAlive) return 'full-reload'
+      const visible = await playerContainer.locator('text=FN-PROPS-WORK').isVisible().catch(() => false)
+      return visible ? 'updated' : 'waiting'
+    }, { timeout: 15_000, message: 'function prop did not render' }).toBe('updated')
   })
 })

@@ -109,6 +109,13 @@ export function video(options: VideoPluginOptions): PluginOption[] {
         }
         walkDir(root)
 
+        // No self-accept here: mdx-client.tsx accepts updates of this
+        // module via import.meta.hot.accept('virtual:egaki-modules', cb).
+        // When a user file changes, HMR propagates through this module to
+        // that boundary, re-executing this module with fresh imports and
+        // handing the new map to the callback. Self-accepting here would
+        // make THIS module the boundary and the importer callback would
+        // never fire.
         return [
           ...imports,
           `export const eagerModules = {`,
@@ -130,15 +137,19 @@ export function video(options: VideoPluginOptions): PluginOption[] {
 
     // HMR for file changes in the project.
     //
-    // For ALL handled files (MDX + user .tsx/.ts), we:
-    // 1. Invalidate virtual modules in all environments so the RSC server
-    //    re-executes the page handler with fresh imports on next request
-    // 2. Send rsc:update so the client re-fetches the RSC flight payload
-    // 3. Return [] to suppress Vite's default HMR which would either
-    //    fail on raw MDX or trigger SSR "program reload" → full page reload
+    // Entry MDX: the source string flows server → client through the RSC
+    // flight payload, so invalidate the virtual modules in all envs and
+    // send rsc:update to re-fetch the flight.
     //
-    // For user .tsx files on the client env, we let the default handling
-    // run (React Fast Refresh) so the browser module is also updated.
+    // User .tsx/.ts/.mdx/.css files: handled entirely in the client module
+    // graph. Component files get React Fast Refresh; data/raw-mdx updates
+    // propagate to virtual:egaki-modules which self-accepts and dispatches
+    // a fresh modules map (see load() above). On rsc/ssr envs we invalidate
+    // the changed modules manually and return [] to suppress default HMR,
+    // which would trigger an SSR "program reload" → full page reload.
+    //
+    // File create/delete: the generated module list changed and no accept
+    // chain exists for new files, so invalidate everything + full reload.
     hotUpdate(ctx) {
       const isEntryMdx = ctx.file === entryPath
       const isImportedMdx = /\.mdx?$/.test(ctx.file)
@@ -154,37 +165,51 @@ export function video(options: VideoPluginOptions): PluginOption[] {
 
       if (!isEntryMdx && !isImportedMdx && !isUserFile && !isCss) return
 
-      // Entry MDX change: invalidate all three virtual modules.
-      // Imported MDX or user file change: invalidate app + modules
-      // (the imported MDX raw string is inside virtual:egaki-modules).
-      const virtualIds = isEntryMdx
-        ? [RESOLVED_APP, RESOLVED_MDX, RESOLVED_MODULES]
-        : [RESOLVED_APP, RESOLVED_MODULES]
-
-      // Invalidate virtual modules in ALL environments
-      for (const env of Object.values(ctx.server.environments)) {
-        for (const resolvedId of virtualIds) {
-          const mod = env.moduleGraph.getModuleById(resolvedId)
-          if (mod) {
-            env.moduleGraph.invalidateModule(mod)
+      const invalidateVirtual = (ids: string[]) => {
+        for (const env of Object.values(ctx.server.environments)) {
+          for (const resolvedId of ids) {
+            const mod = env.moduleGraph.getModuleById(resolvedId)
+            if (mod) {
+              env.moduleGraph.invalidateModule(mod)
+            }
           }
         }
       }
 
-      // Send rsc:update so the client re-fetches the RSC payload
-      if (this.environment.name === 'client') {
-        ctx.server.environments.client?.hot.send({
-          type: 'custom',
-          event: 'rsc:update',
-          data: { file: ctx.file },
-        })
+      // Create/delete: regenerate module list, full reload.
+      if (ctx.type !== 'update') {
+        invalidateVirtual([RESOLVED_APP, RESOLVED_MDX, RESOLVED_MODULES])
+        if (this.environment.name === 'client') {
+          ctx.server.environments.client?.hot.send({ type: 'full-reload' })
+        }
+        return []
       }
 
-      // Client env for user .tsx/.css files: let default handling run
-      // (React Fast Refresh for tsx, native CSS HMR for css).
-      // All other cases: return [] to suppress default HMR.
-      if ((isUserFile || isCss) && this.environment.name === 'client') {
+      if (isEntryMdx) {
+        invalidateVirtual([RESOLVED_APP, RESOLVED_MDX])
+        // Send rsc:update so the client re-fetches the RSC payload
+        if (this.environment.name === 'client') {
+          ctx.server.environments.client?.hot.send({
+            type: 'custom',
+            event: 'rsc:update',
+            data: { file: ctx.file },
+          })
+        }
+        return []
+      }
+
+      // User file / imported MDX / CSS updates.
+      // Client env: let default HMR run (Fast Refresh for components,
+      // propagation to the self-accepting virtual module for the rest).
+      if (this.environment.name === 'client') {
         return
+      }
+
+      // rsc/ssr envs: keep graphs fresh for the next cold render, but
+      // suppress default HMR (would cause a full program reload).
+      invalidateVirtual([RESOLVED_MODULES])
+      for (const mod of ctx.modules) {
+        this.environment.moduleGraph.invalidateModule(mod)
       }
       return []
     },
