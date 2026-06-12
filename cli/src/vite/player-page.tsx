@@ -26,6 +26,7 @@ import {
 import { renderInBrowser } from './render-client.ts'
 import { egakiSDK } from './sdk.ts'
 import { LayoutEditor, type SectionMeta } from './layout-editor.tsx'
+import { TweakpaneRoot } from './tweakpane-hook.tsx'
 import {
   LayoutAnimationLayer,
   LayoutGhost,
@@ -350,6 +351,7 @@ export function PlayerPage({
 
   return (
     <div className='flex flex-col items-center justify-center min-h-screen bg-black'>
+      <TweakpaneRoot playerRef={playerRef} fps={30} sections={sections} />
       {/* Player — fills page width, but capped so the 16:9 height never
           exceeds the viewport height (max-width = 100vh × aspect ratio). */}
       <div

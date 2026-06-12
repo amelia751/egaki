@@ -11,14 +11,14 @@
       "types": "./dist/cli/cli.d.ts",
       "default": "./dist/cli/cli.js"
     },
-  "./video": {
-    "types": "./src/vite/mdx-video.tsx",
-    "default": "./src/vite/mdx-video.tsx"
-  },
-  "./text-to-speech": {
-    "types": "./src/vite/server-components.tsx",
-    "default": "./src/vite/server-components.tsx"
-  },
+    "./video": {
+      "types": "./src/vite/mdx-video.tsx",
+      "default": "./src/vite/mdx-video.tsx"
+    },
+    "./text-to-speech": {
+      "types": "./src/vite/server-components.tsx",
+      "default": "./src/vite/server-components.tsx"
+    },
     "./vite": {
       "types": "./src/vite/vite-plugin.ts",
       "default": "./src/vite/vite-plugin.ts"
@@ -79,6 +79,7 @@
     "@remotion/player": "4.0.475",
     "@remotion/web-renderer": "4.0.475",
     "@tailwindcss/vite": "^4.2.2",
+    "@tweakpane/core": "^2.0.5",
     "ai": "6.0.103",
     "eventsource-parser": "^3.0.6",
     "goke": "^6.12.1",
@@ -91,6 +92,7 @@
     "safe-mdx": "^1.11.2",
     "string-dedent": "^3.0.2",
     "tailwindcss": "^4.3.0",
+    "tweakpane": "^4.0.5",
     "yaml": "^2.9.0",
     "zod": "^4.3.6"
   },
@@ -99,8 +101,12 @@
     "spiceflow": ">=1.26.0-rsc.5"
   },
   "peerDependenciesMeta": {
-    "@vitejs/plugin-react": { "optional": true },
-    "spiceflow": { "optional": true }
+    "@vitejs/plugin-react": {
+      "optional": true
+    },
+    "spiceflow": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

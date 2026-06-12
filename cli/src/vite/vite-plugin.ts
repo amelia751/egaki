@@ -288,6 +288,7 @@ export function video(options: VideoPluginOptions): PluginOption[] {
       if (existing === true) return
       const arr = Array.isArray(existing) ? existing : existing ? [existing] : []
       arr.push(new RegExp(`^${PKG_NAME}`))
+      arr.push(/^tweakpane/)
       config.resolve.noExternal = arr
 
       if (name === 'client') {

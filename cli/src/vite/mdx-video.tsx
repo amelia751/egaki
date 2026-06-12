@@ -12,7 +12,7 @@
  * hooks execute on the client inside Remotion's Player render loop.
  */
 
-import { type ReactNode } from 'react'
+import { createContext, useContext, type ReactNode } from 'react'
 import type { SafeMdxError } from 'safe-mdx'
 import type { EagerModules } from 'safe-mdx/parse'
 import {
@@ -37,7 +37,19 @@ import {
 import { AngledScreen } from './angled-screen.tsx'
 
 export { splitIntoSections, calculateTotalDuration }
+export { useTweakpane } from './tweakpane-hook.tsx'
 export type { MdxSection, SplitResult, VideoFrontmatter, EagerModules, SafeMdxError }
+
+// ---------------------------------------------------------------------------
+// Export context — lets components detect when they're inside a render export
+// ---------------------------------------------------------------------------
+
+export const ExportContext = createContext(false)
+
+/** Returns true when the component is rendering inside an export (renderMediaOnWeb). */
+export function useIsExporting(): boolean {
+  return useContext(ExportContext)
+}
 
 import {
   AbsoluteFill,
@@ -1005,8 +1017,6 @@ function extractBezier(
 // ---------------------------------------------------------------------------
 
 import {
-  createContext,
-  useContext,
   useLayoutEffect,
   useRef,
   useState,
@@ -1035,7 +1045,7 @@ interface LayoutRegistry {
 }
 
 const LayoutRegistryContext = createContext<LayoutRegistry | null>(null)
-const LayoutContainerContext = createContext<LayoutContainerKind>('visible')
+export const LayoutContainerContext = createContext<LayoutContainerKind>('visible')
 
 /**
  * Provides the registry that connects LayoutTransition elements (in both
