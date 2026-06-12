@@ -9,3 +9,7 @@ bun.lock
 
 # opensrc - source code for packages
 opensrc/
+
+# Local Jitter/egaki validation screenshots and scratch exports
+reference-frames/
+browser-new-export.mp4
