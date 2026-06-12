@@ -19,17 +19,8 @@ const ARTBOARD_H = ARTBOARD.height
 const COMP_W = 1920
 const COMP_H = 1080
 const SCALE = Math.min(COMP_W / ARTBOARD_W, COMP_H / ARTBOARD_H)
-const OFFSET_X = (COMP_W - ARTBOARD_W * SCALE) / 2
-const OFFSET_Y = (COMP_H - ARTBOARD_H * SCALE) / 2
 
 const smooth50 = Easing.bezier(0.5, 0, 0, 1)
-const linear = (t: number) => t
-const letterEasing = decelerateEasing(50)
-
-const TEXT_IN_START_MS = 399.33333333337214
-const LETTER_DURATION_MS = 867
-const LETTER_OFFSET_MS = 180
-const TRAVEL_PERCENT = 20
 
 const BROWSER_GRP_X = -395.451171875
 const BROWSER_GRP_Y = 176
@@ -49,8 +40,6 @@ const P1_MOVE_Y = 56
 const P1_SCALE = 1
 /** Zoom into omnibox: domain ~full frame width (still inside browser chrome edges). */
 const P2_SCALE = 2.55
-const P2_URL_X = ARTBOARD_W / 2
-const P2_URL_Y = ARTBOARD_H * 0.5
 
 /** Top-left of browser group so URL center sits at (tx, ty) with scale s (origin: group center). */
 function groupPosForUrlAt(tx: number, ty: number, s: number) {
@@ -81,12 +70,12 @@ function interpClamp(
 }
 
 function letterProgress(timeMs: number, index: number, textInStartMs: number) {
-  const start = textInStartMs + index * LETTER_OFFSET_MS
-  const end = start + LETTER_DURATION_MS
+  const start = textInStartMs + index * 180
+  const end = start + 867
   if (timeMs <= start) return 0
   if (timeMs >= end) return 1
   const t = (timeMs - start) / (end - start)
-  return letterEasing(t)
+  return decelerateEasing(50)(t)
 }
 
 function LetterText({
@@ -113,7 +102,7 @@ function LetterText({
   height: number
 }) {
   const lineHeight = fontSize * (lineHeightPercent / 100)
-  const travelPx = fontSize * (TRAVEL_PERCENT / 100)
+  const travelPx = fontSize * (20 / 100)
 
   return (
     <div
@@ -162,7 +151,7 @@ export function BrowserNew() {
 
   const bgScale = phase2
     ? 1
-    : interpClamp(frame, 0, 1900, 1, 1.25, fps, linear)
+    : interpClamp(frame, 0, 1900, 1, 1.25, fps, t => t)
 
   let groupLeft = BROWSER_GRP_X - 50
   let groupTop = BROWSER_GRP_Y - 277
@@ -179,7 +168,7 @@ export function BrowserNew() {
     const p1UrlX = BROWSER_GRP_X + P1_MOVE_X + BROWSER_CX + (URL_CX - BROWSER_CX) * P1_SCALE
     const p1UrlY = BROWSER_GRP_Y + P1_MOVE_Y + BROWSER_CY + (URL_CY - BROWSER_CY) * P1_SCALE
     const p1 = groupPosForUrlAt(p1UrlX, p1UrlY, P1_SCALE)
-    const p2 = groupPosForUrlAt(P2_URL_X, P2_URL_Y, P2_SCALE)
+    const p2 = groupPosForUrlAt(ARTBOARD_W / 2, ARTBOARD_H * 0.5, P2_SCALE)
     groupLeft = interpolate(t, [0, 1], [p1.gx, p2.gx])
     groupTop = interpolate(t, [0, 1], [p1.gy, p2.gy])
     browserScale = interpolate(t, [0, 1], [P1_SCALE, P2_SCALE])
@@ -194,8 +183,8 @@ export function BrowserNew() {
       <div
         style={{
           position: 'absolute',
-          left: OFFSET_X,
-          top: OFFSET_Y,
+          left: (COMP_W - ARTBOARD_W * SCALE) / 2,
+          top: (COMP_H - ARTBOARD_H * SCALE) / 2,
           width: ARTBOARD_W,
           height: ARTBOARD_H,
           transform: `scale(${SCALE})`,
@@ -259,7 +248,7 @@ export function BrowserNew() {
           <LetterText
             text="jitter.new"
             timeMs={timeMs}
-            textInStartMs={TEXT_IN_START_MS}
+            textInStartMs={399.33333333337214}
             fontSize={96.88195037841797}
             fontWeight={400}
             lineHeightPercent={116.66666}

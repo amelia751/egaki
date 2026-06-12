@@ -1,3 +1,11 @@
+## Code style
+
+**Inline single-use values.** Do not extract constants for objects, numbers, strings, or
+expressions that are only used once. Inline them at the usage site. Named constants should
+only exist when the value is used in multiple places or when the name carries important
+semantic meaning that the raw value does not convey. This applies to all egaki component
+files, example recreations, and video templates.
+
 ## Conventions
 
 **CLI framework:** Built with [goke](https://github.com/remorses/goke), a type-safe CLI
