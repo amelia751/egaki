@@ -1,0 +1,96 @@
+---
+fps: 30
+---
+
+import { ThemeGrid, SingleTheme, HighlightDemo, AnimatedCodeBlock } from './components'
+
+# Vercel duration=3s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+<SingleTheme theme="vercel" title="vercel.ts" />
+
+# Stripe duration=3s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+<SingleTheme theme="stripe" title="stripe.ts" />
+
+# OpenAI duration=3s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+<SingleTheme theme="openai" title="openai.ts" />
+
+# Breeze duration=3s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+<SingleTheme theme="breeze" title="breeze.ts" />
+
+# Candy duration=3s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+<SingleTheme theme="candy" title="candy.ts" />
+
+# Grid — Dark Themes duration=4s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+<ThemeGrid themes={['vercel', 'stripe', 'openai', 'supabase', 'cloudflare', 'gemini']} />
+
+# Grid — Colorful Themes duration=4s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+<ThemeGrid themes={['breeze', 'candy', 'crimson', 'sunset', 'meadow', 'raindrop']} />
+
+# Highlighted Lines duration=3s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+<HighlightDemo />
+
+# Animated Entrance duration=4s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+<AnimatedCodeBlock />
+
+# Markdown Code Block duration=3s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />
+</Background>
+
+```ts
+// This is a standard markdown code block
+// It renders through CodeBlock automatically
+const app = express()
+
+app.get('/api/users', async (req, res) => {
+  const users = await db.query('SELECT * FROM users')
+  res.json(users)
+})
+
+app.listen(8080)
+```

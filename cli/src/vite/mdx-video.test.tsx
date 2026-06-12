@@ -29,6 +29,7 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "BlurIn",
         "BlurOut",
         "BlurReveal",
+        "CodeBlock",
         "FadeIn",
         "FadeOut",
         "FeaturePill",

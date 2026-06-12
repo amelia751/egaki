@@ -28,6 +28,7 @@ import { splitIntoSections, calculateTotalDuration } from './mdx-parse.ts'
 import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
+import { MdxCodeBlockWrapper } from './code-block.tsx'
 
 // ---------------------------------------------------------------------------
 // MDX components map
@@ -67,20 +68,7 @@ function buildVideoMdxComponents(): Record<string, any> {
     h1: () => null, h2: () => null, h3: () => null,
     h4: () => null, h5: () => null, h6: () => null,
     blockquote: () => null,
-    pre: ({ children }: { children: ReactNode }) => (
-      <div style={{ width: '100%', maxWidth: '80%', display: 'flex', justifyContent: 'center' }}>
-        {children}
-      </div>
-    ),
-    code: ({ children }: { children: ReactNode; className?: string }) => (
-      <pre style={{
-        fontSize: 'clamp(0.875rem, 1.2vw, 1.125rem)', fontFamily: FONT_MONO,
-        color: '#e4e4e7', background: 'rgba(255, 255, 255, 0.04)',
-        border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '0.75em',
-        padding: '1.25em 1.5em', lineHeight: 1.6, whiteSpace: 'pre',
-        overflow: 'hidden', width: '100%', textAlign: 'left',
-      }}>{children}</pre>
-    ),
+    pre: MdxCodeBlockWrapper,
     inlineCode: ({ children }: { children: ReactNode }) => (
       <span style={{
         fontFamily: FONT_MONO, fontSize: '0.875em', color: '#e4e4e7',

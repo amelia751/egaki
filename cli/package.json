@@ -91,6 +91,7 @@
     "react-dom": "19.2.4",
     "remotion": "4.0.475",
     "safe-mdx": "^1.11.2",
+    "shiki": "^4.2.0",
     "string-dedent": "^3.0.2",
     "tailwindcss": "^4.3.0",
     "tweakpane": "^4.0.5",
