@@ -21,6 +21,7 @@
  */
 
 import { type CSSProperties, type ReactNode } from 'react'
+import { useTweakpane } from './tweakpane-hook.tsx'
 
 export interface AngledScreenProps {
   children: ReactNode
@@ -34,10 +35,9 @@ export interface AngledScreenProps {
   rotateY?: number
   /** Z-axis rotation in degrees. Default 0. */
   rotateZ?: number
-  /** Push the plane forward/back in px. Default 0. */
+  /** Push the plane forward/back in px. Positive = closer/larger,
+   *  negative = further/smaller (same visual effect as scale). Default 0. */
   translateZ?: number
-  /** Scale factor. Default 1. */
-  scale?: number
   /** Transform origin. Default '50% 50%'. */
   transformOrigin?: string
 
@@ -91,25 +91,32 @@ function autoDirection(rotateX: number, rotateY: number): 'top' | 'bottom' | 'le
   return rotateX > 0 ? 'bottom' : 'top'
 }
 
-export function AngledScreen({
-  children,
-  perspective = 1200,
-  rotateX = 8,
-  rotateY = -12,
-  rotateZ = 0,
-  translateZ = 0,
-  scale = 1,
-  transformOrigin = '50% 50%',
-  bokeh = true,
-  bokehBlur = 12,
-  bokehDirection,
-  bokehOffset = 0.3,
-  backgroundColor = '#000000',
-  width = '80%',
-  height = 'auto',
-  debug = false,
-  style,
-}: AngledScreenProps) {
+export function AngledScreen(props: AngledScreenProps) {
+  const {
+    children,
+    transformOrigin = '50% 50%',
+    bokehDirection,
+    backgroundColor = '#000000',
+    width = '80%',
+    height = 'auto',
+    style,
+  } = props
+
+  const tp = useTweakpane('AngledScreen', {
+    perspective: { value: props.perspective ?? 1200, min: 100, max: 3000, step: 10 },
+    rotateX: { value: props.rotateX ?? 8, min: -90, max: 90, step: 0.5 },
+    rotateY: { value: props.rotateY ?? -12, min: -90, max: 90, step: 0.5 },
+    rotateZ: { value: props.rotateZ ?? 0, min: -180, max: 180, step: 0.5 },
+    translateZ: { value: props.translateZ ?? 0, min: -500, max: 500, step: 1 },
+    bokeh: props.bokeh ?? true,
+    bokehBlur: { value: props.bokehBlur ?? 12, min: 0, max: 50, step: 0.5 },
+    bokehOffset: { value: props.bokehOffset ?? 0.3, min: 0, max: 1, step: 0.01 },
+    debug: props.debug ?? false,
+  })
+
+  const { perspective, rotateX, rotateY, rotateZ, translateZ } = tp
+  const { bokeh, bokehBlur, bokehOffset } = tp
+  const showDebug = tp.debug as boolean
   const direction = bokehDirection ?? autoDirection(rotateX, rotateY)
   const gradientDir = GRADIENT_DIRECTIONS[direction] || 'to right'
   const startPct = `${bokehOffset * 100}%`
@@ -156,7 +163,6 @@ export function AngledScreen({
                 `rotateY(${rotateY}deg)`,
                 `rotateZ(${rotateZ}deg)`,
                 translateZ !== 0 ? `translateZ(${translateZ}px)` : '',
-                scale !== 1 ? `scale(${scale})` : '',
               ]
                 .filter(Boolean)
                 .join(' '),
@@ -177,7 +183,7 @@ export function AngledScreen({
           Acts like a camera lens DOF effect. Lives outside the moving layer
           and outside the 3D transform (backdrop-filter is broken inside
           CSS 3D transformed elements). */}
-      {bokeh && bokehBlur > 0 && !debug && (
+      {bokeh && bokehBlur > 0 && !showDebug && (
         <div
           style={{
             position: 'absolute',
@@ -192,7 +198,7 @@ export function AngledScreen({
       )}
 
       {/* Debug: show the mask shape as green (sharp) to red (blur) */}
-      {debug && (
+      {showDebug && (
         <div
           style={{
             position: 'absolute',

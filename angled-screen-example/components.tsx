@@ -23,7 +23,7 @@ export function ImageShowcase() {
       <AngledScreen
         rotateX={12}
         rotateY={-20}
-        scale={1.3}
+        translateZ={185}
         perspective={800}
         bokehBlur={10}
         bokehOffset={0.6}
@@ -61,7 +61,7 @@ export function VideoShowcase() {
       <AngledScreen
         rotateX={10}
         rotateY={-22}
-        scale={1.3}
+        translateZ={175}
         perspective={750}
         bokehBlur={14}
         backgroundColor="#050510"
