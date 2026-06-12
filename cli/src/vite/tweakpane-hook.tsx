@@ -35,18 +35,26 @@ interface SliderParam {
   step?: number
 }
 
+/** Select/dropdown config: value + options list. */
+interface SelectParam {
+  value: string
+  options: string[]
+}
+
 /**
  * A param value is either:
  * - a bare primitive (number, boolean, string) — auto-inferred control
  * - a SliderParam object with explicit range
+ * - a SelectParam object with a dropdown of string options
  */
-type ParamValue = number | boolean | string | SliderParam
+type ParamValue = number | boolean | string | SliderParam | SelectParam
 
 type ParamSchema = Record<string, ParamValue>
 
-/** Resolved values: SliderParam becomes number, everything else stays. */
+/** Resolved values: SliderParam becomes number, SelectParam becomes string, everything else stays. */
 type ResolvedValues<T extends ParamSchema> = {
   [K in keyof T]: T[K] extends SliderParam ? number
+    : T[K] extends SelectParam ? string
     : T[K] extends number ? number
     : T[K] extends boolean ? boolean
     : T[K] extends string ? string
@@ -74,6 +82,9 @@ let PaneClass: typeof import('tweakpane').Pane | null = null
 let paneInstance: import('tweakpane').Pane | null = null
 let paneContainer: HTMLElement | null = null
 
+/** Persisted expanded state for the root pane across destroy/recreate cycles. */
+let paneExpandedState = true
+
 /** Registry of active folders for the copy prompt. */
 interface FolderEntry {
   label: string
@@ -96,7 +107,11 @@ function resolveDefault(v: ParamValue): number | boolean | string {
 }
 
 function isSliderParam(v: ParamValue): v is SliderParam {
-  return typeof v === 'object' && v !== null && 'value' in v
+  return typeof v === 'object' && v !== null && 'value' in v && !('options' in v)
+}
+
+function isSelectParam(v: ParamValue): v is SelectParam {
+  return typeof v === 'object' && v !== null && 'options' in v
 }
 
 async function ensurePane(): Promise<import('tweakpane').Pane> {
@@ -115,11 +130,14 @@ async function ensurePane(): Promise<import('tweakpane').Pane> {
       right: '8px',
       zIndex: '99999',
       maxHeight: 'calc(100vh - 16px)',
-      overflow: 'auto',
+      overflow: 'hidden',
     })
     document.body.appendChild(paneContainer)
   }
-  paneInstance = new PaneClass!({ container: paneContainer, title: 'Parameters' })
+  paneInstance = new PaneClass!({ container: paneContainer, title: 'Parameters', expanded: paneExpandedState })
+  paneInstance.on('fold', (ev) => {
+    paneExpandedState = ev.expanded
+  })
   return paneInstance
 }
 
@@ -300,7 +318,12 @@ export function useTweakpane<T extends ParamSchema>(
 
       for (const [key, param] of Object.entries(schemaRef.current)) {
         const opts: Record<string, unknown> = {}
-        if (isSliderParam(param)) {
+        if (isSelectParam(param)) {
+          // Build { Label: value } map for tweakpane list binding
+          const optionsMap: Record<string, string> = {}
+          for (const opt of param.options) optionsMap[opt] = opt
+          opts.options = optionsMap
+        } else if (isSliderParam(param)) {
           if (param.min !== undefined) opts.min = param.min
           if (param.max !== undefined) opts.max = param.max
           if (param.step !== undefined) opts.step = param.step
