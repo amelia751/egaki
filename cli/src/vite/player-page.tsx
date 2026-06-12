@@ -350,8 +350,12 @@ export function PlayerPage({
 
   return (
     <div className='flex flex-col items-center justify-center min-h-screen bg-black'>
-      {/* Player — full width */}
-      <div ref={playerContainerRef} className='w-full overflow-hidden'>
+      {/* Player — fills page width, but capped so the 16:9 height never
+          exceeds the viewport height (max-width = 100vh × aspect ratio). */}
+      <div
+        ref={playerContainerRef}
+        className='w-full overflow-hidden max-w-[calc(100vh*(1920/1080))]'
+      >
         {mounted ? (
           <Player
             key={resetKey}

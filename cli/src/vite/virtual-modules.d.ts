@@ -5,6 +5,9 @@
 declare module 'virtual:egaki-mdx' {
   const mdx: string
   export default mdx
+  /** Absolute path of the vite project root, for resolving relative MDX
+   *  import sources in <Server> slot rendering (app.tsx). */
+  export const projectRoot: string
 }
 
 declare module 'virtual:egaki-modules' {

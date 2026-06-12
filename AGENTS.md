@@ -209,31 +209,35 @@ player-page.tsx (client)
 `<Server>` is a **reserved MDX element** marking a subtree as React Server Components. Its children render in the RSC environment in app.tsx (async allowed, fs/API access, promises stream to client children through flight) and get spliced into the client tree as a slot.
 
 ```mdx
-import { AsyncStats } from './async-stats.server.tsx'
+import { AsyncStats } from './async-stats'
+import { TextToSpeech } from 'egaki/text-to-speech'
 
 # Analytics duration=6s
 
 <FadeIn duration={15}>
   <Server>
     <AsyncStats />
+    <TextToSpeech text="Analytics that build themselves." />
   </Server>
 </FadeIn>
 ```
 
 How it works:
 
-- app.tsx finds `<Server>` nodes (`findServerNodes`), renders each node's children server-side with the **rsc-env modules map** (contains ONLY `*.server.*` files — regular user modules never execute in the RSC env), and passes `serverSlots` keyed by the node's **start line**. The map is lazy-imported only when `<Server>` nodes exist.
+- app.tsx finds `<Server>` nodes (`findServerNodes`) and **dynamically imports** exactly the modules referenced inside them (`collectServerImportSources` scans JSX names + expression identifiers inside `<Server>` subtrees and matches them against MDX import statements — no filename convention needed). There is no static rsc module map; paths resolve at request time.
+- **Bare specifiers work** (`import { TextToSpeech } from 'egaki/text-to-speech'`): app.tsx resolves them to file paths via `createRequire(projectRoot)` (node_modules + package exports), then imports through the RSC module runner. The resolved file's `'use client'` directive (or absence) decides client ref vs server component. Requires safe-mdx ≥ 1.11.2 (`resolveModulePath` exact-key match for bare specifiers). Built-in server components live in `cli/src/vite/server-components.tsx`.
+- Each node's children render server-side and become `serverSlots` keyed by the node's **start line**.
 - The MDX string sent to the client has each `<Server>` block **blanked to `<Server />` with newline padding** (`blankServerContents`), preserving the exact line count so slot keys, `data-markdown-line`, and sourcemaps stay aligned with the original file — and the client never parses server-only content.
 - On the client, `Server` is a real component in the components map that reads `ServerSlotsContext` and matches its slot via its `data-markdown-line` prop. (A safe-mdx `renderNode` hook can NOT be used: nested JSX children go through `jsxTransformer`, which bypasses the hook.)
-- Imports of `*.server.*` files are stripped from the client's import nodes **per-statement** (contiguous import lines parse as a single `mdxjsEsm` node).
+- Import statements are filtered **per-statement** to each environment's resolvable modules (`filterImportNodesToModules`; contiguous import lines parse as a single `mdxjsEsm` node).
 
 Conventions and rules:
 
-- **`*.server.{ts,tsx}` files are server-only**: excluded from the client/ssr module maps, never bundled to the browser. Safe place for API keys and node imports. Use them for components referenced inside `<Server>`.
+- Files referenced inside `<Server>` execute in the RSC env. They do NOT need a special filename — but **`*.server.{ts,tsx}` remains a hard override**: such files are excluded from the client/ssr module maps and never bundled to the browser. Use the postfix for files with API keys or node-only imports.
 - Each `<Server>` must start on its **own line** (slots are keyed by line; duplicates warn and only the first renders).
 - Inside `<Server>` normal RSC rules apply: no function props into client refs, no Remotion hooks (built-ins like `FadeIn` are client refs and work fine as slot children).
-- Editing a `*.server.tsx` file triggers `rsc:update` → flight refetch → fresh slots. The refetch **remounts the Player** (frame resets to 0) — a spiceflow payload-swap behavior; regular file edits intentionally do NOT send rsc:update for this reason.
-- v1 limitations: `<Server>` inside imported `.mdx` files is ignored (warns); regular modules imported by server components only refresh on reload or `*.server.*` edits.
+- Editing a file referenced inside `<Server>` triggers `rsc:update` → flight refetch → fresh slots. The refetch **remounts the Player** (frame resets to 0) — a spiceflow payload-swap behavior; regular file edits intentionally do NOT send rsc:update for this reason. Moving components in/out of `<Server>` is just an entry-MDX edit — no reload needed.
+- v1 limitations: `<Server>` inside imported `.mdx` files is ignored (warns); imported `.mdx` files inside `<Server>` are not supported; components reaching `<Server>` only through element variables (not JSX names) are not detected.
 
 **Vite plugin** (`src/vite/vite-plugin.ts`): accepts `{ entry: './video.mdx' }`, generates virtual modules for the MDX source, user imports (eager glob of all `.tsx/.ts` in project root), and the Spiceflow app entry. Auto-injects `spiceflowPlugin` and `@vitejs/plugin-react`. HMR: entry MDX edits invalidate virtual modules and send `rsc:update` (string flows through flight); user `.tsx`/`.ts`/imported-`.mdx` edits stay in the client module graph — component files get React Fast Refresh, everything else propagates through `virtual:egaki-modules` to `mdx-client.tsx`, which accepts the dep update via `import.meta.hot.accept('virtual:egaki-modules', cb)` and pushes the fresh map into React via `useSyncExternalStore`.
 
@@ -711,6 +715,8 @@ All option types are re-exported from `@remotion/web-renderer`. See Remotion doc
 | `cli/src/vite/app.tsx` | Spiceflow RSC server: MDX string + `<Server>` slot rendering |
 | `cli/src/vite/mdx-client.tsx` | Client MDX app: parsing, sections, safe-mdx rendering |
 | `cli/src/vite/mdx-parse.ts` | Environment-agnostic section splitting and duration parsing |
+| `cli/src/vite/server-mdx.ts` | `<Server>` parsing: slot extraction, blanking, import detection |
+| `cli/src/vite/server-components.tsx` | Built-in server components (`egaki/text-to-speech`) |
 | `cli/src/vite/mdx-video.tsx` | Client animation components + re-exports |
 | `cli/src/vite/components.tsx` | Visual components (remocn ports) |
 | `cli/src/vite/player-page.tsx` | Client Player wrapper + export UI |

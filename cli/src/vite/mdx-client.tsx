@@ -18,13 +18,14 @@
  * through useSyncExternalStore.
  */
 
-import { useMemo, useSyncExternalStore } from 'react'
+import { createContext, useContext, useMemo, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { eagerModules as initialModules } from 'virtual:egaki-modules'
 import { splitIntoSections, calculateTotalDuration } from './mdx-parse.ts'
+import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
 import {
   Background,
@@ -65,6 +66,11 @@ function buildVideoMdxComponents(): Record<string, any> {
 
     // FLIP layout animation across section boundaries (matched by id)
     LayoutTransition,
+
+    // Reserved: server component slot marker. The server renders the
+    // original children; this client component splices the slot in by
+    // matching its data-markdown-line against the slot keys.
+    Server,
 
     // Standard element overrides
     p: ({ children }: { children: ReactNode }) => (
@@ -195,6 +201,28 @@ const getModules = () => currentModules
 // Composition building (parse → sections → JSX)
 // ---------------------------------------------------------------------------
 
+export type ServerSlots = Record<string, ReactNode>
+
+// Slots travel via React context (provided by MdxClientApp around
+// PlayerPage) rather than a safe-mdx renderNode hook: safe-mdx only calls
+// renderNode in its top-level mdast traversal, while JSX elements nested
+// inside other JSX elements go through jsxTransformer which resolves the
+// components map directly. A real `Server` component in the map works at
+// any nesting depth; it matches its slot via the data-markdown-line prop
+// that safe-mdx injects (line numbers are identical on server and client
+// because blankServerContents preserves line positions).
+const ServerSlotsContext = createContext<ServerSlots>({})
+
+function Server(props: { 'data-markdown-line'?: number }) {
+  const slots = useContext(ServerSlotsContext)
+  const key = String(props['data-markdown-line'])
+  if (key in slots) return slots[key]
+  // No slot: <Server> inside an imported .mdx file (not scanned, v1
+  // limitation) or a stale flight payload.
+  console.warn(`[egaki] <Server> at line ${key} has no server-rendered slot; rendering nothing`)
+  return null
+}
+
 function buildComposition(mdxSource: string, modules: EagerModules) {
   const ast = mdxParse(mdxSource)
 
@@ -234,7 +262,15 @@ function buildComposition(mdxSource: string, modules: EagerModules) {
   // Extract import nodes (mdxjsEsm) from the full mdast. Section splitting
   // drops them, but SafeMdxRenderer needs them to resolve imported components
   // from the modules map. Prepend to every section's nodes.
-  const importNodes = ast.children.filter((node: any) => node.type === 'mdxjsEsm')
+  //
+  // Imports not resolvable in the client modules map are stripped: those
+  // are server-only files (used exclusively inside <Server> blocks, which
+  // the server already rendered into slots) excluded from the client map
+  // by the vite plugin's inference.
+  const importNodes = filterImportNodesToModules(
+    ast.children.filter((node: any) => node.type === 'mdxjsEsm'),
+    Object.keys(mergedModules),
+  )
 
   const renderNodes = (nodes: any[]) => (
     <SafeMdxRenderer
@@ -269,17 +305,30 @@ function buildComposition(mdxSource: string, modules: EagerModules) {
 // App component
 // ---------------------------------------------------------------------------
 
-export function MdxClientApp({ mdx }: { mdx: string }) {
+const EMPTY_SLOTS: ServerSlots = {}
+
+export function MdxClientApp({
+  mdx,
+  serverSlots = EMPTY_SLOTS,
+}: {
+  mdx: string
+  /** Server-rendered <Server> subtrees keyed by node start line, produced
+   *  in app.tsx and delivered via RSC flight. Consumed by the Server
+   *  component through ServerSlotsContext. */
+  serverSlots?: ServerSlots
+}) {
   const modules = useSyncExternalStore(subscribeModules, getModules, getModules)
   const { sections, totalDuration, preamble } = useMemo(
     () => buildComposition(mdx, modules),
     [mdx, modules],
   )
   return (
-    <PlayerPage
-      sections={sections}
-      totalDuration={totalDuration}
-      preamble={preamble}
-    />
+    <ServerSlotsContext.Provider value={serverSlots}>
+      <PlayerPage
+        sections={sections}
+        totalDuration={totalDuration}
+        preamble={preamble}
+      />
+    </ServerSlotsContext.Provider>
   )
 }

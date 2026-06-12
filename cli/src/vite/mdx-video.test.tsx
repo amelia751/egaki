@@ -14,6 +14,7 @@ import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
 import { splitIntoSections, calculateTotalDuration } from './mdx-parse.ts'
+import { findServerNodes, blankServerContents, collectServerImportSources } from './server-mdx.ts'
 
 // Helper: parse MDX and split into sections in one call
 function split(mdx: string) {
@@ -948,5 +949,322 @@ describe('LayoutTransition', () => {
     expect(html).toMatchInlineSnapshot(
       `"<div data-layout-id="solo" style="transform-origin:0 0"><span>Alone</span></div>"`,
     )
+  })
+})
+
+describe('findServerNodes', () => {
+  test('flow-level Server elements with position keys', () => {
+    const mdx = `# Section duration=2s
+
+<Server>
+  <AsyncStats delay={500} />
+</Server>
+
+Some text
+
+<Server>
+  <TextToSpeech text="hello" />
+</Server>
+`
+    const nodes = findServerNodes(mdxParse(mdx))
+    expect(nodes.map((n) => ({ key: n.key, type: n.node.type, children: n.node.children.length }))).toMatchInlineSnapshot(`
+      [
+        {
+          "children": 1,
+          "key": "3",
+          "type": "mdxJsxFlowElement",
+        },
+        {
+          "children": 1,
+          "key": "9",
+          "type": "mdxJsxFlowElement",
+        },
+      ]
+    `)
+  })
+
+  test('inline Server inside a paragraph', () => {
+    const mdx = `# Section
+
+before <Server><Stat /></Server> after
+`
+    const nodes = findServerNodes(mdxParse(mdx))
+    expect(nodes.map((n) => ({ key: n.key, type: n.node.type }))).toMatchInlineSnapshot(`
+      [
+        {
+          "key": "3",
+          "type": "mdxJsxTextElement",
+        },
+      ]
+    `)
+  })
+
+  test('nested Server is skipped (outer slot covers it)', () => {
+    const mdx = `<Server>
+  <Server>
+    <Inner />
+  </Server>
+</Server>
+`
+    const nodes = findServerNodes(mdxParse(mdx))
+    expect(nodes.map((n) => n.key)).toMatchInlineSnapshot(`
+      [
+        "1",
+      ]
+    `)
+  })
+
+  test('Server inside other wrapper elements is found', () => {
+    const mdx = `<FadeIn duration={15}>
+  <Server>
+    <AsyncStats />
+  </Server>
+</FadeIn>
+`
+    const nodes = findServerNodes(mdxParse(mdx))
+    expect(nodes.map((n) => n.key)).toMatchInlineSnapshot(`
+      [
+        "2",
+      ]
+    `)
+  })
+})
+
+describe('blankServerContents', () => {
+  function blank(mdx: string) {
+    const nodes = findServerNodes(mdxParse(mdx))
+    return blankServerContents(mdx, nodes)
+  }
+
+  test('multi-line flow block preserves line count', () => {
+    const mdx = `# Section duration=2s
+
+<Server>
+  <AsyncStats
+    delay={500}
+  />
+</Server>
+
+after content
+`
+    const result = blank(mdx)
+    expect(result.split('\n').length).toBe(mdx.split('\n').length)
+    expect(result).toMatchInlineSnapshot(`
+      "# Section duration=2s
+
+      <Server />
+
+
+
+
+
+      after content
+      "
+    `)
+  })
+
+  test('multiple Server blocks, back-to-front splicing', () => {
+    const mdx = `<Server>
+  <One />
+</Server>
+
+middle
+
+<Server>
+  <Two />
+</Server>
+`
+    const result = blank(mdx)
+    expect(result.split('\n').length).toBe(mdx.split('\n').length)
+    expect(result).toMatchInlineSnapshot(`
+      "<Server />
+
+
+
+      middle
+
+      <Server />
+
+
+      "
+    `)
+  })
+
+  test('inline Server keeps surrounding text on the same line', () => {
+    const mdx = `before <Server><Stat /></Server> after
+`
+    const result = blank(mdx)
+    expect(result.split('\n').length).toBe(mdx.split('\n').length)
+    expect(result).toMatchInlineSnapshot(`
+      "before <Server /> after
+      "
+    `)
+  })
+
+  test('nested Server: only outer block replaced', () => {
+    const mdx = `<Server>
+  <Server>
+    <Inner />
+  </Server>
+</Server>
+`
+    const result = blank(mdx)
+    expect(result.split('\n').length).toBe(mdx.split('\n').length)
+    expect(result).toMatchInlineSnapshot(`
+      "<Server />
+
+
+
+
+      "
+    `)
+  })
+
+  test('roundtrip: blanked Server node keeps the original position key', () => {
+    const mdx = `# A duration=1s
+
+text before
+
+<Server>
+  <AsyncStats />
+</Server>
+
+# B duration=1s
+
+<FadeIn>
+  <Server><Inline /></Server>
+</FadeIn>
+`
+    const originalNodes = findServerNodes(mdxParse(mdx))
+    const blanked = blankServerContents(mdx, originalNodes)
+    const reparsedNodes = findServerNodes(mdxParse(blanked))
+    expect(reparsedNodes.map((n) => n.key)).toEqual(originalNodes.map((n) => n.key))
+    expect(originalNodes.map((n) => n.key)).toMatchInlineSnapshot(`
+      [
+        "5",
+        "12",
+      ]
+    `)
+  })
+})
+
+describe('collectServerImportSources', () => {
+  function classify(mdx: string) {
+    return collectServerImportSources(mdxParse(mdx))
+  }
+
+  test('import used inside Server is collected', () => {
+    const mdx = `import { AsyncStats } from './async-stats'
+import { FeatureGrid } from './components'
+
+# A duration=1s
+
+<FeatureGrid />
+
+<Server>
+  <AsyncStats />
+</Server>
+`
+    expect(classify(mdx)).toMatchInlineSnapshot(`
+      [
+        "./async-stats",
+      ]
+    `)
+  })
+
+  test('component used inside AND outside Server is still collected', () => {
+    const mdx = `import { Stats } from './stats'
+
+<Server>
+  <Stats />
+</Server>
+
+<Stats />
+`
+    expect(classify(mdx)).toMatchInlineSnapshot(`
+      [
+        "./stats",
+      ]
+    `)
+  })
+
+  test('attribute expression identifiers inside Server pull in data imports', () => {
+    const mdx = `import { Chart } from './chart'
+import { STATS } from './stats-data'
+
+<Server>
+  <Chart data={STATS} />
+</Server>
+`
+    expect(classify(mdx)).toMatchInlineSnapshot(`
+      [
+        "./chart",
+        "./stats-data",
+      ]
+    `)
+  })
+
+  test('flow expression identifiers inside Server are collected', () => {
+    const mdx = `import { format } from './utils'
+
+<Server>
+  {format('hello')}
+</Server>
+`
+    expect(classify(mdx)).toMatchInlineSnapshot(`
+      [
+        "./utils",
+      ]
+    `)
+  })
+
+  test('namespace member JSX uses the root identifier', () => {
+    const mdx = `import * as widgets from './widgets'
+
+<Server>
+  <widgets.Stats />
+</Server>
+`
+    expect(classify(mdx)).toMatchInlineSnapshot(`
+      [
+        "./widgets",
+      ]
+    `)
+  })
+
+  test('bare specifiers are collected (resolved by vite at import time)', () => {
+    const mdx = `import { TextToSpeech } from 'egaki/video'
+
+<Server>
+  <TextToSpeech text="hi" />
+</Server>
+`
+    expect(classify(mdx)).toMatchInlineSnapshot(`
+      [
+        "egaki/video",
+      ]
+    `)
+  })
+
+  test('no Server blocks means no sources', () => {
+    const mdx = `import { FeatureGrid } from './components'
+
+<FeatureGrid />
+`
+    expect(classify(mdx)).toMatchInlineSnapshot(`[]`)
+  })
+
+  test('default import used inside Server', () => {
+    const mdx = `import Tts from './tts'
+
+<Server>
+  <Tts voice="echo" />
+</Server>
+`
+    expect(classify(mdx)).toMatchInlineSnapshot(`
+      [
+        "./tts",
+      ]
+    `)
   })
 })

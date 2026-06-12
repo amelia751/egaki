@@ -16,6 +16,8 @@ import type { Plugin, PluginOption } from 'vite'
 import { spiceflowPlugin } from 'spiceflow/vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { mdxParse } from 'safe-mdx/parse'
+import { collectServerImportSources } from './server-mdx.ts'
 
 // Resolve the package src/ directory from this file's location.
 // Used for resolve.alias so the RSC module runner can resolve relative
@@ -39,9 +41,34 @@ export interface VideoPluginOptions {
   entry: string
 }
 
+/** Resolve a relative MDX import source against the project root,
+ *  probing common extensions. Returns the absolute path or undefined. */
+function resolveSourceToFile(root: string, source: string): string | undefined {
+  const base = path.resolve(root, source)
+  for (const ext of ['', '.tsx', '.ts', '.jsx', '.js', '.mdx', '.md']) {
+    const candidate = base + ext
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate.replace(/\\/g, '/')
+    }
+  }
+  return undefined
+}
+
 export function video(options: VideoPluginOptions): PluginOption[] {
   let root: string
   let entryPath: string
+
+  /** Is this file referenced inside a <Server> block of the entry MDX?
+   *  Parsed on demand (no cache — file changes are rare and parsing is
+   *  milliseconds). Used to decide which edits need an rsc:update. */
+  const isServerImportedFile = (file: string): boolean => {
+    try {
+      const sources = collectServerImportSources(mdxParse(fs.readFileSync(entryPath, 'utf-8')))
+      return sources.some((source) => resolveSourceToFile(root, source) === file)
+    } catch {
+      return false
+    }
+  }
 
   const videoPlugin: Plugin = {
     name: 'egaki:core',
@@ -71,14 +98,26 @@ export function video(options: VideoPluginOptions): PluginOption[] {
         // Import the user's MDX file as a raw string.
         // Vite's ?raw handles HMR automatically.
         // Use absolute path so the virtual module resolves correctly.
+        // projectRoot lets app.tsx resolve relative MDX import sources
+        // for dynamic <Server> slot imports.
         const absEntry = entryPath.replace(/\\/g, '/')
-        return `import mdx from ${JSON.stringify(absEntry + '?raw')}\nexport default mdx`
+        return [
+          `import mdx from ${JSON.stringify(absEntry + '?raw')}`,
+          `export default mdx`,
+          `export const projectRoot = ${JSON.stringify(root.replace(/\\/g, '/'))}`,
+        ].join('\n')
       }
 
       if (id === RESOLVED_MODULES) {
-        // Build an eager module map for all .tsx/.jsx files in the user's
-        // project root. Each file is imported statically so modules are
-        // available synchronously — no async resolution, no loading state.
+        // Build an eager module map for all user files in the project
+        // root. Each file is imported statically so modules are available
+        // synchronously — no async resolution, no loading state.
+        //
+        // This map is only imported by the client (and ssr) — the rsc env
+        // resolves <Server> slot modules via dynamic imports in app.tsx.
+        // *.server.{ts,tsx} files are excluded: that postfix is the hard
+        // "never bundle to the browser" guarantee for files with API keys
+        // or node-only imports.
         const imports: string[] = []
         const entries: string[] = []
         let i = 0
@@ -92,12 +131,13 @@ export function video(options: VideoPluginOptions): PluginOption[] {
             } else if (/\.(tsx?|jsx?|mdx?)$/.test(entry.name) && !/\.(test|spec|config)\./.test(entry.name)) {
               // Skip the main entry file to avoid circular imports
               if (fullPath === entryPath) continue
+              if (/\.server\.[jt]sx?$/.test(entry.name)) continue
               const isMdx = /\.mdx?$/.test(entry.name)
               const relPath = './' + path.relative(root, fullPath).replace(/\\/g, '/')
               const absPath = fullPath.replace(/\\/g, '/')
               const varName = `__mod${i++}`
               if (isMdx) {
-                // MDX/MD files loaded as raw strings for server-side rendering
+                // MDX/MD files loaded as raw strings for client rendering
                 imports.push(`import ${varName} from ${JSON.stringify(absPath + '?raw')}`)
                 entries.push(`  ${JSON.stringify(relPath)}: { default: ${varName} }`)
               } else {
@@ -141,12 +181,13 @@ export function video(options: VideoPluginOptions): PluginOption[] {
     // flight payload, so invalidate the virtual modules in all envs and
     // send rsc:update to re-fetch the flight.
     //
-    // User .tsx/.ts/.mdx/.css files: handled entirely in the client module
-    // graph. Component files get React Fast Refresh; data/raw-mdx updates
-    // propagate to virtual:egaki-modules which self-accepts and dispatches
-    // a fresh modules map (see load() above). On rsc/ssr envs we invalidate
-    // the changed modules manually and return [] to suppress default HMR,
-    // which would trigger an SSR "program reload" → full page reload.
+    // User .tsx/.ts/.mdx/.css files: handled in the client module graph
+    // (Fast Refresh for components, dep-accept in mdx-client.tsx for the
+    // rest) AND via rsc:update, because <Server> slots are rendered in the
+    // rsc env from the same files — the flight refetch delivers fresh
+    // slots. On rsc/ssr envs we invalidate the changed modules manually
+    // and return [] to suppress default HMR, which would trigger an SSR
+    // "program reload" → full page reload.
     //
     // File create/delete: the generated module list changed and no accept
     // chain exists for new files, so invalidate everything + full reload.
@@ -187,7 +228,10 @@ export function video(options: VideoPluginOptions): PluginOption[] {
 
       if (isEntryMdx) {
         invalidateVirtual([RESOLVED_APP, RESOLVED_MDX])
-        // Send rsc:update so the client re-fetches the RSC payload
+        // Send rsc:update so the client re-fetches the RSC payload.
+        // Moving components in/out of <Server> needs nothing extra: the
+        // refetch re-runs app.tsx, which dynamically imports whatever the
+        // new MDX references inside <Server>.
         if (this.environment.name === 'client') {
           ctx.server.environments.client?.hot.send({
             type: 'custom',
@@ -200,16 +244,35 @@ export function video(options: VideoPluginOptions): PluginOption[] {
 
       // User file / imported MDX / CSS updates.
       // Client env: let default HMR run (Fast Refresh for components,
-      // propagation to the self-accepting virtual module for the rest).
+      // dep-accept propagation through virtual:egaki-modules for the rest).
       if (this.environment.name === 'client') {
         return
       }
 
-      // rsc/ssr envs: keep graphs fresh for the next cold render, but
-      // suppress default HMR (would cause a full program reload).
-      invalidateVirtual([RESOLVED_MODULES])
+      // rsc/ssr envs: keep graphs fresh for the next render, but suppress
+      // default HMR (would cause a full program reload).
+      invalidateVirtual([RESOLVED_APP, RESOLVED_MODULES])
       for (const mod of ctx.modules) {
         this.environment.moduleGraph.invalidateModule(mod)
+      }
+
+      // Edits to files referenced inside <Server> (or *.server.* postfix)
+      // send rsc:update: <Server> slots render in the rsc env, so the
+      // flight must be refetched for fresh slot content. Sent from the
+      // rsc branch AFTER invalidation so the browser's refetch cannot
+      // race a stale rsc module graph. The refetch remounts the client
+      // tree (spiceflow payload swap resets the Player to frame 0), so it
+      // must NOT fire for regular files — those are covered by
+      // client-graph HMR which preserves player state.
+      if (this.environment.name === 'rsc') {
+        const file = ctx.file.replace(/\\/g, '/')
+        if (/\.server\.[jt]sx?$/.test(file) || isServerImportedFile(file)) {
+          ctx.server.environments.client?.hot.send({
+            type: 'custom',
+            event: 'rsc:update',
+            data: { file: ctx.file },
+          })
+        }
       }
       return []
     },

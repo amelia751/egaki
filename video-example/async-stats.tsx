@@ -6,7 +6,7 @@
 
 export function AsyncStats() {
   const stats = [
-    { label: 'Pages Built', value: '12,847' },
+    { label: 'Pages Built', value: '100,847' },
     { label: 'Avg Build Time', value: '1.2s' },
     { label: 'Uptime', value: '99.99%' },
   ]

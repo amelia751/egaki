@@ -5,7 +5,8 @@ bpm: 120
 
 import { FeatureGrid } from './components'
 import { CREATE_LINES, DEPLOY_LINES, DOCS_JSON_CODE, FEATURES } from './data'
-import { AsyncStats, } from './async-stats'
+import { AsyncStats } from './async-stats'
+import { TextToSpeech } from 'egaki/text-to-speech'
 import Tagline from './tagline.mdx'
 
 <Audio src="/minecraft-soundtrack.mp3" />
@@ -95,15 +96,14 @@ some text
 some text
 ```
 
-# Analytics duration=6s
-
-<Background>
-<MeshGradientBg colors={['#6366f1', '#06b6d4', '#8b5cf6', '#3b82f6']} speed={0.2} blur={120} />
-</Background>
+# Analytics duration=2s
 
 <FadeIn duration={15}>
   <FadeOut duration={15}>
-    <AsyncStats />
+    <Server>
+      <AsyncStats />
+      <TextToSpeech text="Analyticsz that build themselves." />
+    </Server>
   </FadeOut>
 </FadeIn>
 

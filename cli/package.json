@@ -11,10 +11,14 @@
       "types": "./dist/cli/cli.d.ts",
       "default": "./dist/cli/cli.js"
     },
-    "./video": {
-      "types": "./src/vite/mdx-video.tsx",
-      "default": "./src/vite/mdx-video.tsx"
-    },
+  "./video": {
+    "types": "./src/vite/mdx-video.tsx",
+    "default": "./src/vite/mdx-video.tsx"
+  },
+  "./text-to-speech": {
+    "types": "./src/vite/server-components.tsx",
+    "default": "./src/vite/server-components.tsx"
+  },
     "./vite": {
       "types": "./src/vite/vite-plugin.ts",
       "default": "./src/vite/vite-plugin.ts"
@@ -84,7 +88,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "remotion": "4.0.475",
-    "safe-mdx": "^1.11.1",
+    "safe-mdx": "^1.11.2",
     "string-dedent": "^3.0.2",
     "tailwindcss": "^4.3.0",
     "yaml": "^2.9.0",
