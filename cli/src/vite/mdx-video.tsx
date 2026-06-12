@@ -367,7 +367,7 @@ interface EnterExitProps {
   children: ReactNode
   /** Animation duration in frames */
   duration?: number
-  /** Custom easing function. Defaults to a dramatic ease-in (enter) or ease-out (exit). */
+  /** Custom easing function. */
   easing?: (t: number) => number
 }
 
@@ -387,34 +387,34 @@ const EXIT_EASING = Easing.bezier(0.0, 0.95, 0.05, 1)
 // Slide distance in px. 140px+ needed for visible motion at 1080p.
 const SLIDE_DISTANCE = 140
 
-export function FadeIn({ children, duration = 15, easing = ENTER_EASING }: EnterExitProps) {
+export function FadeIn({ children, duration = 15, easing }: EnterExitProps) {
   const frame = useCurrentFrame()
   const opacity = interpolate(frame, [0, duration], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing,
+    easing: easing ?? ENTER_EASING,
   })
   return <div style={{ opacity }}>{children}</div>
 }
 
-export function FadeOut({ children, duration = 15, easing = EXIT_EASING }: EnterExitProps) {
+export function FadeOut({ children, duration = 15, easing }: EnterExitProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
   const start = durationInFrames - duration
   const opacity = interpolate(frame, [start, durationInFrames], [1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing,
+    easing: easing ?? EXIT_EASING,
   })
   return <div style={{ opacity }}>{children}</div>
 }
 
-export function ZoomIn({ children, duration = 20, easing = ENTER_EASING }: EnterExitProps) {
+export function ZoomIn({ children, duration = 20, easing }: EnterExitProps) {
   const frame = useCurrentFrame()
   const progress = interpolate(frame, [0, duration], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing,
+    easing: easing ?? ENTER_EASING,
   })
   const scale = interpolate(progress, [0, 1], [0.5, 1])
   return (
@@ -424,14 +424,14 @@ export function ZoomIn({ children, duration = 20, easing = ENTER_EASING }: Enter
   )
 }
 
-export function ZoomOut({ children, duration = 20, easing = EXIT_EASING }: EnterExitProps) {
+export function ZoomOut({ children, duration = 20, easing }: EnterExitProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
   const start = durationInFrames - duration
   const progress = interpolate(frame, [start, durationInFrames], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing,
+    easing: easing ?? EXIT_EASING,
   })
   const scale = interpolate(progress, [0, 1], [1, 0.5])
   return (
@@ -441,12 +441,21 @@ export function ZoomOut({ children, duration = 20, easing = EXIT_EASING }: Enter
   )
 }
 
-export function SlideIn({ children, duration = 20, direction = 'up', distance = SLIDE_DISTANCE, easing = ENTER_EASING }: SlideProps) {
+export function SlideIn({ children, duration = 20, direction = 'up', distance = SLIDE_DISTANCE, easing }: SlideProps) {
   const frame = useCurrentFrame()
   const progress = interpolate(frame, [0, duration], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing,
+    easing: easing ?? ENTER_EASING,
+  })
+  // Opacity uses a simple linear ramp over a short window so the element
+  // becomes visible quickly regardless of the motion easing. Overshoot and
+  // elastic easings start near zero for many frames which makes the element
+  // invisible if opacity is tied to the same curve.
+  const fadeFrames = Math.min(duration, 8)
+  const opacity = interpolate(frame, [0, fadeFrames], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
   })
   const d = distance
   // direction = where the element comes FROM.
@@ -458,20 +467,27 @@ export function SlideIn({ children, duration = 20, direction = 'up', distance = 
     right: `translateX(${(1 - progress) * d}px)`,
   }
   return (
-    <div style={{ opacity: progress, transform: transforms[direction] }}>
+    <div style={{ opacity, transform: transforms[direction] }}>
       {children}
     </div>
   )
 }
 
-export function SlideOut({ children, duration = 20, direction = 'down', distance = SLIDE_DISTANCE, easing = EXIT_EASING }: SlideProps) {
+export function SlideOut({ children, duration = 20, direction = 'down', distance = SLIDE_DISTANCE, easing }: SlideProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
   const start = durationInFrames - duration
   const progress = interpolate(frame, [start, durationInFrames], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing,
+    easing: easing ?? EXIT_EASING,
+  })
+  // Fade out quickly at the end so elastic/overshoot easings don't keep
+  // the element visible while it oscillates near the end.
+  const fadeFrames = Math.min(duration, 8)
+  const opacity = interpolate(frame, [durationInFrames - fadeFrames, durationInFrames], [1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
   })
   const d = distance
   const transforms: Record<string, string> = {
@@ -481,18 +497,18 @@ export function SlideOut({ children, duration = 20, direction = 'down', distance
     right: `translateX(${progress * d}px)`,
   }
   return (
-    <div style={{ opacity: 1 - progress, transform: transforms[direction] }}>
+    <div style={{ opacity, transform: transforms[direction] }}>
       {children}
     </div>
   )
 }
 
-export function BlurIn({ children, duration = 20, easing = ENTER_EASING }: EnterExitProps) {
+export function BlurIn({ children, duration = 20, easing }: EnterExitProps) {
   const frame = useCurrentFrame()
   const progress = interpolate(frame, [0, duration], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing,
+    easing: easing ?? ENTER_EASING,
   })
   const blur = interpolate(progress, [0, 1], [24, 0])
   return (
@@ -502,14 +518,14 @@ export function BlurIn({ children, duration = 20, easing = ENTER_EASING }: Enter
   )
 }
 
-export function BlurOut({ children, duration = 20, easing = EXIT_EASING }: EnterExitProps) {
+export function BlurOut({ children, duration = 20, easing }: EnterExitProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
   const start = durationInFrames - duration
   const progress = interpolate(frame, [start, durationInFrames], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing,
+    easing: easing ?? EXIT_EASING,
   })
   const blur = interpolate(progress, [0, 1], [0, 24])
   return (
@@ -960,7 +976,7 @@ interface LayoutEntry {
   /** Spring bounce, 0 = no overshoot */
   bounce: number
   /** Custom easing function. When set, overrides the spring. */
-  easing: EasingFunction | null
+  easing: ((t: number) => number) | null
 }
 
 interface LayoutRegistry {
@@ -1072,9 +1088,8 @@ export function LayoutTransition({
   /** Spring bounce, 0 = no overshoot, 1 = max. Default 0.15. */
   bounce?: number
   /** Custom easing function. When set, uses interpolate() over `duration`
-   *  frames instead of the spring. Pass any `EASE.*` preset or a custom
-   *  `Easing.bezier(...)`. */
-  easing?: EasingFunction
+   *  frames instead of the spring. */
+  easing?: (t: number) => number
   children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)

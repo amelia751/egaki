@@ -21,10 +21,10 @@ import Tagline from './tagline.mdx'
 # Layout B duration=2s
 
 <div style={{  display: 'flex', flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 30 }}>
-  <LayoutTransition id="hero" duration={20} easing={EASE.overshootElastic}>
+  <LayoutTransition id="hero" duration={20}>
     <span style={{ fontSize: 160, fontWeight: 700, color: '#fafafa', letterSpacing: '-0.04em', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>egaki</span>
   </LayoutTransition>
-  <SlideIn duration={40} direction="right" distance={300} easing={EASE.overshootElastic}>
+  <SlideIn duration={20} direction="right" distance={300}>
     <span style={{ fontSize: 160, fontWeight: 700, color: '#818cf8', letterSpacing: '-0.04em', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>video</span>
   </SlideIn>
 </div>
