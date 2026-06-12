@@ -65,9 +65,36 @@ import {
   lerpSamples,
 } from './easing-curves.ts'
 
-// Re-export the raw sampled curves so user projects can blend between
-// intensity levels (e.g. Jitter easings at non-standard intensities like
-// impulseAndOvershoot:96 — lerp the 75 and 100 sample arrays).
+// Re-export the continuous preset functions (Jitter easings at ANY intensity,
+// e.g. impulseOvershoot(96), interpolated in config space) and the engine
+// primitives for building custom curves.
+export {
+  type ControlPoint,
+  type EasingPreset,
+  type Intensity,
+  cubicBezier,
+  polybezier,
+  pathPreset,
+  springPreset,
+  bouncePreset,
+  samplePreset,
+  naturalThrow,
+  decelerateOvershoot,
+  decelerateElastic,
+  accelerateImpulse,
+  accelerateElastic,
+  elasticSnap,
+  bounce,
+  bounceAnticipate,
+  bounceThrow,
+  impulseSlow,
+  impulseOvershoot,
+  overshoot,
+  overshootElastic,
+  overshootBouncy,
+} from './easing-curves.ts'
+
+// Raw sampled curves (51 points per intensity level 0/25/50/75/100).
 export {
   naturalThrowSamples,
   decelerateOvershootSamples,
