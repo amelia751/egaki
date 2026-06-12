@@ -38,6 +38,8 @@ const subscribeNoop = () => () => {}
 const getClientMounted = () => true
 const getServerMounted = () => false
 
+const PLAYBACK_RATES = [0.5, 1, 1.5, 2, 4, 8] as const
+
 function ToolbarSeparator() {
   return <div className='w-px h-4 bg-white/15' />
 }
@@ -303,6 +305,17 @@ export function PlayerPage({
   const abortRef = useRef<AbortController | null>(null)
   const [playbackRate, setPlaybackRate] = useState(1)
 
+  // Sync playbackRate state when user changes it via the gear menu
+  useEffect(() => {
+    const player = playerRef.current
+    if (!player) return
+    const onRateChange: EventListener = (e: any) => {
+      setPlaybackRate(e.detail?.playbackRate ?? 1)
+    }
+    player.addEventListener('ratechange', onRateChange as any)
+    return () => player.removeEventListener('ratechange', onRateChange as any)
+  }, [mounted])
+
   // Force pause while editing — catches play via spacebar, API calls, etc.
   useEffect(() => {
     if (!editing) return
@@ -440,7 +453,11 @@ export function PlayerPage({
           setPlaybackRate(1)
           player.play()
         } else {
-          setPlaybackRate((prev) => Math.min(prev * 2, 8))
+          // Cycle to next rate in the list
+          setPlaybackRate((prev) => {
+            const idx = PLAYBACK_RATES.indexOf(prev as any)
+            return PLAYBACK_RATES[Math.min((idx === -1 ? 1 : idx) + 1, PLAYBACK_RATES.length - 1)]!
+          })
         }
         return
       }
@@ -615,6 +632,23 @@ export function PlayerPage({
             Export MP4
           </button>
         )}
+
+        <ToolbarSeparator />
+
+        {/* Playback rate — click to cycle, synced with J/K/L shortcuts */}
+        <button
+          onClick={() => {
+            setPlaybackRate((prev) => {
+              const idx = PLAYBACK_RATES.indexOf(prev as any)
+              const next = PLAYBACK_RATES[(idx + 1) % PLAYBACK_RATES.length]!
+              return next
+            })
+          }}
+          className='flex items-center rounded-full px-2.5 py-1.5 text-[13px] font-medium tabular-nums text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer min-w-[3rem] justify-center'
+          title='Playback speed (click to cycle)'
+        >
+          {playbackRate === 1 ? '1x' : `${playbackRate}x`}
+        </button>
 
         <ToolbarSeparator />
 
