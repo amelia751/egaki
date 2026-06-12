@@ -743,15 +743,4 @@ cd video-example && pnpm run test-e2e
 
 Playwright starts Vite on port **5199** (`video-example/playwright.config.ts`), runs `video-example/e2e/hmr.test.ts` serially. Reuses an existing server on 5199 when not in CI.
 
-**Run the example e2e when you touch any of:**
-
-- `cli/src/vite/vite-plugin.ts` — virtual modules, HMR, `rsc:update`
-- `cli/src/vite/app.tsx` — RSC page, slot rendering, server imports
-- `cli/src/vite/mdx-client.tsx` — client composition, modules HMR, `Server` splice
-- `cli/src/vite/server-mdx.ts` — slot keys, blanking, import detection
-- `cli/src/vite/mdx-parse.ts` — sections, durations, preamble
-- `cli/src/vite/mdx-video.tsx` — `MDX_BUILTIN_COMPONENTS`, animation wrappers
-- `cli/src/vite/server-components.tsx` — built-in server components
-- `video-example/**` when it is the regression fixture (e.g. `video.mdx`, `async-stats.tsx`)
-
-Vitest alone is enough for isolated changes to `mdx-parse.ts` or pure helpers with no plugin/HMR behavior. If behavior crosses server ↔ client or the browser Player, run **`video-example` e2e** before finishing.
+Vitest alone is enough for isolated parsing or helper changes with no plugin/HMR behavior. If behavior crosses server ↔ client or the browser Player, run **`video-example` e2e** before finishing.
