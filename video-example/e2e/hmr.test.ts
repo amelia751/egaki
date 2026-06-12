@@ -192,7 +192,7 @@ test.describe.serial('video HMR @dev', () => {
     await page.waitForFunction(() => (window as any).egakiSDK?.seekTo)
     await page.evaluate(() => (window as any).egakiSDK.seekTo(1200))
     await expect(playerContainer.locator('text=Pages Built')).toBeVisible({ timeout: 10_000 })
-    await expect(playerContainer.locator('text=12,847')).toBeVisible()
+    await expect(playerContainer.locator('text=100,847')).toBeVisible()
 
     // Built-in server component imported via BARE specifier
     // ('egaki/text-to-speech') — resolved through vite at request time.
@@ -208,7 +208,7 @@ test.describe.serial('video HMR @dev', () => {
     await expect(playerContainer).toBeVisible()
     await page.waitForFunction(() => (window as any).egakiSDK?.seekTo)
     await page.evaluate(() => (window as any).egakiSDK.seekTo(1200))
-    await expect(playerContainer.locator('text=12,847')).toBeVisible({ timeout: 10_000 })
+    await expect(playerContainer.locator('text=100,847')).toBeVisible({ timeout: 10_000 })
 
     await page.evaluate(() => { (window as any).__hmr_marker = true })
 
@@ -218,7 +218,7 @@ test.describe.serial('video HMR @dev', () => {
     // rsc:update → flight refetch → new serverSlots.
     // The flight refetch remounts the Player (frame resets to 0), so the
     // poll re-seeks to the Analytics section before checking visibility.
-    const updatedStats = originalServerStats.replace("'12,847'", "'55,555'")
+    const updatedStats = originalServerStats.replace("'100,847'", "'55,555'")
 
     await expect.poll(async () => {
       fs.writeFileSync(serverStatsPath, updatedStats + `\n// hmr ${Date.now()}`)

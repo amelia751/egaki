@@ -717,8 +717,41 @@ All option types are re-exported from `@remotion/web-renderer`. See Remotion doc
 | `cli/src/vite/mdx-parse.ts` | Environment-agnostic section splitting and duration parsing |
 | `cli/src/vite/server-mdx.ts` | `<Server>` parsing: slot extraction, blanking, import detection |
 | `cli/src/vite/server-components.tsx` | Built-in server components (`egaki/text-to-speech`) |
-| `cli/src/vite/mdx-video.tsx` | Client animation components + re-exports |
+| `cli/src/vite/mdx-video.tsx` | Client animation components, `MDX_BUILTIN_COMPONENTS`, re-exports |
 | `cli/src/vite/components.tsx` | Visual components (remocn ports) |
 | `cli/src/vite/player-page.tsx` | Client Player wrapper + export UI |
 | `cli/src/vite/render-client.ts` | In-browser MP4 export via `@remotion/web-renderer` |
 | `cli/src/vite/sdk.ts` | Agent SDK singleton (`window.egakiSDK`) |
+
+## Testing the MDX video engine
+
+After changes to parsing, rendering, `<Server>` slots, the Vite plugin, or built-in MDX scope, run **both** unit tests in `cli/` and the integration example in `video-example/`.
+
+**Unit tests** (parsing, safe-mdx wiring, `<Server>` helpers, keyframes, imports):
+
+```bash
+cd cli && pnpm test
+```
+
+Main suite: `cli/src/vite/mdx-video.test.tsx`, `cli/src/vite/easing-curves.test.ts`.
+
+**Example app + e2e** (dev server, HMR, client MDX, `<Server>` flight, `egaki/text-to-speech`):
+
+```bash
+cd video-example && pnpm run test-e2e
+```
+
+Playwright starts Vite on port **5199** (`video-example/playwright.config.ts`), runs `video-example/e2e/hmr.test.ts` serially. Reuses an existing server on 5199 when not in CI.
+
+**Run the example e2e when you touch any of:**
+
+- `cli/src/vite/vite-plugin.ts` — virtual modules, HMR, `rsc:update`
+- `cli/src/vite/app.tsx` — RSC page, slot rendering, server imports
+- `cli/src/vite/mdx-client.tsx` — client composition, modules HMR, `Server` splice
+- `cli/src/vite/server-mdx.ts` — slot keys, blanking, import detection
+- `cli/src/vite/mdx-parse.ts` — sections, durations, preamble
+- `cli/src/vite/mdx-video.tsx` — `MDX_BUILTIN_COMPONENTS`, animation wrappers
+- `cli/src/vite/server-components.tsx` — built-in server components
+- `video-example/**` when it is the regression fixture (e.g. `video.mdx`, `async-stats.tsx`)
+
+Vitest alone is enough for isolated changes to `mdx-parse.ts` or pure helpers with no plugin/HMR behavior. If behavior crosses server ↔ client or the browser Player, run **`video-example` e2e** before finishing.

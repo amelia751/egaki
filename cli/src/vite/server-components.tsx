@@ -16,13 +16,12 @@ interface TextToSpeechProps {
 }
 
 /**
- * Placeholder text-to-speech server component. Proves the bare-specifier
- * <Server> import path end to end; real synthesis (egaki gateway TTS →
- * <Audio> with the generated file) lands later.
+ * TODO: Real TTS — call egaki gateway (or provider) synthesis, write audio
+ * to the project/public path, return Remotion `<Audio src={...} />` (from
+ * `@remotion/media`). This stub only proves bare-specifier `<Server>` imports.
  */
 export async function TextToSpeech({ text, voice = 'alloy' }: TextToSpeechProps) {
-  // Simulated async generation step so the streaming/Suspense path is
-  // exercised like the real implementation will.
+  // TODO: replace with gateway TTS + <Audio>
   await new Promise((resolve) => setTimeout(resolve, 10))
   return (
     <span

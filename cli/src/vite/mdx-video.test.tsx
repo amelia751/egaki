@@ -15,6 +15,39 @@ import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
 import { splitIntoSections, calculateTotalDuration } from './mdx-parse.ts'
 import { findServerNodes, blankServerContents, collectServerImportSources } from './server-mdx.ts'
+import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
+
+describe('MDX_BUILTIN_COMPONENTS', () => {
+  test('registry keys match client and server slot maps', () => {
+    expect(Object.keys(MDX_BUILTIN_COMPONENTS).sort()).toMatchInlineSnapshot(`
+      [
+        "Animate",
+        "AnimatedChart",
+        "Audio",
+        "Background",
+        "BlurIn",
+        "BlurOut",
+        "BlurReveal",
+        "FadeIn",
+        "FadeOut",
+        "FeaturePill",
+        "GlassCodeBlock",
+        "LayoutTransition",
+        "MaskedSlideReveal",
+        "MeshGradientBg",
+        "ShimmerSweep",
+        "SlideIn",
+        "SlideOut",
+        "SpringPopIn",
+        "StaggeredFadeUp",
+        "TerminalSimulator",
+        "Video",
+        "ZoomIn",
+        "ZoomOut",
+      ]
+    `)
+  })
+})
 
 // Helper: parse MDX and split into sections in one call
 function split(mdx: string) {

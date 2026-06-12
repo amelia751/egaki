@@ -27,16 +27,7 @@ import { eagerModules as initialModules } from 'virtual:egaki-modules'
 import { splitIntoSections, calculateTotalDuration } from './mdx-parse.ts'
 import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
-import {
-  Background,
-  LayoutTransition,
-  FadeIn, FadeOut, ZoomIn, ZoomOut,
-  SlideIn, SlideOut, BlurIn, BlurOut, Animate,
-  MeshGradientBg, BlurReveal, MaskedSlideReveal, StaggeredFadeUp,
-  TerminalSimulator, GlassCodeBlock, ShimmerSweep, SpringPopIn,
-  AnimatedChart, FeaturePill,
-  Audio, Video,
-} from './mdx-video.tsx'
+import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 
 // ---------------------------------------------------------------------------
 // MDX components map
@@ -49,23 +40,7 @@ const FONT_MONO =
 
 function buildVideoMdxComponents(): Record<string, any> {
   return {
-    Background,
-
-    // Built-in visual components
-    MeshGradientBg, BlurReveal, MaskedSlideReveal, StaggeredFadeUp,
-    TerminalSimulator, GlassCodeBlock, ShimmerSweep, SpringPopIn,
-    AnimatedChart, FeaturePill,
-
-    // Remotion media components (from @remotion/media, NOT remotion —
-    // the web-renderer only supports @remotion/media components)
-    Audio, Video,
-
-    // Enter/exit animations
-    FadeIn, FadeOut, ZoomIn, ZoomOut,
-    SlideIn, SlideOut, BlurIn, BlurOut, Animate,
-
-    // FLIP layout animation across section boundaries (matched by id)
-    LayoutTransition,
+    ...MDX_BUILTIN_COMPONENTS,
 
     // Reserved: server component slot marker. The server renders the
     // original children; this client component splices the slot in by

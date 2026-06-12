@@ -38,30 +38,7 @@ import {
   filterImportNodesToModules,
 } from './server-mdx.ts'
 import { MdxClientApp } from './mdx-client.tsx'
-
-// Built-in components as client references — not executed on the server,
-// serialized as references in slot JSX so server-rendered content can
-// still use animation/visual components.
-import {
-  Background,
-  LayoutTransition,
-  FadeIn, FadeOut, ZoomIn, ZoomOut,
-  SlideIn, SlideOut, BlurIn, BlurOut, Animate,
-  MeshGradientBg, BlurReveal, MaskedSlideReveal, StaggeredFadeUp,
-  TerminalSimulator, GlassCodeBlock, ShimmerSweep, SpringPopIn,
-  AnimatedChart, FeaturePill,
-  Audio, Video,
-} from './mdx-video.tsx'
-
-const serverSlotComponents: Record<string, any> = {
-  Background, LayoutTransition,
-  FadeIn, FadeOut, ZoomIn, ZoomOut,
-  SlideIn, SlideOut, BlurIn, BlurOut, Animate,
-  MeshGradientBg, BlurReveal, MaskedSlideReveal, StaggeredFadeUp,
-  TerminalSimulator, GlassCodeBlock, ShimmerSweep, SpringPopIn,
-  AnimatedChart, FeaturePill,
-  Audio, Video,
-}
+import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 
 /** Dynamically import the modules referenced inside <Server> blocks.
  *  No static module map and no manual file probing: vite's RSC module
@@ -134,7 +111,7 @@ export const app = new Spiceflow()
         <SafeMdxRenderer
           markdown={mdxSource}
           mdast={{ type: 'root', children: [...importNodes, ...node.children] } as any}
-          components={serverSlotComponents}
+          components={MDX_BUILTIN_COMPONENTS}
           modules={eagerModules}
           baseUrl="./"
           onError={(e) => console.warn('[egaki] <Server> slot:', e.message)}

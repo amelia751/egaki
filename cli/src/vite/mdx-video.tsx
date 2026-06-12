@@ -1261,3 +1261,32 @@ export {
   AnimatedChart,
   FeaturePill,
 }
+
+/** Built-in JSX names available in MDX without user imports. Shared by
+ *  client rendering (mdx-client.tsx) and <Server> slot rendering (app.tsx).
+ *  Add new presentation components here once — not in app.tsx / mdx-client. */
+export const MDX_BUILTIN_COMPONENTS = {
+  Background,
+  LayoutTransition,
+  MeshGradientBg,
+  BlurReveal,
+  MaskedSlideReveal,
+  StaggeredFadeUp,
+  TerminalSimulator,
+  GlassCodeBlock,
+  ShimmerSweep,
+  SpringPopIn,
+  AnimatedChart,
+  FeaturePill,
+  Audio,
+  Video,
+  FadeIn,
+  FadeOut,
+  ZoomIn,
+  ZoomOut,
+  SlideIn,
+  SlideOut,
+  BlurIn,
+  BlurOut,
+  Animate,
+} as const
