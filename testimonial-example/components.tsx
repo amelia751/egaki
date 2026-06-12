@@ -24,13 +24,13 @@
  *
  * Easings are exact Jitter curves: smooth:standard:v1 at intensity 50 is
  * cubic-bezier(0.5, 0, 0, 1); impulseAndOvershoot:standard:v1 at the
- * non-standard intensities 96 and 71 is reproduced by linearly blending
- * egaki's sampled curves between adjacent intensity levels (50/75/100),
- * matching Jitter's intensity-continuous springs.
+ * non-standard intensities 96 and 71 comes from egaki's continuous preset
+ * functions (impulseOvershoot(96)), which interpolate the curve configs in
+ * control-point space exactly like Jitter's intensity dial.
  */
 
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
-import { impulseOvershootSamples, lerpSamples } from 'egaki/video'
+import { impulseOvershoot } from 'egaki/video'
 
 // ---------------------------------------------------------------------------
 // Shared constants (everything used once is inlined at its use site)
@@ -65,22 +65,12 @@ const HEART_PATH =
 const smooth50 = Easing.bezier(0.5, 0, 0, 1)
 
 /**
- * impulseAndOvershoot:standard:v1 at an arbitrary intensity (0-100).
- * Blends the two adjacent sampled curves (steps of 25) linearly, which
- * reproduces Jitter's continuous intensity dial within sampling error.
+ * impulseAndOvershoot:standard:v1 at the exact non-standard intensities used
+ * by the Jitter scene. egaki's preset functions are continuous in intensity
+ * (configs interpolated in control-point space), matching Jitter's dial.
  */
-function impulseOvershootAt(intensity: number): (t: number) => number {
-  const levels = [0, 25, 50, 75, 100] as const
-  const lo = levels.filter((l) => l <= intensity).pop() ?? 0
-  const hi = levels.find((l) => l >= intensity) ?? 100
-  const f = hi === lo ? 0 : (intensity - lo) / (hi - lo)
-  const a = impulseOvershootSamples[lo]
-  const b = impulseOvershootSamples[hi]
-  return (t) => lerpSamples(a, t) * (1 - f) + lerpSamples(b, t) * f
-}
-
-const impulseOvershoot96 = impulseOvershootAt(96)
-const impulseOvershoot71 = impulseOvershootAt(71)
+const impulseOvershoot96 = impulseOvershoot(96)
+const impulseOvershoot71 = impulseOvershoot(71)
 
 // ---------------------------------------------------------------------------
 // Animation helpers
