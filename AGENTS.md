@@ -573,6 +573,35 @@ The walk renderer (used when `allowHtmlInCanvas` is false) has these CSS limitat
 - Filters (`blur`, `brightness`, etc.) do not work in Safari/WebKit
 </details>
 
+## Preventing subpixel jitter in animations
+
+Animating `transform: scale()` or `translateX/Y()` with fractional values causes
+**subpixel stuttering** — text re-rasterizes at slightly different subpixel positions
+each frame. Monospace text and thin lines (gridlines, borders) are especially sensitive.
+
+Two rules to prevent it:
+
+1. **Add `willChange: 'transform'`** on the animated element. This promotes the layer
+   to its own compositor surface so the browser rasterizes once and transforms the
+   bitmap instead of re-laying-out text every frame.
+2. **Round interpolated values** to 3 decimal places to reduce uniquely-valued frames:
+   `Math.round(value * 1000) / 1000`.
+
+```tsx
+const scale = interpolate(frame, [0, 90], [1, 1.35], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.cinematic,
+})
+const s = Math.round(scale * 1000) / 1000
+
+<div style={{
+  transform: `scale(${s})`,
+  transformOrigin: '60% 45%',
+  willChange: 'transform',
+}}>
+```
+
 ## Remotion resources
 
 - **Remotion GitHub**: https://github.com/remotion-dev/remotion

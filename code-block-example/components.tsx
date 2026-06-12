@@ -155,22 +155,52 @@ export function AngledCodeBlock({ theme = 'stripe' }: { theme?: string }) {
   )
 }
 
+export function ZoomedHighlight() {
+  return (
+    <AbsoluteFill style={{ backgroundColor: '#000' }}>
+      <div style={{
+        width: '100%',
+        height: '100%',
+        transform: 'scale(1.35)',
+        transformOrigin: '60% 45%',
+        willChange: 'transform',
+      }}>
+        <CodeBlock
+          theme="vercel"
+          title="server.ts"
+          width="100%"
+          height="100%"
+          showLineNumbers
+          fontSize={16}
+          highlightLines={[8, 9]}
+        >
+          {SAMPLE_CODE}
+        </CodeBlock>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
 export function ZoomingCodeBlock() {
   const frame = useCurrentFrame()
 
-  const scale = interpolate(frame, [0, 90], [1, 1.35], {
+  const scale = interpolate(frame, [0, 45], [1, 1.35], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
     easing: EASE.cinematic,
   })
+
+  // Round to 3 decimals to reduce subpixel jitter between frames
+  const s = Math.round(scale * 1000) / 1000
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
       <div style={{
         width: '100%',
         height: '100%',
-        transform: `scale(${scale})`,
+        transform: `scale(${s})`,
         transformOrigin: '60% 45%',
+        willChange: 'transform',
       }}>
         <CodeBlock
           theme="vercel"
