@@ -3,11 +3,24 @@
 /**
  * TestimonialCard — recreation of a Jitter testimonial template (16:10).
  *
- * A 1920x1200 artboard scaled to fit the 1920x1080 composition. A cyan
- * frame holds a photo that zooms out from 1.5x while a frosted glass card
- * shrinks from 1150x910 to 675x392. Quote text slides in word by word
- * (masked), a portrait bubble reveals with a center-anchored mask resize,
- * and a heart icon "fills" via a circular mask while the card pulses 1.1x.
+ * Extracted from Jitter project NJD34P7zgZCeXpFAJ6dorIdf via Playwriter
+ * (window.app scene graph). A 1920x1200 artboard scaled to fit the 1920x1080
+ * composition. A cyan frame holds a photo that zooms out from 1.5x while a
+ * frosted glass card shrinks from 1150x910 to 675x392. Quote text slides in
+ * word by word (masked), a portrait bubble reveals with a center-anchored
+ * mask resize, and a heart icon "fills" via a circular mask while the card
+ * pulses 1.1x.
+ *
+ * Operations timeline (ms):
+ *   0-1490     bg image scale 1.5→1, card resize 1150x910→675x392 (smooth:50)
+ *   500-...    quote textIn, words slide up masked (607ms/word, 61ms stagger)
+ *   752-982    quote mark “ fades in (linear)
+ *   1262-2062  portrait mask resize 0→72x72 (smooth:50)
+ *   1262-1772  outline heart opacity 0→50% (linear)
+ *   1490-...   author textIn, same word params
+ *   1632-3572  card scale 1→1.1 (impulseAndOvershoot:96)
+ *   1732-3672  heart group scale 0.8→1 (impulseAndOvershoot:71)
+ *   2125-3210  filling-heart circular mask scale 0→1 (smooth:50)
  *
  * Easings are exact Jitter curves: smooth:standard:v1 at intensity 50 is
  * cubic-bezier(0.5, 0, 0, 1); impulseAndOvershoot:standard:v1 at the
@@ -18,33 +31,31 @@
 
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
 import { impulseOvershootSamples, lerpSamples } from 'egaki/video'
-import {
-  ARTBOARD,
-  AUTHOR_TEXT,
-  BG_VISUAL,
-  BODY_LINE_HEIGHT,
-  CARD,
-  CARD_BLUR_IMAGE,
-  FONT_FAMILY,
-  HEART,
-  HEART_PATH,
-  LOGO,
-  PORTRAIT,
-  QUOTE_MARK,
-  QUOTE_TEXT,
-  URL_TEXT,
-} from './data'
 
 // ---------------------------------------------------------------------------
-// Layout: scale 1920x1200 artboard to fit 1920x1080
+// Shared constants (everything used once is inlined at its use site)
 // ---------------------------------------------------------------------------
 
+// Layout: scale the 1920x1200 artboard to fit the 1920x1080 composition
+const ARTBOARD_W = 1920
+const ARTBOARD_H = 1200
 const COMP_W = 1920
 const COMP_H = 1080
+const SCALE = Math.min(COMP_W / ARTBOARD_W, COMP_H / ARTBOARD_H)
+const OFFSET_X = (COMP_W - ARTBOARD_W * SCALE) / 2
+const OFFSET_Y = (COMP_H - ARTBOARD_H * SCALE) / 2
 
-const SCALE = Math.min(COMP_W / ARTBOARD.width, COMP_H / ARTBOARD.height)
-const OFFSET_X = (COMP_W - ARTBOARD.width * SCALE) / 2
-const OFFSET_Y = (COMP_H - ARTBOARD.height * SCALE) / 2
+const FONT_FAMILY = 'HelveticaNowDisplay-Medium'
+
+/** lineHeight 108.79% of 32px font */
+const BODY_LINE_HEIGHT = 32 * 1.0879171752929688
+
+/** Per-word textIn params, shared by quote and author texts */
+const WORD_DURATION_MS = 607
+const WORD_STAGGER_MS = 61
+
+const HEART_PATH =
+  'M16.6832 31.5349C16.995 31.5349 17.4237 31.3377 17.7367 31.1469C27.132 25.0575 33.3666 18.048 33.3666 10.9136C33.3666 5.05425 29.3334 0.890625 24.0526 0.890625C20.8466 0.890625 18.1564 2.7026 16.6832 5.4958C15.2337 2.71442 12.5198 0.890625 9.31379 0.890625C4.03315 0.890625 0 5.05425 0 10.9136C0 18.048 6.23447 25.0575 15.6363 31.1469C15.9427 31.3377 16.3714 31.5349 16.6832 31.5349Z'
 
 // ---------------------------------------------------------------------------
 // Easings
@@ -68,8 +79,8 @@ function impulseOvershootAt(intensity: number): (t: number) => number {
   return (t) => lerpSamples(a, t) * (1 - f) + lerpSamples(b, t) * f
 }
 
-const impulseOvershoot96 = impulseOvershootAt(CARD.scaleUp.intensity)
-const impulseOvershoot71 = impulseOvershootAt(HEART.groupScale.intensity)
+const impulseOvershoot96 = impulseOvershootAt(96)
+const impulseOvershoot71 = impulseOvershootAt(71)
 
 // ---------------------------------------------------------------------------
 // Animation helpers
@@ -79,15 +90,23 @@ function msToFrame(ms: number, fps: number) {
   return (ms / 1000) * fps
 }
 
-function interpClamp(
-  frame: number,
-  startMs: number,
-  endMs: number,
-  from: number,
-  to: number,
-  fps: number,
-  easing: (t: number) => number,
-) {
+function interpClamp({
+  frame,
+  startMs,
+  endMs,
+  from,
+  to,
+  fps,
+  easing,
+}: {
+  frame: number
+  startMs: number
+  endMs: number
+  from: number
+  to: number
+  fps: number
+  easing: (t: number) => number
+}) {
   return interpolate(frame, [msToFrame(startMs, fps), msToFrame(endMs, fps)], [from, to], {
     easing,
     extrapolateLeft: 'clamp',
@@ -96,28 +115,23 @@ function interpClamp(
 }
 
 // ---------------------------------------------------------------------------
-// Card geometry — shared by the blur mask and the white overlay
+// Card geometry — shared by the blur mask and the white overlay.
+// Center (960.5, 600) stays fixed while the card resizes 1150x910 → 675x392,
+// then the whole rect pulses to 1.1x via animated width/height/radius (not
+// transform, so card content stays put — matches Jitter's resize op).
 // ---------------------------------------------------------------------------
 
 function cardRect(frame: number, fps: number) {
-  const resizeP = interpClamp(frame, CARD.resize.startMs, CARD.resize.endMs, 0, 1, fps, smooth50)
-  const scaleUp = interpClamp(
-    frame,
-    CARD.scaleUp.startMs,
-    CARD.scaleUp.endMs,
-    CARD.scaleUp.from,
-    CARD.scaleUp.to,
-    fps,
-    impulseOvershoot96,
-  )
-  const w = (CARD.fromWidth + (CARD.toWidth - CARD.fromWidth) * resizeP) * scaleUp
-  const h = (CARD.fromHeight + (CARD.toHeight - CARD.fromHeight) * resizeP) * scaleUp
+  const resizeP = interpClamp({ frame, startMs: 0, endMs: 1490, from: 0, to: 1, fps, easing: smooth50 })
+  const scaleUp = interpClamp({ frame, startMs: 1632, endMs: 3572, from: 1, to: 1.1, fps, easing: impulseOvershoot96 })
+  const w = (1150 + (675 - 1150) * resizeP) * scaleUp
+  const h = (910 + (392 - 910) * resizeP) * scaleUp
   return {
-    left: CARD.centerX - w / 2,
-    top: CARD.centerY - h / 2,
+    left: 960.5 - w / 2,
+    top: 600 - h / 2,
     width: w,
     height: h,
-    radius: CARD.cornerRadius * scaleUp,
+    radius: 103 * scaleUp,
   }
 }
 
@@ -125,17 +139,18 @@ function cardRect(frame: number, fps: number) {
 // Background visual + frosted card
 // ---------------------------------------------------------------------------
 
+/** Full-bleed background image (z bottom). Scale 1.5→1 from its own center. */
 function BackgroundVisual({ frame, fps }: { frame: number; fps: number }) {
-  const scale = interpClamp(frame, 0, 1490, 1.5, 1, fps, smooth50)
+  const scale = interpClamp({ frame, startMs: 0, endMs: 1490, from: 1.5, to: 1, fps, easing: smooth50 })
   return (
     <img
-      src={BG_VISUAL.src}
+      src='/images/visual.jpg'
       style={{
         position: 'absolute',
-        left: BG_VISUAL.x,
-        top: BG_VISUAL.y,
-        width: BG_VISUAL.width,
-        height: BG_VISUAL.height,
+        left: -11,
+        top: -602,
+        width: 1943,
+        height: 2315,
         maxWidth: 'none', // egaki player ships Tailwind preflight (img { max-width: 100% })
         transform: `scale(${scale})`,
         transformOrigin: 'center center',
@@ -146,8 +161,11 @@ function BackgroundVisual({ frame, fps }: { frame: number; fps: number }) {
 
 function FrostedCard({ frame, fps }: { frame: number; fps: number }) {
   const rect = cardRect(frame, fps)
-  const imgScale = interpClamp(frame, 0, 1490, 1.5, 1, fps, smooth50)
+  const imgScale = interpClamp({ frame, startMs: 0, endMs: 1490, from: 1.5, to: 1, fps, easing: smooth50 })
 
+  // Blurred copy of the visual ("Card blur"), absolute position in artboard
+  // space: (420 + (-140), -75 + (-162)) = (280, -237), 1275x1519.
+  // Jitter blurRadius 109 ≈ CSS blur(54.5px) (radius ≈ 2x sigma).
   return (
     <>
       {/* Blurred copy of the visual, masked by the card rect */}
@@ -163,15 +181,15 @@ function FrostedCard({ frame, fps }: { frame: number; fps: number }) {
         }}
       >
         <img
-          src={CARD_BLUR_IMAGE.src}
+          src='/images/visual.jpg'
           style={{
             position: 'absolute',
-            left: CARD_BLUR_IMAGE.x - rect.left,
-            top: CARD_BLUR_IMAGE.y - rect.top,
-            width: CARD_BLUR_IMAGE.width,
-            height: CARD_BLUR_IMAGE.height,
+            left: 280 - rect.left,
+            top: -237 - rect.top,
+            width: 1275,
+            height: 1519,
             maxWidth: 'none',
-            filter: `blur(${CARD_BLUR_IMAGE.blurPx}px)`,
+            filter: 'blur(54.5px)',
             transform: `scale(${imgScale})`,
             transformOrigin: 'center center',
           }}
@@ -186,8 +204,8 @@ function FrostedCard({ frame, fps }: { frame: number; fps: number }) {
           width: rect.width,
           height: rect.height,
           borderRadius: rect.radius,
-          backgroundColor: CARD.overlayColor,
-          opacity: CARD.overlayOpacity,
+          backgroundColor: '#ffffff',
+          opacity: 0.13,
         }}
       />
     </>
@@ -201,23 +219,20 @@ function FrostedCard({ frame, fps }: { frame: number; fps: number }) {
 function MaskedWordsText({
   text,
   startMs,
-  nodeDurationMs,
-  offsetMs,
   frame,
   fps,
 }: {
   text: string
   startMs: number
-  nodeDurationMs: number
-  offsetMs: number
   frame: number
   fps: number
 }) {
+  const words = text.split(' ')
   return (
     <>
-      {text.split(' ').map((word, i) => {
-        const wordStartMs = startMs + i * offsetMs
-        const progress = interpClamp(frame, wordStartMs, wordStartMs + nodeDurationMs, 0, 1, fps, smooth50)
+      {words.map((word, i) => {
+        const wordStartMs = startMs + i * WORD_STAGGER_MS
+        const progress = interpClamp({ frame, startMs: wordStartMs, endMs: wordStartMs + WORD_DURATION_MS, from: 0, to: 1, fps, easing: smooth50 })
         return (
           <span key={i}>
             <span
@@ -236,7 +251,7 @@ function MaskedWordsText({
                 {word}
               </span>
             </span>
-            {i < text.split(' ').length - 1 ? ' ' : null}
+            {i < words.length - 1 ? ' ' : null}
           </span>
         )
       })}
@@ -245,57 +260,43 @@ function MaskedWordsText({
 }
 
 // ---------------------------------------------------------------------------
-// Heart — outline fade-in, then a circular mask reveals the filled heart
+// Heart — outline fade-in, then a circular mask reveals the filled heart.
+// Group at (1165, 669), 41x41; svg local rect (4, 7) 34x32.
 // ---------------------------------------------------------------------------
 
-function Heart({ frame, fps }: { frame: number; fps: number }) {
-  const groupScale = interpClamp(
-    frame,
-    HEART.groupScale.startMs,
-    HEART.groupScale.endMs,
-    HEART.groupScale.from,
-    HEART.groupScale.to,
-    fps,
-    impulseOvershoot71,
-  )
-  const outlineOpacity = interpClamp(
-    frame,
-    HEART.outlineFade.startMs,
-    HEART.outlineFade.endMs,
-    HEART.outlineFade.from,
-    HEART.outlineFade.to,
-    fps,
-    (t) => t,
-  )
-  const maskP = interpClamp(frame, HEART.maskScale.startMs, HEART.maskScale.endMs, 0, 1, fps, smooth50)
-  const maskSize = HEART.size * maskP
-  const maskOffset = (HEART.size - maskSize) / 2
+const HEART_SIZE = 41
+const HEART_SVG = { x: 4, y: 7, width: 34, height: 32 } as const
 
-  const heartSvg = (fill: string) => (
-    <svg
-      width={HEART.svg.width}
-      height={HEART.svg.height}
-      viewBox={`0 0 ${HEART.svg.width} ${HEART.svg.height}`}
-      style={{ position: 'absolute', left: HEART.svg.x - 0, top: HEART.svg.y - 0 }}
-    >
-      <path d={HEART_PATH} fill={fill} />
-    </svg>
-  )
+function Heart({ frame, fps }: { frame: number; fps: number }) {
+  const groupScale = interpClamp({ frame, startMs: 1732, endMs: 3672, from: 0.8, to: 1, fps, easing: impulseOvershoot71 })
+  const outlineOpacity = interpClamp({ frame, startMs: 1262, endMs: 1772, from: 0, to: 0.5, fps, easing: (t) => t })
+  const maskP = interpClamp({ frame, startMs: 2125, endMs: 3210, from: 0, to: 1, fps, easing: smooth50 })
+  const maskSize = HEART_SIZE * maskP
+  const maskOffset = (HEART_SIZE - maskSize) / 2
 
   return (
     <div
       style={{
         position: 'absolute',
-        left: HEART.x,
-        top: HEART.y,
-        width: HEART.size,
-        height: HEART.size,
+        left: 1165,
+        top: 669,
+        width: HEART_SIZE,
+        height: HEART_SIZE,
         transform: `scale(${groupScale})`,
         transformOrigin: 'center center',
       }}
     >
       {/* Outline heart, fades 0 → 50% */}
-      <div style={{ position: 'absolute', inset: 0, opacity: outlineOpacity }}>{heartSvg(HEART.outlineColor)}</div>
+      <div style={{ position: 'absolute', inset: 0, opacity: outlineOpacity }}>
+        <svg
+          width={HEART_SVG.width}
+          height={HEART_SVG.height}
+          viewBox={`0 0 ${HEART_SVG.width} ${HEART_SVG.height}`}
+          style={{ position: 'absolute', left: HEART_SVG.x, top: HEART_SVG.y }}
+        >
+          <path d={HEART_PATH} fill='#ffffff' />
+        </svg>
+      </div>
       {/* Filling heart revealed by a circle growing from center */}
       <div
         style={{
@@ -309,12 +310,12 @@ function Heart({ frame, fps }: { frame: number; fps: number }) {
         }}
       >
         <svg
-          width={HEART.svg.width}
-          height={HEART.svg.height}
-          viewBox={`0 0 ${HEART.svg.width} ${HEART.svg.height}`}
-          style={{ position: 'absolute', left: HEART.svg.x - maskOffset, top: HEART.svg.y - maskOffset }}
+          width={HEART_SVG.width}
+          height={HEART_SVG.height}
+          viewBox={`0 0 ${HEART_SVG.width} ${HEART_SVG.height}`}
+          style={{ position: 'absolute', left: HEART_SVG.x - maskOffset, top: HEART_SVG.y - maskOffset }}
         >
-          <path d={HEART_PATH} fill={HEART.fillColor} />
+          <path d={HEART_PATH} fill='#FFEFFB' />
         </svg>
       </div>
     </div>
@@ -322,23 +323,26 @@ function Heart({ frame, fps }: { frame: number; fps: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Portrait bubble — mask rect resizes 0 → 72x72 from center
+// Portrait bubble — mask rect resizes 0 → 72x72 from center.
+// Group at (709, 652); image local rect (-15, -4) 93x111.
 // ---------------------------------------------------------------------------
 
+const PORTRAIT_SIZE = 72
+
 function PortraitBubble({ frame, fps }: { frame: number; fps: number }) {
-  const p = interpClamp(frame, PORTRAIT.maskResize.startMs, PORTRAIT.maskResize.endMs, 0, 1, fps, smooth50)
-  const size = PORTRAIT.size * p
-  const offset = (PORTRAIT.size - size) / 2
+  const p = interpClamp({ frame, startMs: 1262, endMs: 2062, from: 0, to: 1, fps, easing: smooth50 })
+  const size = PORTRAIT_SIZE * p
+  const offset = (PORTRAIT_SIZE - size) / 2
 
   return (
     <div
       style={{
         position: 'absolute',
-        left: PORTRAIT.x,
-        top: PORTRAIT.y,
-        width: PORTRAIT.size,
-        height: PORTRAIT.size,
-        borderRadius: PORTRAIT.outerRadius,
+        left: 709,
+        top: 652,
+        width: PORTRAIT_SIZE,
+        height: PORTRAIT_SIZE,
+        borderRadius: 14,
         overflow: 'hidden',
       }}
     >
@@ -349,18 +353,18 @@ function PortraitBubble({ frame, fps }: { frame: number; fps: number }) {
           top: offset,
           width: size,
           height: size,
-          borderRadius: PORTRAIT.maskRadius,
+          borderRadius: 15,
           overflow: 'hidden',
         }}
       >
         <img
-          src={PORTRAIT.src}
+          src='/images/portrait.jpg'
           style={{
             position: 'absolute',
-            left: PORTRAIT.img.x - offset,
-            top: PORTRAIT.img.y - offset,
-            width: PORTRAIT.img.width,
-            height: PORTRAIT.img.height,
+            left: -15 - offset,
+            top: -4 - offset,
+            width: 93,
+            height: 111,
             maxWidth: 'none',
           }}
         />
@@ -373,21 +377,37 @@ function PortraitBubble({ frame, fps }: { frame: number; fps: number }) {
 // Static chrome — Mango logo and URL
 // ---------------------------------------------------------------------------
 
+/** Mango logo vectors, recolored #FFEFFB. Positions are local to the inner
+ * "Group 1" which sits at (0, 8.7421875) inside the logo group at (52, 50). */
+const LOGO_VECTORS = [
+  { src: '/svg/logo-2.svg', x: 170, y: 9, width: 29, height: 29 },
+  { src: '/svg/logo-3.svg', x: 141, y: 9, width: 28, height: 40 },
+  { src: '/svg/logo-4.svg', x: 113, y: 9, width: 26, height: 29 },
+  { src: '/svg/logo-5.svg', x: 84, y: 9, width: 28, height: 29 },
+  { src: '/svg/logo-6.svg', x: 41, y: 0, width: 42, height: 38 },
+  { src: '/svg/logo-7.svg', x: 29, y: 0, width: 7, height: 7 },
+  { src: '/svg/logo-8.svg', x: 12, y: 27, width: 9, height: 9 },
+  { src: '/svg/logo-9.svg', x: 0, y: 14, width: 9, height: 9 },
+  { src: '/svg/logo-10.svg', x: 12, y: 2, width: 9, height: 9 },
+  { src: '/svg/logo-11.svg', x: 4, y: 6, width: 25, height: 26 },
+  { src: '/svg/logo-12.svg', x: 25, y: 14, width: 9, height: 9 },
+] as const
+
 function LogoAndUrl() {
   return (
     <>
       <div
         style={{
           position: 'absolute',
-          left: LOGO.x,
-          top: LOGO.y,
-          width: LOGO.width,
-          height: LOGO.height,
+          left: 52,
+          top: 50,
+          width: 201,
+          height: 57,
           overflow: 'hidden',
         }}
       >
-        <div style={{ position: 'absolute', left: 0, top: LOGO.groupY }}>
-          {LOGO.vectors.map((v, i) => (
+        <div style={{ position: 'absolute', left: 0, top: 8.7421875 }}>
+          {LOGO_VECTORS.map((v, i) => (
             <img
               key={i}
               src={v.src}
@@ -399,17 +419,17 @@ function LogoAndUrl() {
       <div
         style={{
           position: 'absolute',
-          left: URL_TEXT.x,
-          top: URL_TEXT.y,
-          width: URL_TEXT.width,
-          fontSize: URL_TEXT.fontSize,
-          lineHeight: `${URL_TEXT.lineHeight}px`,
-          color: URL_TEXT.color,
+          left: 1592,
+          top: 52,
+          width: 262,
+          fontSize: 27,
+          lineHeight: `${27 * 0.96}px`,
+          color: '#FFEFFB',
           fontFamily: FONT_FAMILY,
           textAlign: 'right',
         }}
       >
-        {URL_TEXT.text}
+        buildmango.co
       </div>
     </>
   )
@@ -423,15 +443,7 @@ export function TestimonialCard() {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
 
-  const quoteMarkOpacity = interpClamp(
-    frame,
-    QUOTE_MARK.fade.startMs,
-    QUOTE_MARK.fade.endMs,
-    0,
-    1,
-    fps,
-    (t) => t,
-  )
+  const quoteMarkOpacity = interpClamp({ frame, startMs: 752, endMs: 982, from: 0, to: 1, fps, easing: (t) => t })
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#ffffff' }}>
@@ -449,12 +461,12 @@ export function TestimonialCard() {
           position: 'absolute',
           left: OFFSET_X,
           top: OFFSET_Y,
-          width: ARTBOARD.width,
-          height: ARTBOARD.height,
+          width: ARTBOARD_W,
+          height: ARTBOARD_H,
           transform: `scale(${SCALE})`,
           transformOrigin: 'top left',
           overflow: 'hidden',
-          backgroundColor: ARTBOARD.fillColor,
+          backgroundColor: '#00D0FF',
           fontFamily: FONT_FAMILY,
         }}
       >
@@ -465,35 +477,33 @@ export function TestimonialCard() {
         <div
           style={{
             position: 'absolute',
-            left: QUOTE_MARK.x,
-            top: QUOTE_MARK.y,
-            width: QUOTE_MARK.width,
-            fontSize: QUOTE_MARK.fontSize,
+            left: 694,
+            top: 482,
+            width: 447,
+            fontSize: 32,
             lineHeight: `${BODY_LINE_HEIGHT}px`,
-            color: QUOTE_MARK.color,
+            color: '#ffffff',
             opacity: quoteMarkOpacity,
           }}
         >
-          {QUOTE_MARK.text}
+          {'\u201C'}
         </div>
 
         {/* Quote text — word by word slideAndMask */}
         <div
           style={{
             position: 'absolute',
-            left: QUOTE_TEXT.x,
-            top: QUOTE_TEXT.y,
-            width: QUOTE_TEXT.width,
-            fontSize: QUOTE_TEXT.fontSize,
+            left: 710,
+            top: 481,
+            width: 510,
+            fontSize: 32,
             lineHeight: `${BODY_LINE_HEIGHT}px`,
-            color: QUOTE_TEXT.color,
+            color: '#FFEFFB',
           }}
         >
           <MaskedWordsText
-            text={QUOTE_TEXT.text}
-            startMs={QUOTE_TEXT.textIn.startMs}
-            nodeDurationMs={QUOTE_TEXT.textIn.nodeDurationMs}
-            offsetMs={QUOTE_TEXT.textIn.offsetMs}
+            text={"Mango's AI templates save us hours and make every campaign feel personalized. Highly recommend!\u201D"}
+            startMs={500}
             frame={frame}
             fps={fps}
           />
@@ -503,22 +513,15 @@ export function TestimonialCard() {
         <div
           style={{
             position: 'absolute',
-            left: AUTHOR_TEXT.x,
-            top: AUTHOR_TEXT.y,
-            width: AUTHOR_TEXT.width,
-            fontSize: AUTHOR_TEXT.fontSize,
+            left: 803,
+            top: 652,
+            width: 206,
+            fontSize: 32,
             lineHeight: `${BODY_LINE_HEIGHT}px`,
-            color: AUTHOR_TEXT.color,
+            color: '#ffffff80',
           }}
         >
-          <MaskedWordsText
-            text={AUTHOR_TEXT.text}
-            startMs={AUTHOR_TEXT.textIn.startMs}
-            nodeDurationMs={AUTHOR_TEXT.textIn.nodeDurationMs}
-            offsetMs={AUTHOR_TEXT.textIn.offsetMs}
-            frame={frame}
-            fps={fps}
-          />
+          <MaskedWordsText text='John Doe, CEO of Acme' startMs={1490} frame={frame} fps={fps} />
         </div>
 
         <Heart frame={frame} fps={fps} />
