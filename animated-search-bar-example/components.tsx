@@ -42,56 +42,11 @@ import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } fr
 
 const ARTBOARD_W = 680
 const ARTBOARD_H = 120
-const COMP_W = 1920
-const COMP_H = 1080
-const SCALE = Math.min(COMP_W / ARTBOARD_W, COMP_H / ARTBOARD_H)
-const OFFSET_X = (COMP_W - ARTBOARD_W * SCALE) / 2
-const OFFSET_Y = (COMP_H - ARTBOARD_H * SCALE) / 2
+const SCALE = Math.min(1920 / ARTBOARD_W, 1080 / ARTBOARD_H)
+const OFFSET_X = (1920 - ARTBOARD_W * SCALE) / 2
+const OFFSET_Y = (1080 - ARTBOARD_H * SCALE) / 2
 
-// ---------------------------------------------------------------------------
-// Scene constants (Jitter artboard coordinates)
-// ---------------------------------------------------------------------------
-
-/** "Search bar" layerGrp: x 20, y 20, 640x80, radius 40, fill #ffffff */
-const BAR = { x: 20, y: 20, width: 640, height: 80, radius: 40, color: '#ffffff' }
-/** Bar center never moves: resize is center-anchored */
-const BAR_CENTER_X = BAR.x + BAR.width / 2
-/** resize op fromValue: bar starts as an 80px-wide circle */
-const BAR_START_WIDTH = 80
-
-/** Search icon: 40x40 at (20, 20) inside the bar */
-const ICON = { x: 20, y: 20, size: 40 }
-
-/** Text layer: x 80, y 20 inside the bar, Inter 500 24px, lh 166.667% */
-const TEXT = {
-  value: 'Best motion design tool',
-  x: 80,
-  y: 20,
-  height: 40,
-  fontSize: 24,
-  color: '#404040',
-  fontFamily: '"Inter", sans-serif',
-  fontWeight: 500,
-  lineHeight: 40, // 24px * 166.66667%
-}
-
-/** textIn op: typewriter pop, 50ms per non-space letter (see header comment) */
-const TEXT_IN = { startMs: 900, staggerMs: 50 }
-
-// ---------------------------------------------------------------------------
-// Easings (measured + fit, see header comment)
-// ---------------------------------------------------------------------------
-
-/** "natural" on the resize op — exactly CSS `ease` */
-const resizeEase = Easing.bezier(0.25, 0.1, 0.25, 1)
-/** "slowDown" scale curve on growIn ops and textIn nodeEasing */
-const slowDownEase = Easing.bezier(0, 0.5, 0, 1)
-/** "accelerate" scale curve on shrinkOut */
-const accelerateEase = Easing.bezier(1, 0, 1, 0.1)
-/** growIn opacity: cubic ease-out (matched renderer alpha exactly) */
-const cubicOut = (t: number) => 1 - (1 - t) ** 3
-/** shrinkOut opacity: cubic ease-in (matched renderer alpha exactly) */
-const cubicIn = (t: number) => t ** 3
+const QUERY = 'Best motion design tool'
 
 // ---------------------------------------------------------------------------
 // Animation helpers
@@ -125,19 +80,14 @@ function interpClamp({
   })
 }
 
-/** growIn: scale 0→1 (slowDown) + opacity 0→1 (cubic out) over [startMs, endMs] */
+/**
+ * growIn: scale 0→1 with the measured "slowDown" curve bezier(0, 0.5, 0, 1),
+ * opacity 0→1 with cubic ease-out (matched renderer alpha exactly).
+ */
 function growIn(frame: number, fps: number, startMs: number, endMs: number) {
   return {
-    scale: interpClamp({ frame, startMs, endMs, from: 0, to: 1, fps, easing: slowDownEase }),
-    opacity: interpClamp({ frame, startMs, endMs, from: 0, to: 1, fps, easing: cubicOut }),
-  }
-}
-
-/** shrinkOut: scale 1→0 (accelerate) + opacity 1→0 (cubic in) over [startMs, endMs] */
-function shrinkOut(frame: number, fps: number, startMs: number, endMs: number) {
-  return {
-    scale: interpClamp({ frame, startMs, endMs, from: 1, to: 0, fps, easing: accelerateEase }),
-    opacity: interpClamp({ frame, startMs, endMs, from: 1, to: 0, fps, easing: cubicIn }),
+    scale: interpClamp({ frame, startMs, endMs, from: 0, to: 1, fps, easing: Easing.bezier(0, 0.5, 0, 1) }),
+    opacity: interpClamp({ frame, startMs, endMs, from: 0, to: 1, fps, easing: (t) => 1 - (1 - t) ** 3 }),
   }
 }
 
@@ -148,8 +98,8 @@ function shrinkOut(frame: number, fps: number, startMs: number, endMs: number) {
 /** Appearance time per character: spaces share the next letter's slot */
 const CHAR_START_MS = (() => {
   let nonSpaceIndex = 0
-  return TEXT.value.split('').map((char) => {
-    const startMs = TEXT_IN.startMs + nonSpaceIndex * TEXT_IN.staggerMs
+  return QUERY.split('').map((char) => {
+    const startMs = 900 + nonSpaceIndex * 50
     if (char !== ' ') nonSpaceIndex += 1
     return startMs
   })
@@ -159,7 +109,7 @@ function TypedQuery({ frame, fps }: { frame: number; fps: number }) {
   const timeMs = (frame / fps) * 1000
   return (
     <span style={{ display: 'inline-flex' }}>
-      {TEXT.value.split('').map((char, i) => (
+      {QUERY.split('').map((char, i) => (
         <span
           key={i}
           style={{
@@ -183,23 +133,31 @@ export function AnimatedSearchBar() {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
 
-  // resize: width 80→640, center-anchored (bar center stays at x 340)
+  // resize op (400-1100): width 80→640, "natural" easing = exactly CSS `ease`.
+  // Center-anchored: the bar center stays at x 340 (bar x 20 + 640/2).
   const barWidth = interpClamp({
     frame,
     startMs: 400,
     endMs: 1100,
-    from: BAR_START_WIDTH,
-    to: BAR.width,
+    from: 80,
+    to: 640,
     fps,
-    easing: resizeEase,
+    easing: Easing.bezier(0.25, 0.1, 0.25, 1),
   })
-  const barLeft = BAR_CENTER_X - barWidth / 2
+  const barLeft = 340 - barWidth / 2
 
-  // growIn (0-400) and shrinkOut (3200-3500) on the whole bar group
+  // growIn (0-400) and shrinkOut (3200-3500) on the whole bar group.
+  // shrinkOut: scale with the measured "accelerate" curve bezier(1, 0, 1, 0.1),
+  // opacity with cubic ease-in (matched renderer alpha exactly).
   const grow = growIn(frame, fps, 0, 400)
-  const shrink = shrinkOut(frame, fps, 3200, 3500)
-  const barScale = grow.scale * shrink.scale
-  const barOpacity = grow.opacity * shrink.opacity
+  const shrinkScale = interpClamp({
+    frame, startMs: 3200, endMs: 3500, from: 1, to: 0, fps,
+    easing: Easing.bezier(1, 0, 1, 0.1),
+  })
+  const shrinkOpacity = interpClamp({
+    frame, startMs: 3200, endMs: 3500, from: 1, to: 0, fps,
+    easing: (t) => t ** 3,
+  })
 
   // icon growIn (100-500), scales from its own center on top of the group scale
   const icon = growIn(frame, fps, 100, 500)
@@ -219,53 +177,55 @@ export function AnimatedSearchBar() {
           transformOrigin: 'top left',
         }}
       >
-        {/* Search bar group: white pill + icon + text scale/fade together */}
+        {/* "Search bar" layerGrp (x 20, y 20, 640x80): pill + icon + text scale/fade together */}
         <div
           style={{
             position: 'absolute',
             left: barLeft,
-            top: BAR.y,
+            top: 20,
             width: barWidth,
-            height: BAR.height,
-            transform: `scale(${barScale})`,
+            height: 80,
+            transform: `scale(${grow.scale * shrinkScale})`,
             transformOrigin: 'center center',
-            opacity: barOpacity,
+            opacity: grow.opacity * shrinkOpacity,
           }}
         >
           <div
             style={{
               position: 'absolute',
               inset: 0,
-              backgroundColor: BAR.color,
-              borderRadius: BAR.radius,
+              backgroundColor: '#ffffff',
+              borderRadius: 40,
             }}
           />
+          {/* Search icon: 40x40 at (20, 20) inside the bar */}
           <img
             src='/search.svg'
             alt=''
             style={{
               position: 'absolute',
-              left: ICON.x,
-              top: ICON.y,
-              width: ICON.size,
-              height: ICON.size,
+              left: 20,
+              top: 20,
+              width: 40,
+              height: 40,
               maxWidth: 'none', // egaki player ships Tailwind preflight (img { max-width: 100% })
               transform: `scale(${icon.scale})`,
               transformOrigin: 'center center',
               opacity: icon.opacity,
             }}
           />
+          {/* Text layer: x 80, y 20 inside the bar, Inter 500 24px, lineHeight 166.667% = 40px */}
           <div
             style={{
               position: 'absolute',
-              left: TEXT.x,
-              top: TEXT.y,
-              height: TEXT.height,
-              fontSize: TEXT.fontSize,
-              fontFamily: TEXT.fontFamily,
-              fontWeight: TEXT.fontWeight,
-              lineHeight: `${TEXT.lineHeight}px`,
-              color: TEXT.color,
+              left: 80,
+              top: 20,
+              height: 40,
+              fontSize: 24,
+              fontFamily: '"Inter", sans-serif',
+              fontWeight: 500,
+              lineHeight: '40px',
+              color: '#404040',
               whiteSpace: 'nowrap',
             }}
           >
