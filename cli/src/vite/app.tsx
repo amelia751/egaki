@@ -30,7 +30,7 @@ import { Spiceflow } from 'spiceflow'
 import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
-import mdxSource, { projectRoot } from 'virtual:egaki-mdx'
+import mdxSource, { projectRoot, entryPath } from 'virtual:egaki-mdx'
 import {
   findServerNodes,
   blankServerContents,
@@ -84,7 +84,7 @@ export const app = new Spiceflow()
     const serverNodes = findServerNodes(ast)
 
     if (serverNodes.length === 0) {
-      return <MdxClientApp mdx={mdxSource} serverSlots={{}} />
+      return <MdxClientApp mdx={mdxSource} serverSlots={{}} entryPath={entryPath} />
     }
 
     const eagerModules = await importServerModules(ast)
@@ -120,5 +120,5 @@ export const app = new Spiceflow()
     }
 
     const clientMdx = blankServerContents(mdxSource, serverNodes)
-    return <MdxClientApp mdx={clientMdx} serverSlots={serverSlots} />
+    return <MdxClientApp mdx={clientMdx} serverSlots={serverSlots} entryPath={entryPath} />
   })

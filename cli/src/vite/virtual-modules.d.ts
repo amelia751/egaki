@@ -8,6 +8,8 @@ declare module 'virtual:egaki-mdx' {
   /** Absolute path of the vite project root, for resolving relative MDX
    *  import sources in <Server> slot rendering (app.tsx). */
   export const projectRoot: string
+  /** Absolute path of the MDX entry file. */
+  export const entryPath: string
 }
 
 declare module 'virtual:egaki-modules' {

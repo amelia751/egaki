@@ -147,11 +147,16 @@ function serializeChanges(
   currentFrame: number | null,
   fps: number,
   sections: SectionMeta[],
+  entryPath: string,
 ): string {
   const entries = Array.from(changes.values()).filter(hasChange)
   if (entries.length === 0) return ''
 
   const parts: string[] = ['## Layout changes\n']
+
+  if (entryPath) {
+    parts.push(`File: ${entryPath}`)
+  }
 
   // Frame + section context
   if (currentFrame !== null) {
@@ -206,7 +211,7 @@ function ToolbarButton({ onClick, active, children, title }: {
 
 // ── Main component ─────────────────────────────────────────────────────
 
-export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditingChange, onReset, sections, fps }: {
+export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditingChange, onReset, sections, fps, entryPath }: {
   playerContainerRef: React.RefObject<HTMLElement | null>
   playerRef: React.RefObject<{ getCurrentFrame: () => number; addEventListener: (name: any, cb: any) => void; removeEventListener: (name: any, cb: any) => void } | null>
   editing: boolean
@@ -214,6 +219,7 @@ export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditing
   onReset: () => void
   sections: SectionMeta[]
   fps: number
+  entryPath: string
 }) {
   const [selectedEl, setSelectedEl] = useState<HTMLElement | null>(null)
   const [changesCount, setChangesCount] = useState(0)
@@ -574,7 +580,7 @@ export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditing
 
   const handleCopy = useCallback(async () => {
     const currentFrame = playerRef.current?.getCurrentFrame() ?? null
-    const text = serializeChanges(changesRef.current, currentFrame, fps, sections)
+    const text = serializeChanges(changesRef.current, currentFrame, fps, sections, entryPath)
     if (!text) return
     await navigator.clipboard.writeText(text)
     setCopied(true)

@@ -105,6 +105,7 @@ export function video(options: VideoPluginOptions): PluginOption[] {
           `import mdx from ${JSON.stringify(absEntry + '?raw')}`,
           `export default mdx`,
           `export const projectRoot = ${JSON.stringify(root.replace(/\\/g, '/'))}`,
+          `export const entryPath = ${JSON.stringify(absEntry)}`,
         ].join('\n')
       }
 

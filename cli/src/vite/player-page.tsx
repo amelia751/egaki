@@ -254,10 +254,13 @@ export function PlayerPage({
   sections,
   totalDuration,
   preamble,
+  entryPath,
 }: {
   sections: SectionProps[]
   totalDuration: number
   preamble?: ReactNode
+  /** Absolute path of the MDX entry file, included in copy prompts. */
+  entryPath: string
 }) {
   // Stable component function that reads latest props from a ref.
   // Created once so its identity never changes between renders.
@@ -524,7 +527,7 @@ export function PlayerPage({
 
   return (
     <div className='flex flex-col items-center justify-center min-h-screen bg-black'>
-      <TweakpaneRoot playerRef={playerRef} fps={30} sections={sections} />
+      <TweakpaneRoot playerRef={playerRef} fps={30} sections={sections} entryPath={entryPath} />
       {/* Player — fills page width, but capped so the 16:9 height never
           exceeds the viewport height (max-width = 100vh × aspect ratio). */}
       <div
@@ -659,6 +662,7 @@ export function PlayerPage({
           onReset={() => setResetKey((k) => k + 1)}
           sections={sections}
           fps={30}
+          entryPath={entryPath}
         />
       </div>
     </div>

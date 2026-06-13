@@ -273,12 +273,15 @@ const EMPTY_SLOTS: ServerSlots = {}
 export function MdxClientApp({
   mdx,
   serverSlots = EMPTY_SLOTS,
+  entryPath,
 }: {
   mdx: string
   /** Server-rendered <Server> subtrees keyed by node start line, produced
    *  in app.tsx and delivered via RSC flight. Consumed by the Server
    *  component through ServerSlotsContext. */
   serverSlots?: ServerSlots
+  /** Absolute path of the MDX entry file, for copy prompts. */
+  entryPath: string
 }) {
   const modules = useSyncExternalStore(subscribeModules, getModules, getModules)
   const { sections, totalDuration, preamble } = useMemo(
@@ -291,6 +294,7 @@ export function MdxClientApp({
         sections={sections}
         totalDuration={totalDuration}
         preamble={preamble}
+        entryPath={entryPath}
       />
     </ServerSlotsContext.Provider>
   )

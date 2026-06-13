@@ -69,6 +69,7 @@ export interface TweakpaneContextValue {
   playerRef: React.RefObject<PlayerRef | null>
   fps: number
   sections: { heading: string | null; durationInFrames: number }[]
+  entryPath: string
 }
 
 export const TweakpaneContext = createContext<TweakpaneContextValue | null>(null)
@@ -181,6 +182,10 @@ function serializeTweakpanePrompt(
   if (activeFolders.size === 0) return ''
 
   const parts: string[] = ['## Parameter changes\n']
+
+  if (ctx?.entryPath) {
+    parts.push(`File: ${ctx.entryPath}`)
+  }
 
   // Frame + section context
   if (ctx) {
@@ -388,18 +393,20 @@ export function TweakpaneRoot({
   playerRef,
   fps,
   sections,
+  entryPath,
 }: {
   playerRef: React.RefObject<PlayerRef | null>
   fps: number
   sections: { heading: string | null; durationInFrames: number }[]
+  entryPath: string
 }) {
   // Keep module-level ref in sync for the copy button handler
   useEffect(() => {
-    contextRef = { playerRef, fps, sections }
+    contextRef = { playerRef, fps, sections, entryPath }
     return () => {
       contextRef = null
     }
-  }, [playerRef, fps, sections])
+  }, [playerRef, fps, sections, entryPath])
 
   return null
 }
