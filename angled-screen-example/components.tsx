@@ -6,8 +6,8 @@
  */
 
 import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion'
-import { Video } from '@remotion/media'
-import { AngledScreen, EASE } from 'egaki/video'
+
+import { Video , AngledScreen, EASE } from 'egaki/video'
 
 export function ImageShowcase() {
   const frame = useCurrentFrame()
