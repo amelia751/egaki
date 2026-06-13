@@ -165,6 +165,30 @@ Content
     expect(result.sections[0]!.durationInFrames).toBe(60)
   })
 
+  test('duration with frames/f unit aliases', () => {
+    const result = summarize(`
+# A duration=90frames
+
+x
+
+# B duration=90frame
+
+y
+
+# C duration=90f
+
+z
+
+# D duration=90fps
+
+w
+    `)
+    expect(result.sections[0]!.durationInFrames).toBe(90)
+    expect(result.sections[1]!.durationInFrames).toBe(90)
+    expect(result.sections[2]!.durationInFrames).toBe(90)
+    expect(result.sections[3]!.durationInFrames).toBe(90)
+  })
+
   test('background before first heading goes to preamble, not a section', () => {
     const result = split(`
 <Background>

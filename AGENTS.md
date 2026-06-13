@@ -183,7 +183,33 @@ npx opensrc <owner>/<repo>      # GitHub repo (e.g., npx opensrc vercel/ai)
 
 # egaki video
 
-MDX-to-video framework built on Remotion and Spiceflow. Write MDX with headings as section boundaries; each heading becomes a timed Remotion `Series.Sequence`. Section duration is controlled via heading suffixes (`duration=3s`, `duration=90fps`, `duration=8beats`). Frontmatter sets global `fps` and `bpm`.
+MDX-to-video framework built on Remotion and Spiceflow. Write MDX with headings as section boundaries; each heading becomes a timed Remotion `Series.Sequence`. Frontmatter sets global `fps` and `bpm`.
+
+### Heading duration and transition units
+
+`duration` and `transition` props on headings accept a number with an optional unit suffix:
+
+| Unit | Example | Meaning |
+|---|---|---|
+| `s` | `duration=3.5s` | Seconds (multiplied by fps) |
+| `beats` / `beat` | `duration=8beats` | Beats (using frontmatter `bpm`) |
+| `frames` / `frame` / `fps` / `f` | `duration=90frames` | Raw frames |
+| *(bare number)* | `duration=90` | Raw frames (same as `frames`) |
+
+```mdx
+---
+fps: 30
+bpm: 120
+---
+
+# Intro duration=3s
+
+# Verse duration=8beats
+
+# Bridge duration=90frames transition=15f
+
+# Outro duration=2s transition=0.5s
+```
 
 ## How it works
 

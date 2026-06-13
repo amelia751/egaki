@@ -52,7 +52,7 @@ function parseFrontmatter(mdast: Root): VideoFrontmatter {
 // Duration parsing from heading text
 // ---------------------------------------------------------------------------
 
-const HEADING_PROP_RE = /\s+(duration|transition)=(\d+(?:\.\d+)?)(s|fps|beats?)?/gi
+const HEADING_PROP_RE = /\s+(duration|transition)=(\d+(?:\.\d+)?)(s|fps|frames?|f|beats?)?/gi
 
 interface ParsedHeading {
   label: string
@@ -72,7 +72,7 @@ function parseHeadingProps(
   const framesPerBeat = fps / (bpm / 60)
 
   // Strip all key=value props from the heading text
-  label = label.replace(HEADING_PROP_RE, (match, key, value, unit) => {
+  label = label.replace(HEADING_PROP_RE, (_match, key, value, unit) => {
     const v = Number(value)
     const u = (unit || '').toLowerCase()
     let frames: number
@@ -81,6 +81,7 @@ function parseHeadingProps(
     } else if (u === 'beat' || u === 'beats') {
       frames = Math.round(v * framesPerBeat)
     } else {
+      // bare number, fps, f, frame, frames — all mean raw frames
       frames = Math.round(v)
     }
 
