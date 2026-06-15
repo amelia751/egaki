@@ -74,6 +74,11 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
     label: 'ElevenLabs (speech)',
     hint: 'Get your key at https://elevenlabs.io/app/settings/api-keys',
   },
+  cartesia: {
+    envVar: 'CARTESIA_API_KEY',
+    label: 'Cartesia (speech)',
+    hint: 'Get your key at https://play.cartesia.ai/keys',
+  },
 }
 
 export const EGAKI_GATEWAY_URL = 'https://egaki.org/v3/ai'

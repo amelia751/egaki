@@ -6,7 +6,7 @@
 // Pricing sources:
 //   OpenAI:      https://platform.openai.com/docs/pricing (per 1M characters)
 //   ElevenLabs:  https://elevenlabs.io/pricing (per 1K characters, varies by plan)
-//   Cartesia:    https://cartesia.ai/pricing (credits = characters)
+//   Cartesia:    https://cartesia.ai/pricing (plan-based, ~1 credit per character)
 
 import type { ProviderOption } from './model-catalog.js'
 
@@ -60,6 +60,11 @@ const openaiSpeechBase = {
 
 const elevenlabsSpeechBase = {
   provider: 'elevenlabs',
+  strategy: 'speech' as const,
+}
+
+const cartesiaSpeechBase = {
+  provider: 'cartesia',
   strategy: 'speech' as const,
 }
 
@@ -184,6 +189,58 @@ export const SPEECH_CATALOG: SpeechModelEntry[] = [
       language: true,
       maxChars: 0,
       defaultVoices: [],
+    },
+  },
+
+
+  // ── Cartesia ───────────────────────────────────────────────────────────
+  // Pricing is plan-based (~1 credit per character). The per-million rate
+  // below is estimated from the Startup plan ($49/1.25M credits ≈ $39/M).
+  // See https://cartesia.ai/pricing for current plans.
+  {
+    id: 'sonic-3.5',
+    name: 'Cartesia Sonic 3.5',
+    description:
+      'Fastest, most natural Cartesia TTS. #1 for naturalness, sub-90ms latency, ' +
+      '42 languages. Recommended for production.',
+    ...cartesiaSpeechBase,
+    released: '2026-05',
+    cost: { type: 'per-character', perMillionChars: 39 },
+    features: {
+      outputFormats: ['mp3', 'wav', 'raw'],
+      instructions: false,
+      speed: true,
+      language: true,
+      maxChars: 0,
+      defaultVoices: [
+        'f786b574-daa5-4673-aa0c-cbe3e8534c02', // Katie (en-US Female)
+        'db6b0ed5-d5d3-463d-ae85-518a07d3c2b4', // Skylar (en-US Female)
+        'a5136bf9-224c-4d76-b823-52bd5efcffcc', // Jameson (en-US Male)
+        '62ae83ad-4f6a-430b-af41-a9bede9286ca', // Gemma (en-GB Female)
+        'ef191366-f52f-447a-a398-ed8c0f2943a1', // Archie (en-GB Male)
+      ],
+    },
+  },
+  {
+    id: 'sonic-3',
+    name: 'Cartesia Sonic 3',
+    description:
+      'Previous generation Cartesia TTS. Still high quality with pronunciation ' +
+      'dictionaries support.',
+    ...cartesiaSpeechBase,
+    released: '2025-01',
+    cost: { type: 'per-character', perMillionChars: 39 },
+    features: {
+      outputFormats: ['mp3', 'wav', 'raw'],
+      instructions: false,
+      speed: true,
+      language: true,
+      maxChars: 0,
+      defaultVoices: [
+        'f786b574-daa5-4673-aa0c-cbe3e8534c02', // Katie (en-US Female)
+        'db6b0ed5-d5d3-463d-ae85-518a07d3c2b4', // Skylar (en-US Female)
+        'a5136bf9-224c-4d76-b823-52bd5efcffcc', // Jameson (en-US Male)
+      ],
     },
   },
 

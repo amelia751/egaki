@@ -592,10 +592,10 @@ cli
     'speech [text]',
     dedent`
       Generate speech audio from text using AI text-to-speech models.
-      Supports OpenAI (tts-1, tts-1-hd, gpt-4o-mini-tts) and ElevenLabs
-      (eleven_v3, eleven_multilingual_v2, eleven_flash_v2_5).
-      Uses your provider API key directly (egaki subscription does not
-      cover speech yet).
+      Supports OpenAI (tts-1, tts-1-hd, gpt-4o-mini-tts), ElevenLabs
+      (eleven_v3, eleven_multilingual_v2, eleven_flash_v2_5), and Cartesia
+      (sonic-3.5, sonic-3). Uses your provider API key directly (egaki
+      subscription does not cover speech yet).
     `,
   )
   .option(
@@ -613,7 +613,7 @@ cli
     '--voice [voice]',
     z
       .string()
-      .describe('Voice ID or name (provider-specific). OpenAI: alloy, echo, nova, etc. ElevenLabs: voice ID from their library'),
+      .describe('Voice ID or name (provider-specific). OpenAI: alloy, echo, nova, etc. ElevenLabs/Cartesia: voice ID from their library'),
   )
   .option(
     '--output-format [format]',
@@ -625,7 +625,7 @@ cli
     '--speed [speed]',
     z
       .number()
-      .describe('Playback speed multiplier (OpenAI: 0.25-4.0)'),
+      .describe('Playback speed multiplier (OpenAI: 0.25-4.0, Cartesia: 0.6-1.5)'),
   )
   .option(
     '--instructions [text]',
@@ -637,7 +637,7 @@ cli
     '--language [lang]',
     z
       .string()
-      .describe('ISO 639-1 language code (e.g. en, es, fr). ElevenLabs only'),
+      .describe('ISO 639-1 language code (e.g. en, es, fr). ElevenLabs and Cartesia'),
   )
   .option(
     '--stdin',
@@ -661,6 +661,8 @@ cli
   .example('egaki speech "Hello world" -m eleven_v3 --voice 21m00Tcm4TlvDq8ikWAM')
   .example('# Read text from stdin')
   .example('cat script.txt | egaki speech --stdin -o narration.mp3')
+  .example('# Cartesia Sonic 3.5 with a voice ID')
+  .example('egaki speech "Hello world" -m sonic-3.5 --voice f786b574-daa5-4673-aa0c-cbe3e8534c02')
   .example('# Pipe audio to another tool')
   .example('egaki speech "test" --stdout | ffplay -nodisp -autoexit -')
   .action(async (text = '', options) => {

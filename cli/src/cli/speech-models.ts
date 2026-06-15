@@ -44,6 +44,12 @@ const SPEECH_PROVIDER_SDKS: Record<string, SpeechProviderSdk> = {
       return elevenlabs.speech(id)
     },
   },
+  cartesia: {
+    speech: async (id) => {
+      const { createCartesiaSpeechModel } = await import('./cartesia-provider.js')
+      return createCartesiaSpeechModel(id)
+    },
+  },
 }
 
 // ─── key checking ────────────────────────────────────────────────────────────
