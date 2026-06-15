@@ -1,0 +1,36 @@
+---
+fps: 30
+bpm: 120
+---
+
+import { TitleCard } from './components'
+
+# Intro duration=3s
+
+<TitleCard title="Auto Duration Demo" subtitle="Sections auto-size to their media content" />
+
+# Video Scene
+
+No `duration=` on this heading. The section automatically sizes to the
+video's duration (6s), fetched via mediabunny metadata.
+
+<Video src="/arrakis.mp4" style={{ width: '80%', borderRadius: 12, objectFit: 'cover' }} />
+
+# Audio Scene
+
+Same here — the section duration matches the audio file length (6s).
+
+<Audio src="/minecraft-soundtrack.mp3" />
+
+**Now playing:** minecraft-soundtrack.mp3
+
+# Trimmed Video
+
+This section has a `<Video>` with `trimBefore` and `trimAfter` props.
+Duration is computed from the trim range (3s) without any metadata fetch.
+
+<Video src="/arrakis.mp4" trimBefore={0} trimAfter={90} style={{ width: '80%', borderRadius: 12, objectFit: 'cover' }} />
+
+# Outro duration=2s
+
+<TitleCard title="The End" subtitle="Sections with duration= are unchanged" />
