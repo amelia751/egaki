@@ -562,9 +562,9 @@ export function PlayerPage({
       }
       if (e.key === 'j' || e.key === 'J') {
         e.preventDefault()
-        // Seek backward 2 seconds (60 frames at 30fps)
+        // Seek backward 2 seconds
         if (player.isPlaying()) player.pause()
-        player.seekTo(clamp(frame - 60))
+        player.seekTo(clamp(frame - Math.round(fps * 2)))
         return
       }
 
@@ -578,7 +578,7 @@ export function PlayerPage({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [editing, totalDuration, sections, goToPrevScene, goToNextScene])
+  }, [editing, totalDuration, sections, goToPrevScene, goToNextScene, fps])
 
   const handleExport = useCallback(async () => {
     setRendering(true)

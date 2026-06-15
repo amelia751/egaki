@@ -53,8 +53,14 @@ export function parseFrontmatter(mdast: Root): VideoFrontmatter {
     if (parsed && typeof parsed === 'object') {
       if (typeof parsed.fps === 'number' && parsed.fps > 0) result.fps = parsed.fps
       if (typeof parsed.bpm === 'number' && parsed.bpm > 0) result.bpm = parsed.bpm
-      if (typeof parsed.width === 'number' && parsed.width > 0) result.width = Math.round(parsed.width)
-      if (typeof parsed.height === 'number' && parsed.height > 0) result.height = Math.round(parsed.height)
+      if (typeof parsed.width === 'number') {
+        const w = Math.round(parsed.width)
+        if (w > 0) result.width = w
+      }
+      if (typeof parsed.height === 'number') {
+        const h = Math.round(parsed.height)
+        if (h > 0) result.height = h
+      }
     }
   }
   return result
