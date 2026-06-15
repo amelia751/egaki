@@ -35,6 +35,7 @@
  */
 
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
+import { accelerateEasing } from 'egaki/video'
 
 // ---------------------------------------------------------------------------
 // Layout: scale the 680x120 artboard to fit the 1920x1080 composition
@@ -147,12 +148,12 @@ export function AnimatedSearchBar() {
   const barLeft = 340 - barWidth / 2
 
   // growIn (0-400) and shrinkOut (3200-3500) on the whole bar group.
-  // shrinkOut: scale with the measured "accelerate" curve bezier(1, 0, 1, 0.1),
+  // shrinkOut: scale with accelerateEasing(100) = bezier(1, 0, 1, 0.1),
   // opacity with cubic ease-in (matched renderer alpha exactly).
   const grow = growIn(frame, fps, 0, 400)
   const shrinkScale = interpClamp({
     frame, startMs: 3200, endMs: 3500, from: 1, to: 0, fps,
-    easing: Easing.bezier(1, 0, 1, 0.1),
+    easing: accelerateEasing(100),
   })
   const shrinkOpacity = interpClamp({
     frame, startMs: 3200, endMs: 3500, from: 1, to: 0, fps,

@@ -20,6 +20,7 @@
  */
 
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
+import { EASE, smoothEasing } from 'egaki/video'
 import {
   ANIM,
   ARTBOARD,
@@ -53,8 +54,8 @@ const OFFSET_Y = (COMP_H - ARTBOARD.height * SCALE) / 2
 // ---------------------------------------------------------------------------
 
 const E = {
-  smooth50: Easing.bezier(...EASINGS.smooth50),
-  smooth100: Easing.bezier(...EASINGS.smooth100),
+  smooth50: EASE.smooth,
+  smooth100: smoothEasing(100),
   socialScale: Easing.bezier(...EASINGS.socialScale),
   socialOpacity: Easing.bezier(...EASINGS.socialOpacity),
   groupPhase1: Easing.bezier(...EASINGS.groupPhase1),

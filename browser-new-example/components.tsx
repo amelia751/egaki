@@ -10,8 +10,8 @@
  *   1750+    zoom browser out so full domain fits in the chrome; URL text stays on mockup
  */
 
-import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
-import { decelerateEasing } from 'egaki/video'
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
+import { decelerateEasing, EASE } from 'egaki/video'
 import { ARTBOARD, SWAP_MS } from './data'
 
 const ARTBOARD_W = ARTBOARD.width
@@ -19,8 +19,6 @@ const ARTBOARD_H = ARTBOARD.height
 const COMP_W = 1920
 const COMP_H = 1080
 const SCALE = Math.min(COMP_W / ARTBOARD_W, COMP_H / ARTBOARD_H)
-
-const smooth50 = Easing.bezier(0.5, 0, 0, 1)
 
 const BROWSER_GRP_X = -395.451171875
 const BROWSER_GRP_Y = 176
@@ -158,13 +156,13 @@ export function BrowserNew() {
   let browserScale = 0.75
 
   if (timeMs > 0 && timeMs < SWAP_MS) {
-    const mx = interpClamp(frame, 0, 1250, -50, P1_MOVE_X, fps, smooth50)
-    const my = interpClamp(frame, 0, 1250, -277, P1_MOVE_Y, fps, smooth50)
-    browserScale = interpClamp(frame, 0, 1250, 0.75, P1_SCALE, fps, smooth50)
+    const mx = interpClamp(frame, 0, 1250, -50, P1_MOVE_X, fps, EASE.smooth)
+    const my = interpClamp(frame, 0, 1250, -277, P1_MOVE_Y, fps, EASE.smooth)
+    browserScale = interpClamp(frame, 0, 1250, 0.75, P1_SCALE, fps, EASE.smooth)
     groupLeft = BROWSER_GRP_X + mx
     groupTop = BROWSER_GRP_Y + my
   } else if (phase2) {
-    const t = interpClamp(frame, SWAP_MS, SWAP_MS + 600, 0, 1, fps, smooth50)
+    const t = interpClamp(frame, SWAP_MS, SWAP_MS + 600, 0, 1, fps, EASE.smooth)
     const p1UrlX = BROWSER_GRP_X + P1_MOVE_X + BROWSER_CX + (URL_CX - BROWSER_CX) * P1_SCALE
     const p1UrlY = BROWSER_GRP_Y + P1_MOVE_Y + BROWSER_CY + (URL_CY - BROWSER_CY) * P1_SCALE
     const p1 = groupPosForUrlAt(p1UrlX, p1UrlY, P1_SCALE)

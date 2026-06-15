@@ -29,8 +29,8 @@
  * control-point space exactly like Jitter's intensity dial.
  */
 
-import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
-import { impulseOvershoot } from 'egaki/video'
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
+import { EASE, impulseOvershoot } from 'egaki/video'
 
 // ---------------------------------------------------------------------------
 // Shared constants (everything used once is inlined at its use site)
@@ -60,9 +60,6 @@ const HEART_PATH =
 // ---------------------------------------------------------------------------
 // Easings
 // ---------------------------------------------------------------------------
-
-/** smooth:standard:v1 @ intensity 50 */
-const smooth50 = Easing.bezier(0.5, 0, 0, 1)
 
 /**
  * impulseAndOvershoot:standard:v1 at the exact non-standard intensities used
@@ -112,7 +109,7 @@ function interpClamp({
 // ---------------------------------------------------------------------------
 
 function cardRect(frame: number, fps: number) {
-  const resizeP = interpClamp({ frame, startMs: 0, endMs: 1490, from: 0, to: 1, fps, easing: smooth50 })
+  const resizeP = interpClamp({ frame, startMs: 0, endMs: 1490, from: 0, to: 1, fps, easing: EASE.smooth })
   const scaleUp = interpClamp({ frame, startMs: 1632, endMs: 3572, from: 1, to: 1.1, fps, easing: impulseOvershoot96 })
   const w = (1150 + (675 - 1150) * resizeP) * scaleUp
   const h = (910 + (392 - 910) * resizeP) * scaleUp
@@ -131,7 +128,7 @@ function cardRect(frame: number, fps: number) {
 
 /** Full-bleed background image (z bottom). Scale 1.5→1 from its own center. */
 function BackgroundVisual({ src, frame, fps }: { src: string; frame: number; fps: number }) {
-  const scale = interpClamp({ frame, startMs: 0, endMs: 1490, from: 1.5, to: 1, fps, easing: smooth50 })
+  const scale = interpClamp({ frame, startMs: 0, endMs: 1490, from: 1.5, to: 1, fps, easing: EASE.smooth })
   return (
     <img
       src={src}
@@ -151,7 +148,7 @@ function BackgroundVisual({ src, frame, fps }: { src: string; frame: number; fps
 
 function FrostedCard({ src, frame, fps }: { src: string; frame: number; fps: number }) {
   const rect = cardRect(frame, fps)
-  const imgScale = interpClamp({ frame, startMs: 0, endMs: 1490, from: 1.5, to: 1, fps, easing: smooth50 })
+  const imgScale = interpClamp({ frame, startMs: 0, endMs: 1490, from: 1.5, to: 1, fps, easing: EASE.smooth })
 
   // Blurred copy of the visual ("Card blur"), absolute position in artboard
   // space: (420 + (-140), -75 + (-162)) = (280, -237), 1275x1519.
@@ -222,7 +219,7 @@ function MaskedWordsText({
     <>
       {words.map((word, i) => {
         const wordStartMs = startMs + i * WORD_STAGGER_MS
-        const progress = interpClamp({ frame, startMs: wordStartMs, endMs: wordStartMs + WORD_DURATION_MS, from: 0, to: 1, fps, easing: smooth50 })
+        const progress = interpClamp({ frame, startMs: wordStartMs, endMs: wordStartMs + WORD_DURATION_MS, from: 0, to: 1, fps, easing: EASE.smooth })
         return (
           <span key={i}>
             <span
@@ -260,7 +257,7 @@ const HEART_SVG = { x: 4, y: 7, width: 34, height: 32 } as const
 function Heart({ frame, fps }: { frame: number; fps: number }) {
   const groupScale = interpClamp({ frame, startMs: 1732, endMs: 3672, from: 0.8, to: 1, fps, easing: impulseOvershoot71 })
   const outlineOpacity = interpClamp({ frame, startMs: 1262, endMs: 1772, from: 0, to: 0.5, fps, easing: (t) => t })
-  const maskP = interpClamp({ frame, startMs: 2125, endMs: 3210, from: 0, to: 1, fps, easing: smooth50 })
+  const maskP = interpClamp({ frame, startMs: 2125, endMs: 3210, from: 0, to: 1, fps, easing: EASE.smooth })
   const maskSize = HEART_SIZE * maskP
   const maskOffset = (HEART_SIZE - maskSize) / 2
 
@@ -323,7 +320,7 @@ const PORTRAIT_SIZE = 72
 const PORTRAIT_IMG = { x: -15 / 72, y: -4 / 72, width: 93 / 72, height: 111 / 72 } as const
 
 function PortraitBubble({ src, frame, fps }: { src: string; frame: number; fps: number }) {
-  const p = interpClamp({ frame, startMs: 1262, endMs: 2062, from: 0, to: 1, fps, easing: smooth50 })
+  const p = interpClamp({ frame, startMs: 1262, endMs: 2062, from: 0, to: 1, fps, easing: EASE.smooth })
   const size = PORTRAIT_SIZE * p
   const offset = (PORTRAIT_SIZE - size) / 2
 

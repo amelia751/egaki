@@ -274,10 +274,6 @@ export const ANIM = {
 // ---------------------------------------------------------------------------
 
 export const EASINGS = {
-  /** smooth:standard:v1 intensity 50 — mask resize, general */
-  smooth50: [0.5, 0, 0, 1] as const,
-  /** smooth:standard:v1 intensity 100 (90 rounds to 100) — bar spread */
-  smooth100: [0.9, 0, 0, 1] as const,
   /** Rescaling visuals initial scale — custom:path */
   rescale: [0.5375, 0, 0.65, 1] as const,
   /** "Social template" scale down */

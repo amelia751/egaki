@@ -14,7 +14,8 @@
  * outer container handles the scaling.
  */
 
-import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
+import { EASE } from 'egaki/video'
 import {
   ALL_ANIMATIONS,
   ARTBOARD,
@@ -57,14 +58,6 @@ const OVERLAY_HEIGHT = COMP_H - OVERLAY_TOP
 // Animation engine
 // ---------------------------------------------------------------------------
 
-/**
- * Jitter's "smooth:standard:v1" at intensity 50.
- * Extracted from Jitter's webpack bundle: cubic-bezier(0.5, 0, 0, 1).
- * The pattern is cubic-bezier(lerp(0.3, 0.9, intensity/100), 0, 0, 1) —
- * only the first control point's X varies with intensity.
- */
-const SMOOTH_EASING = Easing.bezier(0.5, 0, 0, 1)
-
 /** Build a lookup table: cardId → list of animations targeting it. */
 const animsByCard = new Map<string, MoveAnim[]>()
 for (const anim of ALL_ANIMATIONS) {
@@ -93,7 +86,7 @@ function computeCardOffset(
     const endFrame = (anim.endMs / 1000) * fps
 
     const progress = interpolate(frame, [startFrame, endFrame], [0, 1], {
-      easing: SMOOTH_EASING,
+      easing: EASE.smooth,
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
     })
