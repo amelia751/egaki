@@ -19,17 +19,34 @@ import {
 } from './speech-models.js'
 import type { GeneratedFile } from './generate.js'
 
+// ─── autocomplete-friendly union types ───────────────────────────────────────
+
+/** Speech model IDs from the catalog. Accepts arbitrary strings too. */
+export type SpeechModelId =
+  | 'tts-1' | 'tts-1-hd' | 'gpt-4o-mini-tts'
+  | 'eleven_v3' | 'eleven_multilingual_v2' | 'eleven_flash_v2_5' | 'eleven_turbo_v2_5'
+  | 'sonic-3.5' | 'sonic-3'
+  | (string & {})
+
+/** Built-in voice presets across providers. Accepts arbitrary strings too. */
+export type SpeechVoice =
+  | 'alloy' | 'ash' | 'coral' | 'echo' | 'fable' | 'onyx' | 'nova' | 'sage' | 'shimmer' | 'ballad' | 'cedar' | 'marin' | 'verse'
+  | (string & {})
+
+/** Audio output formats. */
+export type AudioOutputFormat = 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm' | 'raw' | (string & {})
+
 // ─── public types ────────────────────────────────────────────────────────────
 
 export interface GenerateSpeechOptions {
   /** The text to convert to speech. */
   text: string
   /** Speech model ID. Defaults to DEFAULT_SPEECH_MODEL ('tts-1') if omitted. */
-  model?: string
+  model?: SpeechModelId
   /** Voice ID or name (provider-specific). */
-  voice?: string
+  voice?: SpeechVoice
   /** Output audio format: mp3, wav, pcm, opus, aac, flac, etc. */
-  outputFormat?: string
+  outputFormat?: AudioOutputFormat
   /** Style instructions for models that support it (e.g. gpt-4o-mini-tts). */
   instructions?: string
   /** Playback speed multiplier (provider support varies). */

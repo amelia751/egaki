@@ -38,6 +38,47 @@ import {
 export { ValidationError }
 import { getValidChatGptAuth } from './chatgpt-auth.js'
 
+// ─── autocomplete-friendly union types ───────────────────────────────────────
+// `(string & {})` lets users pass arbitrary strings (new models, custom
+// endpoints) while still providing autocomplete for known values.
+
+/** Image model IDs from the catalog. Accepts arbitrary strings too. */
+export type ImageModelId =
+  | 'imagen-4.0-generate-001' | 'imagen-4.0-ultra-generate-001' | 'imagen-4.0-fast-generate-001'
+  | 'gemini-2.0-flash-exp-image-generation' | 'gemini-2.5-flash-image' | 'gemini-3-pro-image-preview' | 'gemini-3.1-flash-image-preview'
+  | 'vertex/imagen-4.0-generate-001' | 'vertex/imagen-4.0-ultra-generate-001' | 'vertex/imagen-4.0-fast-generate-001'
+  | 'vertex/gemini-2.5-flash-image' | 'vertex/gemini-3-pro-image-preview' | 'vertex/gemini-3.1-flash-image-preview'
+  | 'flux-kontext-max' | 'flux-kontext-pro' | 'flux-pro-1.0-fill' | 'flux-pro-1.1' | 'flux-pro-1.1-ultra'
+  | 'flux-2-pro' | 'flux-2-max' | 'flux-2-flex' | 'flux-2-klein-9b' | 'flux-2-klein-4b'
+  | 'recraft-v2' | 'recraft-v3' | 'recraft-v4' | 'recraft-v4-pro' | 'recraft-v4.1' | 'recraft-v4.1-pro' | 'recraft-v4.1-utility' | 'recraft-v4.1-utility-pro'
+  | 'seedream-5.0-lite' | 'seedream-4.5' | 'seedream-4.0'
+  | 'grok-imagine-image' | 'grok-imagine-image-pro'
+  | 'dall-e-2' | 'dall-e-3' | 'gpt-image-1' | 'gpt-image-1-mini' | 'gpt-image-1.5' | 'gpt-image-2' | 'chatgpt-image-latest'
+  | (string & {})
+
+/** Video model IDs from the catalog. Accepts arbitrary strings too. */
+export type VideoModelId =
+  | 'veo-3.1-generate-001' | 'veo-3.1-fast-generate-001' | 'veo-3.0-generate-001' | 'veo-3.0-fast-generate-001'
+  | 'vertex/veo-3.1-generate-001' | 'vertex/veo-3.1-fast-generate-001'
+  | 'grok-imagine-video' | 'grok-imagine-video-1.5-preview'
+  | 'kling-v3.0-t2v' | 'kling-v3.0-i2v' | 'kling-v3.0-motion-control' | 'kling-v2.6-t2v' | 'kling-v2.6-i2v' | 'kling-v2.6-motion-control'
+  | 'kling-v2.5-turbo-t2v' | 'kling-v2.5-turbo-i2v'
+  | 'wan-v2.6-t2v' | 'wan-v2.6-i2v' | 'wan-v2.6-i2v-flash' | 'wan-v2.6-r2v' | 'wan-v2.6-r2v-flash' | 'wan-v2.5-t2v-preview'
+  | 'seedance-2.0' | 'seedance-2.0-fast' | 'seedance-v1.5-pro' | 'seedance-v1.0-pro' | 'seedance-v1.0-pro-fast' | 'seedance-v1.0-lite-t2v' | 'seedance-v1.0-lite-i2v'
+  | 'luma-ray-2' | 'minimax-video' | 'hunyuan-video'
+  | (string & {})
+
+/** Common aspect ratios across providers. */
+export type AspectRatio =
+  | '1:1' | '3:4' | '4:3' | '9:16' | '16:9' | '2:3' | '3:2' | '4:5' | '5:4' | '9:21' | '21:9'
+  | (string & {})
+
+/** Image quality presets (varies by provider). */
+export type ImageQuality = 'auto' | 'low' | 'medium' | 'high' | 'standard' | (string & {})
+
+/** Image output formats. */
+export type ImageOutputFormat = 'png' | 'jpeg' | 'webp' | (string & {})
+
 // ─── public types ────────────────────────────────────────────────────────────
 
 export type GeneratedFile = {
@@ -48,16 +89,16 @@ export type GeneratedFile = {
 export interface GenerateImageOptions {
   prompt: string
   /** Model ID. Defaults to DEFAULT_MODEL if omitted. */
-  model?: string
+  model?: ImageModelId
   count?: number
-  aspectRatio?: string
+  aspectRatio?: AspectRatio
   seed?: number
   inputImages?: Uint8Array[]
   maskImage?: Uint8Array
   allowPeople?: boolean
-  quality?: string
+  quality?: ImageQuality
   resolution?: string
-  outputFormat?: string
+  outputFormat?: ImageOutputFormat
   negativePrompt?: string
   /** Only for text-model image generation (Gemini). */
   imageSize?: '1K' | '2K' | '4K'
@@ -78,9 +119,9 @@ export interface GenerateImageResult {
 export interface GenerateVideoOptions {
   prompt: string
   /** Model ID. Defaults to DEFAULT_VIDEO_MODEL if omitted. */
-  model?: string
+  model?: VideoModelId
   count?: number
-  aspectRatio?: string
+  aspectRatio?: AspectRatio
   resolution?: string
   duration?: number
   fps?: number
