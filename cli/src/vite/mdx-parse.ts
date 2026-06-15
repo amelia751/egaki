@@ -83,8 +83,11 @@ function gcd(a: number, b: number): number {
 /** Compute the closest standard aspect ratio string from pixel dimensions.
  *  Reduces to the exact ratio first (e.g. 1920×1080 → 16:9). If the exact
  *  ratio doesn't match a standard one, picks the closest by comparing
- *  decimal ratios. */
+ *  decimal ratios. Returns '16:9' for invalid inputs. */
 export function aspectRatioFromDimensions(width: number, height: number): string {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return '16:9'
+  }
   const d = gcd(width, height)
   const rw = width / d
   const rh = height / d
