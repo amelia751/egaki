@@ -27,14 +27,24 @@ const DEFAULT_SECTION_BEATS = 10
 // Frontmatter parsing
 // ---------------------------------------------------------------------------
 
+const DEFAULT_WIDTH = 1920
+const DEFAULT_HEIGHT = 1080
+
 export interface VideoFrontmatter {
   fps: number
   bpm: number
+  width: number
+  height: number
 }
 
-/** Parse YAML frontmatter from mdast. Extracts fps, bpm. */
+/** Parse YAML frontmatter from mdast. Extracts fps, bpm, width, height. */
 export function parseFrontmatter(mdast: Root): VideoFrontmatter {
-  const result: VideoFrontmatter = { fps: DEFAULT_FPS, bpm: DEFAULT_BPM }
+  const result: VideoFrontmatter = {
+    fps: DEFAULT_FPS,
+    bpm: DEFAULT_BPM,
+    width: DEFAULT_WIDTH,
+    height: DEFAULT_HEIGHT,
+  }
   for (const node of mdast.children) {
     if (node.type !== 'yaml') continue
     const text = (node as any).value as string
@@ -43,6 +53,8 @@ export function parseFrontmatter(mdast: Root): VideoFrontmatter {
     if (parsed && typeof parsed === 'object') {
       if (typeof parsed.fps === 'number' && parsed.fps > 0) result.fps = parsed.fps
       if (typeof parsed.bpm === 'number' && parsed.bpm > 0) result.bpm = parsed.bpm
+      if (typeof parsed.width === 'number' && parsed.width > 0) result.width = Math.round(parsed.width)
+      if (typeof parsed.height === 'number' && parsed.height > 0) result.height = Math.round(parsed.height)
     }
   }
   return result

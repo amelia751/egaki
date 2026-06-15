@@ -33,6 +33,7 @@ import {
   LayoutTransitionProvider,
 } from './mdx-video.tsx'
 import { SectionIndexContext } from './media-duration-store.ts'
+import type { VideoFrontmatter } from './mdx-parse.ts'
 
 // Module-level stable callbacks for useSyncExternalStore (never re-subscribes)
 const subscribeNoop = () => () => {}
@@ -275,6 +276,7 @@ export function PlayerPage({
   preamble,
   entryPath,
   hasUnresolvedDurations = false,
+  frontmatter,
 }: {
   sections: SectionProps[]
   totalDuration: number
@@ -284,7 +286,9 @@ export function PlayerPage({
   /** True when auto-duration sections haven't been visited yet (media
    *  durations still unknown). Gates the export button. */
   hasUnresolvedDurations?: boolean
+  frontmatter: VideoFrontmatter
 }) {
+  const { fps, width, height } = frontmatter
   // Stable component function that reads latest props from a ref.
   // Created once so its identity never changes between renders.
   // Remotion Player doesn't remount when component identity is stable.
@@ -304,14 +308,14 @@ export function PlayerPage({
     egakiSDK.register({
       component: Component,
       totalDuration,
-      fps: 30,
-      width: 1920,
-      height: 1080,
+      fps,
+      width,
+      height,
       sectionCount: sections.length,
       playerRef,
       playerContainerRef,
     })
-  }, [Component, totalDuration, sections.length])
+  }, [Component, totalDuration, sections.length, fps, width, height])
 
 
 
@@ -584,6 +588,9 @@ export function PlayerPage({
       const blob = await renderInBrowser({
         component: Component,
         durationInFrames: totalDuration,
+        fps,
+        width,
+        height,
         onProgress: (p) => setProgress(p),
         signal: controller.signal,
       })
@@ -604,7 +611,7 @@ export function PlayerPage({
       setRendering(false)
       abortRef.current = null
     }
-  }, [Component, totalDuration])
+  }, [Component, totalDuration, fps, width, height])
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort()
@@ -612,12 +619,13 @@ export function PlayerPage({
 
   return (
     <div className='flex flex-col items-center justify-center min-h-screen bg-black'>
-      <TweakpaneRoot playerRef={playerRef} fps={30} sections={sections} entryPath={entryPath} />
+      <TweakpaneRoot playerRef={playerRef} fps={fps} sections={sections} entryPath={entryPath} />
       {/* Player — fills page width, but capped so the 16:9 height never
           exceeds the viewport height (max-width = 100vh × aspect ratio). */}
       <div
         ref={playerContainerRef}
-        className='w-full overflow-hidden max-w-[calc(100vh*(1920/1080))]'
+        style={{ maxWidth: `calc(100vh * ${width / height})` }}
+        className='w-full overflow-hidden'
       >
         {mounted ? (
           <Player
@@ -625,9 +633,9 @@ export function PlayerPage({
             ref={playerRef}
             component={Component}
             durationInFrames={totalDuration}
-            fps={30}
-            compositionWidth={1920}
-            compositionHeight={1080}
+            fps={fps}
+            compositionWidth={width}
+            compositionHeight={height}
             loop
             controls
             clickToPlay={!editing}
@@ -769,7 +777,7 @@ export function PlayerPage({
           onEditingChange={setEditing}
           onReset={() => setResetKey((k) => k + 1)}
           sections={sections}
-          fps={30}
+          fps={fps}
           entryPath={entryPath}
         />
       </div>

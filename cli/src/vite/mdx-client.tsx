@@ -344,6 +344,7 @@ export function MdxClientApp({
         preamble={preamble}
         entryPath={entryPath}
         hasUnresolvedDurations={hasUnresolvedDurations}
+        frontmatter={composed.frontmatter}
       />
     </ServerSlotsContext.Provider>
   )
