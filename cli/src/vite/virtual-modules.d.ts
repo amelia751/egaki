@@ -10,10 +10,9 @@ declare module 'virtual:egaki-mdx' {
   export const projectRoot: string
   /** Absolute path of the MDX entry file. */
   export const entryPath: string
-  /** Aspect ratio derived from frontmatter width/height (e.g. '16:9').
-   *  Used as the default for GeneratedImage/GeneratedVideo when the user
-   *  doesn't pass an explicit aspectRatio prop. */
-  export const compositionAspectRatio: string
+  /** Composition dimensions from frontmatter (default 1920×1080). */
+  export const compositionWidth: number
+  export const compositionHeight: number
 }
 
 declare module 'virtual:egaki-modules' {

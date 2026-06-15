@@ -14,6 +14,7 @@ import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
 import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter, aspectRatioFromDimensions } from './mdx-parse.ts'
+import { computeEffectiveDuration } from './media-duration-store.ts'
 import { findServerNodes, blankServerContents, collectServerImportSources, wrapGenerateNodes } from './server-mdx.ts'
 import { stableJsonKey, hashKey, promptPrefix } from './server-components.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
@@ -361,6 +362,18 @@ describe('parseFrontmatter and MDX scope (FPS, BEAT)', () => {
     expect(aspectRatioFromDimensions(2560, 1440)).toBe('16:9')
     // 3840×2160 = 16:9 exact
     expect(aspectRatioFromDimensions(3840, 2160)).toBe('16:9')
+  })
+
+  test('aspectRatioFromDimensions: constrained to allowed ratios', () => {
+    // Veo only supports 16:9 and 9:16
+    expect(aspectRatioFromDimensions(1920, 1080, ['16:9', '9:16'])).toBe('16:9')
+    expect(aspectRatioFromDimensions(1080, 1920, ['16:9', '9:16'])).toBe('9:16')
+    // Square composition (1.0) is closer to 9:16 (0.5625) than 16:9 (1.778)
+    expect(aspectRatioFromDimensions(1080, 1080, ['16:9', '9:16'])).toBe('9:16')
+    // When allowed list includes 1:1, square matches exactly
+    expect(aspectRatioFromDimensions(1080, 1080, ['16:9', '9:16', '1:1'])).toBe('1:1')
+    // Non-standard dimensions pick closest from allowed
+    expect(aspectRatioFromDimensions(1920, 1200, ['16:9', '9:16', '1:1'])).toBe('16:9')
   })
 
   test('FPS and BEAT available in safe-mdx scope for expressions', () => {
@@ -1685,5 +1698,41 @@ describe('promptPrefix', () => {
   test('does not end with a dash', () => {
     const result = promptPrefix('a b c d e f g h i j k l m n o p q r s t u v')
     expect(result.endsWith('-')).toBe(false)
+  })
+})
+
+describe('computeEffectiveDuration with gap props', () => {
+
+  test('no gaps returns media-only duration', () => {
+    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30 })).toBe(3)
+  })
+
+  test('gapBefore adds frames to total duration', () => {
+    // 3s media + 30 frames (1s) gapBefore = 4s
+    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, gapBefore: 30 })).toBe(4)
+  })
+
+  test('gapAfter adds frames to total duration', () => {
+    // 3s media + 60 frames (2s) gapAfter = 5s
+    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, gapAfter: 60 })).toBe(5)
+  })
+
+  test('both gaps add to total duration', () => {
+    // 3s media + 30 frames (1s) before + 60 frames (2s) after = 6s
+    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, gapBefore: 30, gapAfter: 60 })).toBe(6)
+  })
+
+  test('gaps work with trim props', () => {
+    // trim: frames 0-90 = 3s, + 30 frames gap = 4s
+    expect(computeEffectiveDuration({ fps: 30, trimBefore: 0, trimAfter: 90, gapBefore: 30 })).toBe(4)
+  })
+
+  test('gaps work with playbackRate', () => {
+    // 3s media at 2x = 1.5s, + 30 gap frames → (90 media + 30 gap) / 30fps / 2 = 2s
+    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, playbackRate: 2, gapBefore: 30 })).toBe(2)
+  })
+
+  test('returns null when duration cannot be determined', () => {
+    expect(computeEffectiveDuration({ fps: 30, gapBefore: 30 })).toBeNull()
   })
 })

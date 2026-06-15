@@ -80,26 +80,38 @@ function gcd(a: number, b: number): number {
   return a
 }
 
-/** Compute the closest standard aspect ratio string from pixel dimensions.
+function parseRatio(s: string): [number, number] | undefined {
+  const [a, b] = s.split(':').map(Number)
+  if (a && b && a > 0 && b > 0) return [a, b]
+}
+
+/** Compute the closest aspect ratio string from pixel dimensions.
+ *  When `allowedRatios` is provided (e.g. from a model's supported list),
+ *  picks the best match from that list. Otherwise uses STANDARD_RATIOS.
  *  Reduces to the exact ratio first (e.g. 1920×1080 → 16:9). If the exact
- *  ratio doesn't match a standard one, picks the closest by comparing
- *  decimal ratios. Returns '16:9' for invalid inputs. */
-export function aspectRatioFromDimensions(width: number, height: number): string {
+ *  ratio doesn't match, picks the closest by comparing decimal values.
+ *  Returns '16:9' for invalid inputs. */
+export function aspectRatioFromDimensions(width: number, height: number, allowedRatios?: string[]): string {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     return '16:9'
   }
+  const candidates: [number, number][] = allowedRatios?.length
+    ? allowedRatios.map(parseRatio).filter((r): r is [number, number] => r !== undefined)
+    : STANDARD_RATIOS
+  if (candidates.length === 0) return '16:9'
+
   const d = gcd(width, height)
   const rw = width / d
   const rh = height / d
   // Check exact match first
-  if (STANDARD_RATIOS.some(([w, h]) => w === rw && h === rh)) {
+  if (candidates.some(([w, h]) => w === rw && h === rh)) {
     return `${rw}:${rh}`
   }
-  // Find closest standard ratio by decimal value
+  // Find closest by decimal value
   const target = width / height
-  let best = STANDARD_RATIOS[0]!
+  let best = candidates[0]!
   let bestDiff = Infinity
-  for (const ratio of STANDARD_RATIOS) {
+  for (const ratio of candidates) {
     const diff = Math.abs(ratio[0] / ratio[1] - target)
     if (diff < bestDiff) {
       bestDiff = diff

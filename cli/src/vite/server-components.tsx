@@ -27,6 +27,7 @@ import type { GenerateVideoOptions } from '../cli/generate.js'
 import type { GenerateSpeechOptions } from '../cli/speech-generate.js'
 import { CATALOG, VIDEO_CATALOG } from '../cli/model-catalog.js'
 import { DEFAULT_MODEL, DEFAULT_VIDEO_MODEL } from '../cli/models.js'
+import { aspectRatioFromDimensions } from './mdx-parse.ts'
 import {
   GeneratedImageClient,
   GeneratedVideoClient,
@@ -34,41 +35,30 @@ import {
 } from './generated-media-client.tsx'
 import type { Img, Audio, Video } from './mdx-video.tsx'
 
-// projectRoot is provided by the virtual module at Vite runtime.
-// Using dynamic import so tests that import the caching utilities
-// don't fail trying to resolve the virtual module statically.
+// projectRoot and composition dimensions are provided by the virtual
+// module at Vite runtime. Using dynamic import so tests that import
+// the caching utilities don't fail trying to resolve it statically.
 let _projectRoot: string | undefined
 async function getProjectRoot(): Promise<string> {
   if (_projectRoot) return _projectRoot
-  const mod = await import(/* @vite-ignore */ 'virtual:egaki-mdx')
+  const mod = await import('virtual:egaki-mdx')
   _projectRoot = mod.projectRoot
   return _projectRoot!
 }
 
-/** Re-imported every call (not cached) because the aspect ratio changes
- *  when the user edits frontmatter width/height and HMR invalidates the
- *  virtual module. projectRoot is stable and safe to cache above. */
-async function getCompositionAspectRatio(): Promise<string> {
-  const mod = await import(/* @vite-ignore */ 'virtual:egaki-mdx')
-  return mod.compositionAspectRatio
+async function getCompositionDimensions(): Promise<{ width: number; height: number }> {
+  const mod = await import('virtual:egaki-mdx')
+  return { width: mod.compositionWidth, height: mod.compositionHeight }
 }
 
-/** Check if a model supports a given aspect ratio. Returns undefined if
- *  the model isn't in the catalog (allow passthrough for unknown models). */
-function modelSupportsAspectRatio(modelId: string, ratio: string, type: 'image' | 'video'): boolean {
+/** Look up a model's supported aspect ratios from the catalog. */
+function getModelAspectRatios(modelId: string, type: 'image' | 'video'): string[] | undefined {
   if (type === 'image') {
     const entry = CATALOG.find((m) => m.id === modelId)
-    if (!entry) return true // unknown model, let the provider decide
-    // Models with empty aspectRatios (like OpenAI) use sizes instead;
-    // skip the composition default and let the provider handle it.
-    if (entry.features.aspectRatios.length === 0) return false
-    return entry.features.aspectRatios.includes(ratio)
+    return entry?.features.aspectRatios
   }
   const entry = VIDEO_CATALOG.find((m) => m.id === modelId)
-  if (!entry) return true
-  // Video models with no aspectRatios array accept anything
-  if (!entry.features.aspectRatios || entry.features.aspectRatios.length === 0) return true
-  return entry.features.aspectRatios.includes(ratio)
+  return entry?.features.aspectRatios ?? undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -223,14 +213,12 @@ export type GeneratedImageProps = GeneratedImageGenProps & Omit<ComponentProps<t
 export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: maskImagePath, ...props }: GeneratedImageProps) {
   // Split generation params from passthrough (component) props
   const { prompt, model, seed, aspectRatio: aspectRatioProp, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, ...passthrough } = props
-  // Default to the composition's aspect ratio (from frontmatter width/height)
-  // so generated images match the video frame by default. Only applied when
-  // the model supports that ratio; otherwise omitted to let the provider
-  // pick its own default (avoids breaking models with limited ratio support).
-  const compositionRatio = await getCompositionAspectRatio()
-  const effectiveModel = model ?? DEFAULT_MODEL
+  // Default to the best matching aspect ratio for the composition
+  // dimensions, constrained to the model's supported ratios.
+  const { width, height } = await getCompositionDimensions()
+  const allowedRatios = getModelAspectRatios(model ?? DEFAULT_MODEL, 'image')
   const aspectRatio = aspectRatioProp ?? (
-    modelSupportsAspectRatio(effectiveModel, compositionRatio, 'image') ? compositionRatio : undefined
+    allowedRatios?.length ? aspectRatioFromDimensions(width, height, allowedRatios) : undefined
   )
   const inputImages = inputImagePaths ? await Promise.all(inputImagePaths.map(readAssetBytes)) : undefined
   const maskImage = maskImagePath ? await readAssetBytes(maskImagePath) : undefined
@@ -304,13 +292,12 @@ export type GeneratedVideoProps = GeneratedVideoGenProps & Omit<ComponentProps<t
 export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: GeneratedVideoProps) {
   const { prompt, model, seed, aspectRatio: aspectRatioProp, resolution, duration, fps, negativePrompt, mode, videoUrl, referenceImages, ...passthrough } = props
   const inputImage = inputImagePath ? await readAssetBytes(inputImagePath) : undefined
-  // Default to the composition's aspect ratio (from frontmatter width/height)
-  // so generated videos match the video frame by default. Only applied when
-  // the model supports that ratio; otherwise omitted.
-  const compositionRatio = await getCompositionAspectRatio()
-  const effectiveModel = model ?? DEFAULT_VIDEO_MODEL
+  // Default to the best matching aspect ratio for the composition
+  // dimensions, constrained to the model's supported ratios.
+  const { width, height } = await getCompositionDimensions()
+  const allowedRatios = getModelAspectRatios(model ?? DEFAULT_VIDEO_MODEL, 'video')
   const aspectRatio = aspectRatioProp ?? (
-    modelSupportsAspectRatio(effectiveModel, compositionRatio, 'video') ? compositionRatio : undefined
+    allowedRatios?.length ? aspectRatioFromDimensions(width, height, allowedRatios) : undefined
   )
   const genParams: GenerateVideoOptions = { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, inputImage, mode, videoUrl, referenceImages }
   const key = stableJsonKey({

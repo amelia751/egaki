@@ -18,7 +18,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { mdxParse } from 'safe-mdx/parse'
 import { collectServerImportSources } from './server-mdx.ts'
-import { parseFrontmatter, aspectRatioFromDimensions } from './mdx-parse.ts'
+import { parseFrontmatter } from './mdx-parse.ts'
 
 // Resolve the package src/ directory from this file's location.
 // Used for resolve.alias so the RSC module runner can resolve relative
@@ -116,18 +116,18 @@ export function video(options: VideoPluginOptions): PluginOption[] {
         // projectRoot lets app.tsx resolve relative MDX import sources
         // for dynamic <Server> slot imports.
         const absEntry = entryPath.replace(/\\/g, '/')
-        // Parse frontmatter to derive the composition aspect ratio so
-        // server components (GeneratedImage, GeneratedVideo) can default
-        // to matching the video frame instead of the provider's default.
+        // Parse frontmatter to expose composition dimensions so server
+        // components (GeneratedImage, GeneratedVideo) can derive the best
+        // aspect ratio per-model from the catalog's supported ratios.
         const mdxContent = fs.readFileSync(entryPath, 'utf-8')
         const fm = parseFrontmatter(mdxParse(mdxContent))
-        const compositionAspectRatio = aspectRatioFromDimensions(fm.width, fm.height)
         return [
           `import mdx from ${JSON.stringify(absEntry + '?raw')}`,
           `export default mdx`,
           `export const projectRoot = ${JSON.stringify(root.replace(/\\/g, '/'))}`,
           `export const entryPath = ${JSON.stringify(absEntry)}`,
-          `export const compositionAspectRatio = ${JSON.stringify(compositionAspectRatio)}`,
+          `export const compositionWidth = ${fm.width}`,
+          `export const compositionHeight = ${fm.height}`,
         ].join('\n')
       }
 
