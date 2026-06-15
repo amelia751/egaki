@@ -36,6 +36,17 @@ export type { ImageModelEntry, VideoModelEntry, AnyModelEntry }
 /** @deprecated Use ImageModelEntry instead */
 export type ModelEntry = ImageModelEntry
 
+/**
+ * Validation error for user-facing input issues (wrong model, missing key, etc.).
+ * CLI prints just the message; provider/runtime errors get full stack + details.
+ */
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ValidationError'
+  }
+}
+
 export const IMAGE_MODELS = CATALOG.map((m) => m.id) as [string, ...string[]]
 export const VIDEO_MODELS = VIDEO_CATALOG.map((m) => m.id) as [string, ...string[]]
 
@@ -52,11 +63,10 @@ function stripProviderPrefix(modelId: string): string {
 export const DEFAULT_MODEL = 'nano-banana-pro-preview'
 export const DEFAULT_VIDEO_MODEL = 'veo-3.1-fast-generate-001'
 
-export function getModelConfig(modelId: string): AnyModelEntry {
+export function getModelConfig(modelId: string): Error | AnyModelEntry {
   const entry = findAnyModel(modelId)
   if (!entry) {
-    console.error(pc.red(`Unknown model: ${modelId}`))
-    process.exit(1)
+    return new ValidationError(`Unknown model: ${modelId}`)
   }
   return entry
 }
@@ -72,9 +82,9 @@ export function getModelConfig(modelId: string): AnyModelEntry {
 // That's it — no switch statements to touch.
 
 type ProviderSdk = {
-  image?: (modelId: string) => Promise<ImageModel>
-  text?: (modelId: string) => Promise<LanguageModel>
-  video?: (modelId: string) => Promise<any>
+  image?: (modelId: string) => Promise<Error | ImageModel>
+  text?: (modelId: string) => Promise<Error | LanguageModel>
+  video?: (modelId: string) => Promise<Error | any>
 }
 
 // Vertex is the only provider that uses a prefix (vertex/model-id) in the catalog
@@ -105,10 +115,12 @@ const PROVIDER_SDKS: Record<string, ProviderSdk> = {
   xai: {
     image: async (id) => {
       const xaiProvider = await getXaiProviderInstance()
+      if (xaiProvider instanceof Error) return xaiProvider
       return xaiProvider.image(id)
     },
     video: async (id) => {
       const xaiProvider = await getXaiProviderInstance()
+      if (xaiProvider instanceof Error) return xaiProvider
       return xaiProvider.video(id)
     },
   },
@@ -122,7 +134,7 @@ const PROVIDER_SDKS: Record<string, ProviderSdk> = {
 // OAuth tokens from the Grok Build subscription. OAuth tokens are injected via
 // a custom fetch that replaces the Authorization header on every request.
 
-async function getXaiProviderInstance() {
+async function getXaiProviderInstance(): Promise<Error | ReturnType<Awaited<typeof import('@ai-sdk/xai')>['createXai']>> {
   const { createXai } = await import('@ai-sdk/xai')
 
   // Direct API key path (env or stored)
@@ -135,14 +147,12 @@ async function getXaiProviderInstance() {
   // OAuth path: inject bearer token via custom fetch
   const storedAuth = getXaiAuth()
   if (!storedAuth) {
-    console.error(pc.red('Missing xAI OAuth tokens. Please run `egaki login` and select xAI Grok Build.'))
-    process.exit(1)
+    return new ValidationError('Missing xAI OAuth tokens. Please run `egaki login` and select xAI Grok Build.')
   }
 
   const auth = await getValidXaiAuth(storedAuth, saveXaiAuth)
   if (auth instanceof Error) {
-    console.error(pc.red(auth.message))
-    process.exit(1)
+    return auth
   }
 
   return createXai({
@@ -179,54 +189,29 @@ function hasDirectProviderKey(providerName: string): boolean {
 }
 
 // Check that the provider's API key or OAuth login is available before making API calls.
-// Prints a user-friendly error with instructions on how to configure it.
-export function ensureProviderKey(providerName: string): void {
-  if (hasDirectProviderKey(providerName)) return
+// Returns an Error with a user-friendly message if no key is found.
+export function ensureProviderKey(providerName: string): Error | undefined {
+  if (hasDirectProviderKey(providerName)) return undefined
 
   // Vertex models require a direct key — the upstream Vercel AI Gateway
   // does not support vertex/ routing, so egaki gateway can't proxy them.
   if (providerName === 'vertex') {
-    console.error('')
-    console.error(pc.red(pc.bold('Vertex models require a direct Google Cloud API key')))
-    console.error('')
-    console.error(`  ${pc.cyan('egaki login --provider vertex --key <key>')}`)
-    console.error('')
-    console.error(pc.dim('Get a key at https://console.cloud.google.com/apis/credentials'))
-    console.error(pc.dim('Egaki subscription does not cover Vertex routing yet.'))
-    console.error('')
-    process.exit(1)
+    return new ValidationError(
+      'Vertex models require a direct Google Cloud API key. ' +
+      'Run: egaki login --provider vertex --key <key>. ' +
+      'Get a key at https://console.cloud.google.com/apis/credentials',
+    )
   }
 
-  if (hasEgakiKey()) return
+  if (hasEgakiKey()) return undefined
 
   const info = PROVIDERS[providerName]
-
-  console.error('')
-  console.error(pc.red(pc.bold(`Missing API key for ${info?.label || providerName}`)))
-  console.error('')
-  console.error(`  ${pc.bold('Recommended:')} Use Egaki subscription (all models, one key)`)
-  console.error('')
-  console.error(
-    `    ${pc.cyan('egaki subscribe')}                        get started in 30 seconds`,
+  const label = info?.label || providerName
+  return new ValidationError(
+    `Missing API key for ${label}. ` +
+    'Use an Egaki subscription (egaki subscribe) or configure a provider key directly (egaki login).' +
+    (info ? ` ${info.hint}` : ''),
   )
-  console.error('')
-  console.error(`  ${pc.dim('Or configure a provider key directly:')}`)
-  console.error('')
-  console.error(
-    `    ${pc.cyan('egaki login')}                           interactive setup`,
-  )
-  if (info) {
-    console.error(
-      `    ${pc.cyan(`${info.envVar}=...`)} egaki image ...   inline env var`,
-    )
-    console.error(
-      `    ${pc.cyan(`egaki login --provider ${providerName} --key <key>`)}`,
-    )
-    console.error('')
-    console.error(`  ${pc.dim(info.hint)}`)
-  }
-  console.error('')
-  process.exit(1)
 }
 
 // ─── gateway model factories ─────────────────────────────────────────────────
@@ -335,9 +320,12 @@ function logAuthSource(source: AuthSource): void {
 // Priority for others: direct provider key > egaki gateway > error.
 // Uses PROVIDER_SDKS map for direct provider creation, eliminating switch blocks.
 
-export async function createImageModel(modelId: string): Promise<ImageModel> {
+export async function createImageModel(modelId: string): Promise<Error | ImageModel> {
   const config = getModelConfig(modelId)
-  ensureProviderKey(config.provider)
+  if (config instanceof Error) return config
+
+  const keyError = ensureProviderKey(config.provider)
+  if (keyError) return keyError
 
   const authSource = resolveAuthSource(config.provider)
   logAuthSource(authSource)
@@ -345,31 +333,30 @@ export async function createImageModel(modelId: string): Promise<ImageModel> {
   if (hasDirectProviderKey(config.provider)) {
     const factory = PROVIDER_SDKS[config.provider]?.image
     if (factory) {
-      return factory(modelId)
+      const result = await factory(modelId)
+      if (result instanceof Error) return result
+      return result
     }
-    console.error(
-      pc.red(
-        `Direct image generation is not supported for provider: ${config.provider}.`,
-      ),
-    )
-    process.exit(1)
+    return new ValidationError(`Direct image generation is not supported for provider: ${config.provider}.`)
   }
 
   if (hasEgakiKey()) {
     return createGatewayImageModel(modelId, config.provider)
   }
 
-  console.error(pc.red(`No API key available for provider: ${config.provider}`))
-  process.exit(1)
+  return new ValidationError(`No API key available for provider: ${config.provider}`)
 }
 
-export async function createTextModel(modelId: string): Promise<LanguageModel> {
+export async function createTextModel(modelId: string): Promise<Error | LanguageModel> {
   const config = getModelConfig(modelId)
+  if (config instanceof Error) return config
+
   if (config.strategy !== 'text') {
-    console.error(pc.red(`Model ${modelId} is not a text model`))
-    process.exit(1)
+    return new ValidationError(`Model ${modelId} is not a text model`)
   }
-  ensureProviderKey(config.provider)
+
+  const keyError = ensureProviderKey(config.provider)
+  if (keyError) return keyError
 
   const authSource = resolveAuthSource(config.provider)
   logAuthSource(authSource)
@@ -379,30 +366,26 @@ export async function createTextModel(modelId: string): Promise<LanguageModel> {
     if (factory) {
       return factory(modelId)
     }
-    console.error(
-      pc.red(
-        `Text+image generation is not supported for provider: ${config.provider}`,
-      ),
-    )
-    process.exit(1)
+    return new ValidationError(`Text+image generation is not supported for provider: ${config.provider}`)
   }
 
   if (hasEgakiKey()) {
     return createGatewayTextModel(modelId, config.provider)
   }
 
-  console.error(pc.red(`No API key available for provider: ${config.provider}`))
-  process.exit(1)
+  return new ValidationError(`No API key available for provider: ${config.provider}`)
 }
 
-export async function createVideoModel(modelId: string): Promise<any> {
+export async function createVideoModel(modelId: string): Promise<Error | any> {
   const config = getModelConfig(modelId)
+  if (config instanceof Error) return config
+
   if (config.strategy !== 'video') {
-    console.error(pc.red(`Model ${modelId} is not a video model`))
-    process.exit(1)
+    return new ValidationError(`Model ${modelId} is not a video model`)
   }
 
-  ensureProviderKey(config.provider)
+  const keyError = ensureProviderKey(config.provider)
+  if (keyError) return keyError
 
   const authSource = resolveAuthSource(config.provider)
   logAuthSource(authSource)
@@ -410,20 +393,16 @@ export async function createVideoModel(modelId: string): Promise<any> {
   if (hasDirectProviderKey(config.provider)) {
     const factory = PROVIDER_SDKS[config.provider]?.video
     if (factory) {
-      return factory(modelId)
+      const result = await factory(modelId)
+      if (result instanceof Error) return result
+      return result
     }
-    console.error(
-      pc.red(
-        `Direct video generation is not supported for provider: ${config.provider}. Use an egaki subscription instead.`,
-      ),
-    )
-    process.exit(1)
+    return new ValidationError(`Direct video generation is not supported for provider: ${config.provider}. Use an egaki subscription instead.`)
   }
 
   if (hasEgakiKey()) {
     return createGatewayVideoModel(modelId, config.provider)
   }
 
-  console.error(pc.red(`No API key available for provider: ${config.provider}`))
-  process.exit(1)
+  return new ValidationError(`No API key available for provider: ${config.provider}`)
 }

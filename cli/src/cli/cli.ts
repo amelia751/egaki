@@ -12,41 +12,24 @@ import { z } from 'zod'
 import dedent from 'string-dedent'
 import {
   APICallError,
-  generateImage as aiGenerateImage,
-  generateText,
-  experimental_generateVideo as aiGenerateVideo,
   NoImageGeneratedError,
   NoVideoGeneratedError,
   RetryError,
 } from 'ai'
-import type { XaiImageModelOptions, XaiVideoModelOptions } from '@ai-sdk/xai'
-import type { GoogleImageModelOptions, GoogleLanguageModelOptions, GoogleVideoModelOptions } from '@ai-sdk/google'
-import type { GoogleVertexImageModelOptions, GoogleVertexVideoModelOptions } from '@ai-sdk/google-vertex'
-import type { FalImageModelOptions, FalVideoModelOptions } from '@ai-sdk/fal'
-import type { ByteDanceVideoProviderOptions } from '@ai-sdk/bytedance'
 import { select, isCancel, cancel } from '@clack/prompts'
 import fs from 'node:fs'
 import path from 'node:path'
 import pc from 'picocolors'
-import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import pkg from '../../package.json' with { type: 'json' }
 import {
   injectCredentialsToEnv,
   PROVIDERS,
-  getChatGptAuth,
-  saveChatGptAuth,
   getKeyStatus,
 } from './credentials.js'
 import {
-  IMAGE_MODELS,
-  VIDEO_MODELS,
   DEFAULT_MODEL,
   DEFAULT_VIDEO_MODEL,
   getModelConfig,
-  createImageModel,
-  createTextModel,
-  createVideoModel,
-  shouldUseResponsesApi,
 } from './models.js'
 import {
   CATALOG,
@@ -66,21 +49,13 @@ import {
   unsubscribe,
   showUsage,
 } from './subscription.js'
-import { getValidChatGptAuth } from './chatgpt-auth.js'
-
-// OpenAI doesn't export a providerOptions type for image models yet (vercel/ai#12437).
-// These fields are what providerOptions.openai accepts, derived from
-// node_modules/@ai-sdk/openai/src/image/openai-image-model-options.ts.
-// NOTE: The SDK uses camelCase keys in providerOptions, then internally maps to
-// snake_case for the OpenAI API. Always use camelCase here.
-type OpenAIImageProviderOptions = {
-  quality?: 'standard' | 'low' | 'medium' | 'high' | 'auto'
-  outputFormat?: 'png' | 'jpeg' | 'webp'
-  outputCompression?: number
-  size?: `${number}x${number}`
-  partialImages?: number | null
-  background?: 'auto' | 'opaque' | 'transparent'
-}
+import {
+  generateImage,
+  generateVideo,
+  calculateCost,
+  ValidationError,
+  type GeneratedFile,
+} from './generate.js'
 
 const cli = goke('egaki')
 
@@ -359,18 +334,13 @@ cli
   .example('# Pipe to another tool')
   .example('egaki image "logo design" --stdout | convert - -resize 512x512 logo.png')
   .action(async (prompt, options) => {
-    // Inject stored API keys as env vars before calling the AI SDK.
-    injectCredentialsToEnv()
-
     const model = options.model ?? await resolveImageModel()
     const outputPath = options.output ?? 'egaki-output.png'
-    const count = options.count ?? 1
-    const config = getModelConfig(model)
-    const parsedAspectRatio = parseAspectRatioOption(options.aspectRatio)
 
     if (!options.stdout) {
       console.error(pc.dim(`Model: ${model}`))
       console.error(pc.dim(`Prompt: ${prompt}`))
+      console.error(pc.cyan('Generating...'))
     }
 
     const inputImages = await readInputImages(options.input)
@@ -378,56 +348,49 @@ cli
       ? await readInputSource(options.mask)
       : undefined
 
-    // When using ChatGPT OAuth with OpenAI image models, route through the
-    // Responses API + imageGeneration tool instead of the Image API.
-    // The Codex OAuth client lacks the `api.model.images.request` scope.
-    const useResponsesApi = config.strategy === 'image' && shouldUseResponsesApi(model)
+    const result = await runProviderCall('Image generation', () => generateImage({
+      prompt,
+      model,
+      count: options.count ?? 1,
+      aspectRatio: options.aspectRatio,
+      seed: options.seed,
+      inputImages,
+      maskImage,
+      allowPeople: options.allowPeople || false,
+      quality: options.quality,
+      resolution: options.resolution,
+      outputFormat: options.outputFormat,
+      negativePrompt: options.negativePrompt,
+      imageSize: options.imageSize,
+    }))
 
-    if (useResponsesApi) {
-      if (!options.stdout) {
-        console.error(pc.dim('Mode: Responses API (ChatGPT OAuth)'))
-      }
-      await generateWithResponsesApi({
-        prompt,
+    if (options.stdout) {
+      writeFirstToStdout(result.images)
+      return
+    }
+
+    const savedFiles = saveGeneratedFiles(result.images, outputPath)
+    printCost(result.cost)
+
+    if (result.revisedPrompt && !options.json) {
+      console.error(pc.dim(`Revised prompt: ${result.revisedPrompt}`))
+    }
+
+    if (result.text && !options.json) {
+      console.error(pc.dim(result.text))
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify({
         model,
-        outputPath,
-        count,
-        aspectRatio: parsedAspectRatio,
-        seed: options.seed,
-        inputImages,
-        maskImage,
-        json: options.json || false,
-        stdout: options.stdout || false,
-      })
-    } else if (config.strategy === 'image') {
-      await generateWithImageModel({
-        prompt,
-        model,
-        outputPath,
-        count,
-        aspectRatio: parsedAspectRatio,
-        seed: options.seed,
-        inputImages,
-        maskImage,
-        allowPeople: options.allowPeople || false,
-        quality: options.quality,
-        resolution: options.resolution,
-        outputFormat: options.outputFormat,
-        negativePrompt: options.negativePrompt,
-        json: options.json || false,
-        stdout: options.stdout || false,
-      })
-    } else {
-      await generateWithTextModel({
-        prompt,
-        model,
-        outputPath,
-        inputImages,
-        imageSize: options.imageSize,
-        aspectRatio: options.aspectRatio,
-        json: options.json || false,
-        stdout: options.stdout || false,
-      })
+        files: savedFiles,
+        count: result.images.length,
+        cost: result.cost,
+        usage: result.usage,
+        warnings: result.warnings,
+        ...(result.text ? { text: result.text } : {}),
+        ...(result.revisedPrompt !== undefined ? { revisedPrompt: result.revisedPrompt } : {}),
+      }, null, 2))
     }
   })
 
@@ -536,18 +499,17 @@ cli
 
     const model = options.model ?? await resolveVideoModel()
     const outputPath = options.output ?? 'egaki-output.mp4'
-    const count = options.count ?? 1
     const config = getModelConfig(model)
 
-    if (config.strategy !== 'video') {
-      console.error(pc.red(`Model ${model} is not a video model`))
+    if (config instanceof Error) {
+      console.error(pc.red(config.message))
       process.exit(1)
     }
 
     if (!options.stdout) {
       console.error(pc.dim(`Model: ${model}`))
       console.error(pc.dim(`Prompt: ${prompt}`))
-      console.error(pc.dim('Mode: Video API (experimental_generateVideo)'))
+      console.error(pc.cyan('Generating...'))
     }
 
     // Determine how --input is used based on --mode:
@@ -561,32 +523,15 @@ cli
       options.mode = 'reference-to-video'
     }
 
-    // Validate mode-specific required inputs
-    if (isVideoInputMode && !options.input) {
-      console.error(pc.red(`--input is required with --mode ${options.mode}. Pass a local video file or URL.`))
-      process.exit(1)
-    }
-    if (options.mode === 'reference-to-video' && (!options.referenceImages || options.referenceImages.length === 0)) {
-      console.error(pc.red('--reference-images is required with --mode reference-to-video. Pass 1-7 image files or URLs.'))
-      process.exit(1)
-    }
-    if (options.referenceImages?.length && !config.providerOptions?.some((opt) => opt.flag === 'reference-images')) {
-      console.error(pc.red(`Model ${model} does not support --reference-images`))
-      process.exit(1)
-    }
-
     let inputImage: Uint8Array | undefined
     let videoUrl: string | undefined
 
     if (options.input && isVideoInputMode) {
-      // Upload local file or use URL directly for video editing/extension
       videoUrl = await resolveToUrl(options.input)
     } else if (options.input) {
-      // Read as bytes for image-to-video
       inputImage = await readInputSource(options.input)
     }
 
-    // Resolve --reference-images: upload local files to get URLs
     let resolvedReferenceImages = options.referenceImages
     if (resolvedReferenceImages) {
       resolvedReferenceImages = await Promise.all(
@@ -594,11 +539,10 @@ cli
       )
     }
 
-    await generateWithVideoModel({
+    const result = await runProviderCall('Video generation', () => generateVideo({
       prompt,
       model,
-      outputPath,
-      count,
+      count: options.count ?? 1,
       aspectRatio: options.aspectRatio,
       resolution: options.resolution,
       duration: options.duration,
@@ -609,9 +553,26 @@ cli
       videoUrl,
       referenceImages: resolvedReferenceImages,
       negativePrompt: options.negativePrompt,
-      json: options.json || false,
-      stdout: options.stdout || false,
-    })
+    }))
+
+    if (options.stdout) {
+      writeFirstToStdout(result.videos)
+      return
+    }
+
+    const savedFiles = saveGeneratedFiles(result.videos, outputPath)
+    printCost(result.cost)
+
+    if (options.json) {
+      console.log(JSON.stringify({
+        model,
+        files: savedFiles,
+        count: result.videos.length,
+        cost: result.cost,
+        warnings: result.warnings,
+        responses: result.responses,
+      }, null, 2))
+    }
   })
 
 // ─── models command ──────────────────────────────────────────────────────────
@@ -711,11 +672,21 @@ await cli.parse()
 type PrintableValue = unknown
 type ErrorDetailsInput = Parameters<typeof APICallError.isInstance>[0]
 
-async function runProviderCall<T>(operation: string, call: () => Promise<T>): Promise<T> {
+async function runProviderCall<T>(operation: string, call: () => Promise<Error | T>): Promise<T> {
   const result = await call().catch((error) => {
     printErrorDetails(error, operation)
     process.exit(1)
   })
+  if (result instanceof Error) {
+    // Validation errors get a clean one-line message; provider/runtime errors
+    // get full details (status code, response body, stack trace, etc.).
+    if (result instanceof ValidationError) {
+      console.error(pc.red(result.message))
+      process.exit(1)
+    }
+    printErrorDetails(result, operation)
+    process.exit(1)
+  }
   return result
 }
 
@@ -1030,651 +1001,8 @@ async function readInputImages(
   return Promise.all(inputs.map((f) => readInputSource(f)))
 }
 
-// ─── type-safe provider option builders ──────────────────────────────────────
-// Each builder switches on provider name and constructs a typed object using
-// `satisfies` with the SDK's exported type. This catches typos in keys and
-// invalid enum values at compile time instead of runtime.
-
-type ImageOptionInputs = {
-  aspectRatio?: `${number}:${number}`
-  allowPeople: boolean
-  quality?: string
-  resolution?: string
-  outputFormat?: string
-  negativePrompt?: string
-}
-
-// Return type uses a mapped type that preserves the typed structure while
-// remaining compatible with the AI SDK's ProviderOptions (Record<string, JSONObject>).
-// The satisfies checks catch key typos and invalid enum values at compile time,
-// then we widen to the SDK's expected shape at the boundary.
-type ProviderOptionsResult = Record<string, Record<string, string | number | boolean | string[] | null | undefined | Record<string, string | number | boolean | null | undefined>>>
-
-function buildImageProviderOptions(
-  provider: string,
-  opts: ImageOptionInputs,
-): ProviderOptionsResult {
-  switch (provider) {
-    case 'google': {
-      const googleOpts = {
-        ...(opts.allowPeople ? { personGeneration: 'allow_all' as const } : {}),
-        ...(opts.aspectRatio ? { aspectRatio: opts.aspectRatio as GoogleImageModelOptions['aspectRatio'] } : {}),
-      } satisfies GoogleImageModelOptions
-      return { google: googleOpts }
-    }
-    case 'vertex': {
-      const vertexOpts = {
-        ...(opts.allowPeople ? { personGeneration: 'allow_all' as const } : {}),
-        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
-      } satisfies GoogleVertexImageModelOptions
-      return { vertex: vertexOpts }
-    }
-    case 'xai': {
-      const xaiOpts = {
-        ...(opts.quality ? { quality: opts.quality as XaiImageModelOptions['quality'] } : {}),
-        ...(opts.resolution ? { resolution: opts.resolution as XaiImageModelOptions['resolution'] } : {}),
-        ...(opts.outputFormat ? { output_format: opts.outputFormat } : {}),
-      } satisfies XaiImageModelOptions
-      return { xai: xaiOpts }
-    }
-    case 'openai': {
-      const openaiOpts = {
-        ...(opts.quality ? { quality: opts.quality as OpenAIImageProviderOptions['quality'] } : {}),
-        ...(opts.outputFormat ? { outputFormat: opts.outputFormat as OpenAIImageProviderOptions['outputFormat'] } : {}),
-      } satisfies OpenAIImageProviderOptions
-      return { openai: openaiOpts }
-    }
-    case 'fal': {
-      const falOpts = {
-        ...(opts.outputFormat ? { outputFormat: opts.outputFormat } : {}),
-        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
-      } satisfies FalImageModelOptions
-      return { fal: falOpts }
-    }
-    default:
-      // Providers routed through the gateway (bfl, recraft, etc.) pass options
-      // as-is since they don't have local SDK types.
-      return {}
-  }
-}
-
-type VideoOptionInputs = {
-  resolution?: string
-  mode?: string
-  videoUrl?: string
-  referenceImages?: string[]
-  negativePrompt?: string
-  model: string
-}
-
-function buildVideoProviderOptions(
-  provider: string,
-  opts: VideoOptionInputs,
-): ProviderOptionsResult | undefined {
-  switch (provider) {
-    case 'xai': {
-      // xAI video modes are a discriminated union; build the correct variant.
-      const base = {
-        ...(opts.resolution ? { resolution: opts.resolution as '480p' | '720p' } : {}),
-      }
-      if (opts.mode === 'edit-video' && opts.videoUrl) {
-        const xaiOpts = { ...base, mode: 'edit-video' as const, videoUrl: opts.videoUrl } satisfies XaiVideoModelOptions
-        return { xai: xaiOpts }
-      }
-      if (opts.mode === 'extend-video' && opts.videoUrl) {
-        const xaiOpts = { ...base, mode: 'extend-video' as const, videoUrl: opts.videoUrl } satisfies XaiVideoModelOptions
-        return { xai: xaiOpts }
-      }
-      if (opts.mode === 'reference-to-video' && opts.referenceImages) {
-        const xaiOpts = { ...base, mode: 'reference-to-video' as const, referenceImageUrls: opts.referenceImages } satisfies XaiVideoModelOptions
-        return { xai: xaiOpts }
-      }
-      // Default: text-to-video or image-to-video (no mode)
-      if (Object.keys(base).length === 0) return undefined
-      const xaiOpts = { ...base } satisfies XaiVideoModelOptions
-      return { xai: xaiOpts }
-    }
-    case 'bytedance': {
-      // Seedance r2v: pass reference image URLs via providerOptions.bytedance.referenceImages.
-      // In the prompt, reference images with @Image1, @Image2, etc. (Seedance 2.0) or
-      // [Image 1], [Image 2] (Seedance 1.0 Lite I2V).
-      const bytedanceOpts = {
-        ...(opts.resolution ? { resolution: opts.resolution } : {}),
-        ...(opts.referenceImages ? { referenceImages: opts.referenceImages } : {}),
-      } satisfies ByteDanceVideoProviderOptions
-      if (Object.keys(bytedanceOpts).length === 0) return undefined
-      return { bytedance: bytedanceOpts }
-    }
-    case 'fal': {
-      const falOpts = {
-        ...(opts.resolution ? { resolution: opts.resolution } : {}),
-        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
-      } satisfies FalVideoModelOptions
-      if (Object.keys(falOpts).length === 0) return undefined
-      return { fal: falOpts }
-    }
-    case 'google': {
-      const googleOpts = {
-        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
-      } satisfies GoogleVideoModelOptions
-      if (Object.keys(googleOpts).length === 0) return undefined
-      return { google: googleOpts }
-    }
-    case 'vertex': {
-      const vertexOpts = {
-        ...(opts.negativePrompt ? { negativePrompt: opts.negativePrompt } : {}),
-      } satisfies GoogleVertexVideoModelOptions
-      if (Object.keys(vertexOpts).length === 0) return undefined
-      return { vertex: vertexOpts }
-    }
-    default:
-      return undefined
-  }
-}
-
-// Generate using the dedicated generateImage API (Imagen models)
-async function generateWithImageModel({
-  prompt,
-  model,
-  outputPath,
-  count,
-  aspectRatio,
-  seed,
-  inputImages,
-  maskImage,
-  allowPeople,
-  quality,
-  resolution,
-  outputFormat,
-  negativePrompt,
-  json,
-  stdout,
-}: {
-  prompt: string
-  model: string
-  outputPath: string
-  count: number
-  aspectRatio?: `${number}:${number}`
-  seed?: number
-  inputImages: Uint8Array[]
-  maskImage?: Uint8Array
-  allowPeople: boolean
-  quality?: string
-  resolution?: string
-  outputFormat?: string
-  negativePrompt?: string
-  json: boolean
-  stdout: boolean
-}) {
-  // Build the prompt: plain string or multimodal with reference images
-  const imagePrompt = inputImages.length > 0
-    ? { text: prompt, images: inputImages, ...(maskImage ? { mask: maskImage } : {}) }
-    : prompt
-
-  const config = getModelConfig(model)
-  const imageModel = await createImageModel(model)
-
-  // Build type-safe provider options using the SDK types with `satisfies`.
-  // Each provider has its own shape; we switch on provider to get compile-time safety.
-  const providerOptions = buildImageProviderOptions(config.provider, {
-    aspectRatio,
-    allowPeople,
-    quality,
-    resolution,
-    outputFormat,
-    negativePrompt,
-  })
-
-  if (!stdout) {
-    console.error(pc.cyan('Generating...'))
-  }
-
-  const result = await runProviderCall('Image generation', () => aiGenerateImage({
-    model: imageModel,
-    prompt: imagePrompt,
-    n: count,
-    ...(aspectRatio ? { aspectRatio } : {}),
-    ...(seed !== undefined ? { seed } : {}),
-    providerOptions,
-  }))
-
-  const files = result.images.map((img) => ({
-    uint8Array: img.uint8Array,
-    mediaType: img.mediaType,
-  }))
-
-  if (stdout) {
-    writeFirstToStdout(files)
-    return
-  }
-
-  const savedFiles = saveGeneratedFiles(files, outputPath)
-  const cost = calculateCost(config.cost, result.usage, result.images.length)
-  printCost(cost)
-
-  if (json) {
-    console.log(JSON.stringify({
-      model,
-      files: savedFiles,
-      count: result.images.length,
-      cost,
-      usage: result.usage,
-      warnings: result.warnings,
-    }, null, 2))
-  }
-}
-
-// Generate using generateText with responseModalities (Gemini multimodal models)
-async function generateWithTextModel({
-  prompt,
-  model,
-  outputPath,
-  inputImages,
-  imageSize,
-  aspectRatio,
-  json,
-  stdout,
-}: {
-  prompt: string
-  model: string
-  outputPath: string
-  inputImages: Uint8Array[]
-  imageSize?: '1K' | '2K' | '4K'
-  aspectRatio?: string
-  json: boolean
-  stdout: boolean
-}) {
-  const textModel = await createTextModel(model)
-  const config = getModelConfig(model)
-
-  if (!stdout) {
-    console.error(pc.cyan('Generating...'))
-  }
-
-  // Build messages: if we have input images, create a multimodal prompt
-  const messages = inputImages.length > 0
-    ? [
-        {
-          role: 'user' as const,
-          content: [
-            { type: 'text' as const, text: prompt },
-            ...inputImages.map((img) => ({
-              type: 'image' as const,
-              image: img,
-            })),
-          ],
-        },
-      ]
-    : undefined
-
-  // Type-safe Google/Vertex language model options with image generation config.
-  // aspectRatio is cast to the Google SDK's enum type since CLI input is a free string.
-  type GoogleAspectRatio = NonNullable<NonNullable<GoogleLanguageModelOptions['imageConfig']>['aspectRatio']>
-  const googleOpts = {
-    responseModalities: ['TEXT', 'IMAGE'],
-    ...(imageSize || aspectRatio
-      ? {
-          imageConfig: {
-            ...(imageSize ? { imageSize } : {}),
-            ...(aspectRatio ? { aspectRatio: aspectRatio as GoogleAspectRatio } : {}),
-          },
-        }
-      : {}),
-  } satisfies GoogleLanguageModelOptions
-
-  const providerOptionsKey = config.provider === 'vertex' ? 'vertex' : 'google'
-
-  const result = await runProviderCall('Text/image generation', () => generateText({
-    model: textModel,
-    ...(messages ? { messages } : { prompt }),
-    providerOptions: {
-      [providerOptionsKey]: googleOpts,
-    },
-  }))
-
-  const imageFiles = result.files.filter((f) => f.mediaType.startsWith('image/'))
-
-  if (imageFiles.length === 0) {
-    console.error(pc.red('No images generated.'))
-    process.exit(1)
-  }
-
-  if (stdout) {
-    writeFirstToStdout(imageFiles)
-    return
-  }
-
-  const savedFiles = saveGeneratedFiles(imageFiles, outputPath)
-  const cost = calculateCost(config.cost, result.usage, imageFiles.length)
-  printCost(cost)
-
-  if (result.text && !json) {
-    console.error(pc.dim(result.text))
-  }
-
-  if (json) {
-    console.log(JSON.stringify({
-      model,
-      files: savedFiles,
-      count: imageFiles.length,
-      text: result.text || null,
-      cost,
-      usage: result.usage,
-    }, null, 2))
-  }
-}
-
-// Generate using the OpenAI Responses API with imageGeneration tool.
-// Used when auth comes from ChatGPT OAuth (no Image API scope).
-async function generateWithResponsesApi({
-  prompt,
-  model,
-  outputPath,
-  count,
-  aspectRatio,
-  seed,
-  inputImages,
-  maskImage,
-  json,
-  stdout,
-}: {
-  prompt: string
-  model: string
-  outputPath: string
-  count: number
-  aspectRatio?: `${number}:${number}`
-  seed?: number
-  inputImages: Uint8Array[]
-  maskImage?: Uint8Array
-  json: boolean
-  stdout: boolean
-}) {
-  if (count !== 1) {
-    console.error(pc.red('ChatGPT image generation currently supports exactly one output image.'))
-    process.exit(1)
-  }
-
-  if (seed !== undefined) {
-    console.error(pc.red('ChatGPT image generation does not support --seed.'))
-    process.exit(1)
-  }
-
-  if (maskImage) {
-    console.error(pc.red('ChatGPT image generation does not support --mask yet.'))
-    process.exit(1)
-  }
-
-  const size = aspectRatio ? chatGptImageSizeFromAspectRatio(aspectRatio) : undefined
-  if (aspectRatio && !size) {
-    console.error(
-      pc.red(
-        'ChatGPT image generation only supports --aspect-ratio 1:1, 3:2, or 2:3.',
-      ),
-    )
-    process.exit(1)
-  }
-
-  const storedAuth = getChatGptAuth()
-  if (!storedAuth?.accountId) {
-    console.error(pc.red('Missing ChatGPT account metadata. Please run `egaki login --provider chatgpt` again.'))
-    process.exit(1)
-  }
-
-  const auth = await getValidChatGptAuth(storedAuth, saveChatGptAuth)
-  if (auth instanceof Error) {
-    console.error(pc.red(auth.message))
-    process.exit(1)
-  }
-
-  if (!stdout) {
-    console.error(pc.cyan('Generating...'))
-  }
-
-  const content: Array<{ type: 'input_text'; text: string } | { type: 'input_image'; image_url: string }> = [
-    { type: 'input_text', text: prompt },
-    ...inputImages.map((image) => ({
-      type: 'input_image' as const,
-      image_url: imageBytesToDataUrl(image),
-    })),
-  ]
-
-  const response = await fetch('https://chatgpt.com/backend-api/codex/responses', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${auth.access}`,
-      ...(auth.accountId && { 'ChatGPT-Account-ID': auth.accountId }),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-5.4',
-      instructions: 'You are Codex.',
-      input: [
-        {
-          type: 'message',
-          role: 'user',
-          content,
-        },
-      ],
-      tools: [
-        {
-          type: 'image_generation',
-          model,
-          size: 'auto',
-          quality: 'auto',
-          output_format: 'png',
-          output_compression: 100,
-          moderation: 'auto',
-          ...(size ? { size } : {}),
-        },
-      ],
-      tool_choice: 'auto',
-      parallel_tool_calls: true,
-      stream: true,
-      store: false,
-      include: [],
-    }),
-  })
-
-  if (!response.ok || !response.body) {
-    const body = await response.text().catch(() => '')
-    console.error(pc.red(`ChatGPT image generation failed: ${response.status}`))
-    if (body) console.error(pc.dim(body))
-    process.exit(1)
-  }
-
-  let imageBase64: string | undefined
-  let revisedPrompt: string | null = null
-
-  const processSseMessage = (message: EventSourceMessage) => {
-    if (!message.data) return
-    try {
-      const event = JSON.parse(message.data) as {
-        type?: string
-        partial_image_b64?: string
-        item?: { type?: string; result?: string; revised_prompt?: string | null }
-      }
-      if (
-        event.type === 'response.image_generation_call.partial_image' &&
-        event.partial_image_b64 &&
-        !imageBase64
-      ) {
-        imageBase64 = event.partial_image_b64
-      }
-      if (
-        event.type === 'response.output_item.done' &&
-        event.item?.type === 'image_generation_call'
-      ) {
-        if (event.item.result) imageBase64 = event.item.result
-        revisedPrompt = event.item.revised_prompt ?? revisedPrompt
-      }
-    } catch {
-      // Ignore keepalive and partial parse noise.
-    }
-  }
-
-  const parser = createParser({
-    onEvent: processSseMessage,
-  })
-
-  const decoder = new TextDecoder()
-
-  for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
-    parser.feed(decoder.decode(chunk, { stream: true }))
-  }
-  parser.feed(decoder.decode())
-
-  if (!imageBase64) {
-    console.error(pc.red('No images generated.'))
-    process.exit(1)
-  }
-
-  const imageBytes = Buffer.from(imageBase64, 'base64')
-  const mediaType = 'image/png'
-
-  if (stdout) {
-    process.stdout.write(imageBytes)
-    return
-  }
-
-  const savedFiles: string[] = []
-  const filePath = ensureExtension(outputPath, extensionFromMediaType(mediaType))
-  fs.writeFileSync(filePath, imageBytes)
-  console.error(pc.green(`Saved: ${filePath}`))
-  savedFiles.push(filePath)
-
-  if (revisedPrompt && !json) {
-    console.error(pc.dim(`Revised prompt: ${revisedPrompt}`))
-  }
-
-  if (json) {
-    const output = {
-      model,
-      files: savedFiles,
-      count: 1,
-      revisedPrompt,
-    }
-    console.log(JSON.stringify(output, null, 2))
-  }
-}
-
-// Generate using experimental_generateVideo (video models)
-async function generateWithVideoModel({
-  prompt,
-  model,
-  outputPath,
-  count,
-  aspectRatio,
-  resolution,
-  duration,
-  fps,
-  seed,
-  inputImage,
-  mode,
-  videoUrl,
-  referenceImages,
-  negativePrompt,
-  json,
-  stdout,
-}: {
-  prompt: string
-  model: string
-  outputPath: string
-  count: number
-  aspectRatio?: string
-  resolution?: string
-  duration?: number
-  fps?: number
-  seed?: number
-  inputImage?: Uint8Array
-  mode?: string
-  videoUrl?: string
-  referenceImages?: string[]
-  negativePrompt?: string
-  json: boolean
-  stdout: boolean
-}) {
-  const videoModel = await createVideoModel(model)
-  const config = getModelConfig(model)
-
-  // Validate that the model supports video-url input before building options.
-  // Only models with a 'video-url' providerOption (currently xAI) accept edit/extend mode.
-  if (videoUrl && !config.providerOptions?.some((opt) => opt.flag === 'video-url')) {
-    console.error(pc.red(`Model ${model} does not support video URL input for editing/extension`))
-    process.exit(1)
-  }
-
-  // Build type-safe provider options for video generation.
-  const providerOptions = buildVideoProviderOptions(config.provider, {
-    resolution,
-    mode,
-    videoUrl,
-    referenceImages,
-    negativePrompt,
-    model,
-  })
-
-  if (!stdout) {
-    console.error(pc.cyan('Generating...'))
-  }
-
-  const result = await runProviderCall('Video generation', () => aiGenerateVideo({
-    model: videoModel,
-    prompt: inputImage
-      ? { image: inputImage, text: prompt }
-      : prompt,
-    n: count,
-    ...(aspectRatio ? { aspectRatio: aspectRatio as `${number}:${number}` } : {}),
-    ...(resolution ? { resolution: resolution as `${number}x${number}` } : {}),
-    ...(duration != null ? { duration } : {}),
-    ...(fps != null ? { fps } : {}),
-    ...(seed != null ? { seed } : {}),
-    ...(providerOptions ? { providerOptions } : {}),
-  }))
-
-  const files = result.videos.map((v: { uint8Array: Uint8Array; mediaType: string }) => ({
-    uint8Array: v.uint8Array,
-    mediaType: v.mediaType,
-  }))
-
-  if (stdout) {
-    writeFirstToStdout(files)
-    return
-  }
-
-  const savedFiles = saveGeneratedFiles(files, outputPath)
-  const cost = calculateCost(config.cost, {
-    videosGenerated: result.videos.length,
-    durationSeconds: duration,
-    resolution,
-    hasVideoInput: Boolean(inputImage || videoUrl || referenceImages?.length),
-  }, result.videos.length)
-  printCost(cost)
-
-  if (json) {
-    console.log(JSON.stringify({
-      model,
-      files: savedFiles,
-      count: result.videos.length,
-      cost,
-      warnings: result.warnings,
-      responses: result.responses,
-    }, null, 2))
-  }
-}
-
 // ─── shared output helpers ───────────────────────────────────────────────────
-// Common logic for saving generated files, calculating cost, and printing JSON
-// metadata. Used by all generation paths to avoid repeating boilerplate.
 
-type GeneratedFile = {
-  uint8Array: Uint8Array
-  mediaType: string
-}
-
-/**
- * Save generated files to disk. Returns the list of saved file paths.
- * Handles single vs multi-file naming with index suffixes.
- */
 function saveGeneratedFiles(
   files: GeneratedFile[],
   outputPath: string,
@@ -1695,18 +1023,12 @@ function saveGeneratedFiles(
   return savedFiles
 }
 
-/**
- * Print estimated cost to stderr if calculable.
- */
 function printCost(cost: number | null): void {
   if (cost != null) {
     console.error(pc.dim(`Cost: ${formatCost(cost)}`))
   }
 }
 
-/**
- * Write the first file's raw bytes to stdout (for piping to other tools).
- */
 function writeFirstToStdout(files: GeneratedFile[]): void {
   const file = files[0]
   if (file) {
@@ -1714,60 +1036,7 @@ function writeFirstToStdout(files: GeneratedFile[]): void {
   }
 }
 
-// ─── cost helpers ────────────────────────────────────────────────────────────
-
-function calculateCost(
-  cost: {
-    type: 'per-image'
-    perImage: number
-  } | {
-    type: 'per-token'
-    inputPerM: number
-    outputPerM: number
-  } | {
-    type: 'per-video-second'
-    defaultDurationSec: number
-    tiers: Array<{ resolution?: string; costPerSecond: number; hasVideoInput?: boolean }>
-  } | {
-    type: 'unknown'
-  },
-  usage: {
-    inputTokens?: number
-    outputTokens?: number
-    imagesGenerated?: number
-    videosGenerated?: number
-    durationSeconds?: number
-    resolution?: string
-    hasVideoInput?: boolean
-  },
-  count: number = 1,
-): number | null {
-  if (cost.type === 'per-image') {
-    return cost.perImage * count
-  }
-  if (cost.type === 'per-token' && usage.inputTokens != null && usage.outputTokens != null) {
-    return (
-      (usage.inputTokens * cost.inputPerM + usage.outputTokens * cost.outputPerM) / 1_000_000
-    )
-  }
-  if (cost.type === 'per-video-second') {
-    const durationSec = usage.durationSeconds ?? cost.defaultDurationSec
-    const resolution = normalizeResolutionKey(usage.resolution)
-    const hasVideoInput = usage.hasVideoInput ?? false
-    const tier =
-      cost.tiers.find((t) =>
-        normalizeResolutionKey(t.resolution) === resolution &&
-        (t.hasVideoInput == null || t.hasVideoInput === hasVideoInput),
-      ) ??
-      cost.tiers.find((t) => normalizeResolutionKey(t.resolution) === resolution) ??
-      cost.tiers[0]
-    if (!tier) {
-      return null
-    }
-    return tier.costPerSecond * durationSec * count
-  }
-  return null
-}
+// ─── display helpers ─────────────────────────────────────────────────────────
 
 function formatCatalogCost(
   cost: {
@@ -1827,69 +1096,6 @@ function extensionFromMediaType(mediaType: string): string {
     'video/quicktime': '.mov',
   }
   return map[mediaType] || (mediaType.startsWith('video/') ? '.mp4' : '.png')
-}
-
-function inferImageMediaType(image: Uint8Array): string {
-  if (image.length >= 8 && image[0] === 0x89 && image[1] === 0x50 && image[2] === 0x4e && image[3] === 0x47) {
-    return 'image/png'
-  }
-  if (image.length >= 3 && image[0] === 0xff && image[1] === 0xd8 && image[2] === 0xff) {
-    return 'image/jpeg'
-  }
-  if (
-    image.length >= 12 &&
-    image[0] === 0x52 && image[1] === 0x49 && image[2] === 0x46 && image[3] === 0x46 &&
-    image[8] === 0x57 && image[9] === 0x45 && image[10] === 0x42 && image[11] === 0x50
-  ) {
-    return 'image/webp'
-  }
-  if (
-    image.length >= 6 &&
-    image[0] === 0x47 && image[1] === 0x49 && image[2] === 0x46 && image[3] === 0x38
-  ) {
-    return 'image/gif'
-  }
-  return 'image/png'
-}
-
-function imageBytesToDataUrl(image: Uint8Array): string {
-  const mediaType = inferImageMediaType(image)
-  return `data:${mediaType};base64,${Buffer.from(image).toString('base64')}`
-}
-
-function chatGptImageSizeFromAspectRatio(
-  aspectRatio: `${number}:${number}`,
-): '1024x1024' | '1536x1024' | '1024x1536' | undefined {
-  switch (aspectRatio) {
-    case '1:1':
-      return '1024x1024'
-    case '3:2':
-      return '1536x1024'
-    case '2:3':
-      return '1024x1536'
-    default:
-      return undefined
-  }
-}
-
-function normalizeResolutionKey(input?: string): string | undefined {
-  if (!input) return undefined
-  const normalized = input.trim().toLowerCase()
-  if (normalized === '1920x1080') return '1080p'
-  if (normalized === '1280x720') return '720p'
-  if (normalized === '854x480' || normalized === '848x480') return '480p'
-  return normalized
-}
-
-function isAspectRatio(input: string): input is `${number}:${number}` {
-  return /^\d+:\d+$/.test(input)
-}
-
-function parseAspectRatioOption(input?: string): `${number}:${number}` | undefined {
-  if (!input || !isAspectRatio(input)) {
-    return undefined
-  }
-  return input
 }
 
 function ensureExtension(filePath: string, ext: string): string {

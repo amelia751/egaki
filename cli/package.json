@@ -11,6 +11,10 @@
       "types": "./dist/cli/cli.d.ts",
       "default": "./dist/cli/cli.js"
     },
+    "./generate": {
+      "types": "./dist/cli/generate.d.ts",
+      "default": "./dist/cli/generate.js"
+    },
     "./video": {
       "types": "./src/vite/mdx-video.tsx",
       "default": "./src/vite/mdx-video.tsx"
