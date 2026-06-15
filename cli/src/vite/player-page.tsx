@@ -676,18 +676,25 @@ export function PlayerPage({
                   >
                     Render Error
                   </span>
-                  <span
+                  <pre
                     style={{
-                      fontSize: 24,
+                      fontSize: 14,
                       fontWeight: 400,
                       color: '#a1a1aa',
                       fontFamily:
                         'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+                      whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
+                      textAlign: 'left',
+                      maxHeight: '50%',
+                      overflow: 'auto',
+                      width: '100%',
+                      margin: 0,
+                      lineHeight: 1.5,
                     }}
                   >
-                    {error.message}
-                  </span>
+                    {error.stack || error.message}
+                  </pre>
                 </div>
               </AbsoluteFill>
             )}
