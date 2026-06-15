@@ -23,6 +23,10 @@
       "types": "./src/vite/vite-plugin.ts",
       "default": "./src/vite/vite-plugin.ts"
     },
+    "./mdx-components": {
+      "types": "./src/vite/mdx-provided-components.ts",
+      "default": "./src/vite/mdx-provided-components.ts"
+    },
     "./src/cli/*": {
       "types": "./src/cli/*.ts",
       "default": "./src/cli/*.ts"

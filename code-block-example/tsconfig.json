@@ -23,4 +23,3 @@
   "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.mdx"],
   "exclude": ["node_modules", "dist"]
 }
-

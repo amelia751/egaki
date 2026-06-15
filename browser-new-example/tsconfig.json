@@ -1,15 +1,26 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": "dist",
+    "noImplicitAny": false,
     "noEmit": true,
-    "isolatedModules": true,
-    "allowImportingTsExtensions": true
+    "plugins": [
+      { "name": "@mdx-js/typescript-plugin" }
+    ]
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "mdx": {
+    "checkMdx": true
+  },
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.mdx"],
+  "exclude": ["node_modules", "dist"]
 }
+

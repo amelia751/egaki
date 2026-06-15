@@ -6,6 +6,48 @@ only exist when the value is used in multiple places or when the name carries im
 semantic meaning that the raw value does not convey. This applies to all egaki component
 files, example recreations, and video templates.
 
+**Import easings from egaki, never redefine them.** `egaki/video` exports `EASE` (preset
+curves at intensity 50), continuous preset functions like `smoothEasing(intensity)`,
+`impulseOvershoot(intensity)`, and primitives like `polybezier()`. When a component needs
+`bezier(0.5, 0, 0, 1)` that is `EASE.smooth`; `bezier(0.9, 0, 0, 1)` is
+`smoothEasing(100)`. Always check `EASE.*` and the `*Easing(intensity)` functions before
+defining a local easing constant. Only define a local curve when it is a project-specific
+Jitter extraction that has no matching egaki preset.
+
+## MDX LSP autocomplete for built-in components
+
+Every egaki video project must have MDX LSP support so built-in components
+(`FadeIn`, `SlideIn`, `BlurReveal`, etc.) get autocomplete with prop types
+in `.mdx` files. This requires three things:
+
+1. **`@mdx-js/typescript-plugin`** installed as a devDependency.
+2. **`tsconfig.json`** with the plugin registered, `checkMdx` enabled, and
+   `.mdx` files included:
+
+```json
+{
+  "compilerOptions": {
+    "plugins": [{ "name": "@mdx-js/typescript-plugin" }]
+  },
+  "mdx": { "checkMdx": true },
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.mdx"]
+}
+```
+
+3. **`egaki-env.d.ts`** in the project root with:
+
+```ts
+import 'egaki/mdx-components'
+```
+
+The vite plugin auto-generates `egaki-env.d.ts` on first run. The global
+`MDXProvidedComponents` type is declared in `cli/src/vite/mdx-provided-components.ts`
+and derives from `MDX_BUILTIN_COMPONENTS` in `mdx-video.tsx`, so adding a new
+component to the runtime map automatically makes it available in the LSP.
+
+When creating new example projects, always include all three pieces. After
+changes, restart the TS server in VS Code for the MDX LSP to pick them up.
+
 ## Conventions
 
 **CLI framework:** Built with [goke](https://github.com/remorses/goke), a type-safe CLI

@@ -12,8 +12,15 @@
     "rootDir": ".",
     "outDir": "dist",
     "noImplicitAny": false,
-    "noEmit": true
+    "noEmit": true,
+    "plugins": [
+      { "name": "@mdx-js/typescript-plugin" }
+    ]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "mdx": {
+    "checkMdx": true
+  },
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.mdx"],
   "exclude": ["node_modules", "dist"]
 }
+

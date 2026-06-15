@@ -85,6 +85,20 @@ export function video(options: VideoPluginOptions): PluginOption[] {
           `Set entry to a path relative to the vite root.`,
         )
       }
+
+      // Auto-generate egaki-env.d.ts so MDX LSP knows about built-in
+      // components via the global MDXProvidedComponents type. Same
+      // pattern Vite uses for vite-env.d.ts.
+      const envDtsPath = path.join(root, 'egaki-env.d.ts')
+      const envDtsContent = 'import \'egaki/mdx-components\'\n'
+      try {
+        const existing = fs.existsSync(envDtsPath) ? fs.readFileSync(envDtsPath, 'utf-8') : ''
+        if (existing !== envDtsContent) {
+          fs.writeFileSync(envDtsPath, envDtsContent)
+        }
+      } catch {
+        // Non-fatal: LSP autocomplete just won't work
+      }
     },
 
     resolveId(id) {
