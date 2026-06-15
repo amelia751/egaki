@@ -319,7 +319,39 @@ Conventions and rules:
 
 **Components** (`components.tsx`): ported from [remocn](https://github.com/kapishdima/remocn). Includes `MeshGradientBg`, `BlurReveal`, `MaskedSlideReveal`, `StaggeredFadeUp`, `TerminalSimulator`, `GlassCodeBlock`, `ShimmerSweep`, `SpringPopIn`, `AnimatedChart`, `FeaturePill`. All use Remotion hooks (`useCurrentFrame`, `useVideoConfig`, `spring`, `interpolate`).
 
-**Animation wrappers** (`mdx-video.tsx`): `FadeIn`, `FadeOut`, `ZoomIn`, `ZoomOut`, `SlideIn`, `SlideOut`, `BlurIn`, `BlurOut`, and `<Animate enter="fadeIn" exit="zoomOut">` shorthand.
+**Animation wrappers** (`mdx-video.tsx`): `FadeIn`, `FadeOut`, `ZoomIn`, `ZoomOut`, `SlideIn`, `SlideOut`, `BlurIn`, `BlurOut`, and `<Animate enter="fadeIn" exit="zoomOut">` shorthand. Enter animations use ease-out by default (decelerate into place); exit animations use ease-in (accelerate away). `SlideIn`/`SlideOut` use a `from` prop (not `direction`): `from="left"` on SlideIn means the element enters from the left; `from="left"` on SlideOut means it exits to the right (opposite of where it came from). All wrappers accept a `delay` prop (frames) instead of `offset`: positive delays the start, negative starts earlier.
+
+## `FPS` and `BEAT` scope variables
+
+MDX expressions have access to `FPS` and `BEAT` as global scope variables,
+derived from frontmatter `fps` and `bpm`. No import needed.
+
+- **`FPS`** = frames per second (default 30). Use to convert seconds to frames.
+- **`BEAT`** = frames per beat, computed as `fps / (bpm / 60)`. At 120bpm/30fps = 15 frames.
+
+```mdx
+---
+fps: 30
+bpm: 120
+---
+
+# Intro duration=2s
+
+<SlideIn from="left" delay={0.3 * FPS}>
+  <SlideOut from="left" delay={-0.5 * FPS}>
+    <TextSlide text="Hello" />
+  </SlideOut>
+</SlideIn>
+
+# Verse duration={8 * BEAT}
+
+<FadeIn duration={2 * BEAT}>
+  Content appears over 2 beats
+</FadeIn>
+```
+
+These are injected via safe-mdx's `scope` prop in `mdx-client.tsx`. Imported
+`.mdx` files also receive the same scope from the entry MDX's frontmatter.
 
 **Media components**: `<Video>` and `<Audio>` from `@remotion/media` are available in MDX.
 

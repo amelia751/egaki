@@ -24,7 +24,7 @@ import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { eagerModules as initialModules } from 'virtual:egaki-modules'
-import { splitIntoSections, calculateTotalDuration } from './mdx-parse.ts'
+import { splitIntoSections, calculateTotalDuration, parseFrontmatter } from './mdx-parse.ts'
 import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
@@ -189,6 +189,14 @@ function Server(props: { 'data-markdown-line'?: number }) {
 function buildComposition(mdxSource: string, modules: EagerModules) {
   const ast = mdxParse(mdxSource)
 
+  // Compute FPS and BEAT from frontmatter early so they're available as
+  // scope variables for all SafeMdxRenderer calls (including imported MDX).
+  const { fps, bpm } = parseFrontmatter(ast)
+  const mdxScope = {
+    FPS: fps,
+    BEAT: fps / (bpm / 60),
+  }
+
   // Render imported .mdx/.md files into React components so safe-mdx can
   // resolve `import Intro from './intro.mdx'` and render `<Intro />` via
   // React composition. Each imported MDX gets its own SafeMdxRenderer pass
@@ -210,6 +218,7 @@ function buildComposition(mdxSource: string, modules: EagerModules) {
         components={mdxComponents}
         modules={mergedModules}
         baseUrl="./"
+        scope={mdxScope}
         evaluateOptions={evaluateOptions}
         onError={(e) => console.warn('[egaki] imported MDX:', e.message)}
       />
@@ -242,6 +251,7 @@ function buildComposition(mdxSource: string, modules: EagerModules) {
       components={mdxComponents}
       modules={mergedModules}
       baseUrl="./"
+      scope={mdxScope}
       addMarkdownLineNumbers
       evaluateOptions={evaluateOptions}
       onError={(e) => console.warn('[egaki] MDX:', e.message)}

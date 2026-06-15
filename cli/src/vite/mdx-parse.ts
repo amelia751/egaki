@@ -33,7 +33,7 @@ export interface VideoFrontmatter {
 }
 
 /** Parse YAML frontmatter from mdast. Extracts fps, bpm. */
-function parseFrontmatter(mdast: Root): VideoFrontmatter {
+export function parseFrontmatter(mdast: Root): VideoFrontmatter {
   const result: VideoFrontmatter = { fps: DEFAULT_FPS, bpm: DEFAULT_BPM }
   for (const node of mdast.children) {
     if (node.type !== 'yaml') continue

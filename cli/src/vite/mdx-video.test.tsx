@@ -13,7 +13,7 @@ import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
-import { splitIntoSections, calculateTotalDuration } from './mdx-parse.ts'
+import { splitIntoSections, calculateTotalDuration, parseFrontmatter } from './mdx-parse.ts'
 import { findServerNodes, blankServerContents, collectServerImportSources } from './server-mdx.ts'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 
@@ -309,6 +309,74 @@ More content
     expect(result.sections).toHaveLength(1)
     expect(result.sections[0]!.heading).toBe('Scene')
     expect(result.preamble.length).toBeGreaterThan(0)
+  })
+})
+
+describe('parseFrontmatter and MDX scope (FPS, BEAT)', () => {
+  test('default values: 30fps, 120bpm', () => {
+    const ast = mdxParse('# Hello')
+    const fm = parseFrontmatter(ast)
+    expect(fm).toEqual({ fps: 30, bpm: 120 })
+  })
+
+  test('custom frontmatter', () => {
+    const ast = mdxParse(`---\nfps: 60\nbpm: 140\n---\n\n# Hello`)
+    const fm = parseFrontmatter(ast)
+    expect(fm).toEqual({ fps: 60, bpm: 140 })
+  })
+
+  test('FPS and BEAT available in safe-mdx scope for expressions', () => {
+    const fps = 30
+    const bpm = 120
+    const mdxScope = { FPS: fps, BEAT: fps / (bpm / 60) }
+
+    // BEAT at 120bpm, 30fps = 30 / (120/60) = 15 frames per beat
+    expect(mdxScope.BEAT).toBe(15)
+
+    // Verify scope works in safe-mdx expressions
+    function Box({ delay }: { delay: number }) {
+      return <div data-delay={delay} />
+    }
+    const code = `<Box delay={0.5 * FPS} />`
+    const ast = mdxParse(code)
+    const visitor = new MdastToJsx({
+      markdown: code,
+      mdast: ast,
+      components: { Box },
+      scope: mdxScope,
+      baseUrl: './',
+      evaluateOptions: { functions: true },
+    })
+    const result = visitor.run()
+    const html = renderToStaticMarkup(result)
+    // 0.5 * 30 = 15
+    expect(html).toMatchInlineSnapshot(`"<div data-delay="15"></div>"`)
+    expect(visitor.errors).toMatchInlineSnapshot(`[]`)
+  })
+
+  test('BEAT expression in safe-mdx scope', () => {
+    const fps = 30
+    const bpm = 120
+    const mdxScope = { FPS: fps, BEAT: fps / (bpm / 60) }
+
+    function Box({ duration }: { duration: number }) {
+      return <div data-duration={duration} />
+    }
+    const code = `<Box duration={2 * BEAT} />`
+    const ast = mdxParse(code)
+    const visitor = new MdastToJsx({
+      markdown: code,
+      mdast: ast,
+      components: { Box },
+      scope: mdxScope,
+      baseUrl: './',
+      evaluateOptions: { functions: true },
+    })
+    const result = visitor.run()
+    const html = renderToStaticMarkup(result)
+    // 2 * 15 = 30
+    expect(html).toMatchInlineSnapshot(`"<div data-duration="30"></div>"`)
+    expect(visitor.errors).toMatchInlineSnapshot(`[]`)
   })
 })
 
