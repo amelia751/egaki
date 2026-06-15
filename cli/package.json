@@ -23,6 +23,10 @@
       "types": "./src/vite/server-components.tsx",
       "default": "./src/vite/server-components.tsx"
     },
+    "./generate-media": {
+      "types": "./src/vite/server-components.tsx",
+      "default": "./src/vite/server-components.tsx"
+    },
     "./vite": {
       "types": "./src/vite/vite-plugin.ts",
       "default": "./src/vite/vite-plugin.ts"

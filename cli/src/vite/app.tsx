@@ -36,9 +36,15 @@ import {
   blankServerContents,
   collectServerImportSources,
   filterImportNodesToModules,
+  wrapGenerateNodes,
 } from './server-mdx.ts'
 import { MdxClientApp } from './mdx-client.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
+import {
+  GeneratedImage,
+  GeneratedVideo,
+  GeneratedAudio,
+} from './server-components.tsx'
 
 /** Dynamically import the modules referenced inside <Server> blocks.
  *  No static module map and no manual file probing: vite's RSC module
@@ -81,6 +87,9 @@ async function importServerModules(ast: any): Promise<EagerModules> {
 export const app = new Spiceflow()
   .page('/', async () => {
     const ast = mdxParse(mdxSource)
+    // Auto-wrap <GeneratedImage>, <GeneratedVideo>, <GeneratedAudio> in
+    // <Server> so they render server-side without manual wrapping in MDX.
+    wrapGenerateNodes(ast)
     const serverNodes = findServerNodes(ast)
 
     if (serverNodes.length === 0) {
@@ -98,6 +107,17 @@ export const app = new Spiceflow()
       Object.keys(eagerModules),
     )
 
+    // Override client stubs with real server components for generated
+    // media. The client stubs in MDX_BUILTIN_COMPONENTS return null;
+    // the server versions call egaki's generation APIs and return
+    // client wrappers with streaming promises.
+    const serverComponents = {
+      ...MDX_BUILTIN_COMPONENTS,
+      GeneratedImage,
+      GeneratedVideo,
+      GeneratedAudio,
+    }
+
     const serverSlots: Record<string, ReactNode> = {}
     for (const { key, node } of serverNodes) {
       if (key in serverSlots) {
@@ -111,7 +131,7 @@ export const app = new Spiceflow()
         <SafeMdxRenderer
           markdown={mdxSource}
           mdast={{ type: 'root', children: [...importNodes, ...node.children] } as any}
-          components={MDX_BUILTIN_COMPONENTS}
+          components={serverComponents}
           modules={eagerModules}
           baseUrl="./"
           onError={(e) => console.warn('[egaki] <Server> slot:', e.message)}

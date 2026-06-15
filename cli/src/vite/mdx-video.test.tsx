@@ -14,7 +14,8 @@ import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
 import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter } from './mdx-parse.ts'
-import { findServerNodes, blankServerContents, collectServerImportSources } from './server-mdx.ts'
+import { findServerNodes, blankServerContents, collectServerImportSources, wrapGenerateNodes } from './server-mdx.ts'
+import { stableJsonKey, hashKey, promptPrefix } from './server-components.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 
 describe('MDX_BUILTIN_COMPONENTS', () => {
@@ -33,7 +34,11 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "FadeIn",
         "FadeOut",
         "FeaturePill",
+        "GeneratedAudio",
+        "GeneratedImage",
+        "GeneratedVideo",
         "GlassCodeBlock",
+        "Img",
         "LayoutTransition",
         "MaskedSlideReveal",
         "MeshGradientBg",
@@ -1458,5 +1463,191 @@ import { STATS } from './stats-data'
         "./tts",
       ]
     `)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// wrapGenerateNodes
+// ---------------------------------------------------------------------------
+
+describe('wrapGenerateNodes', () => {
+  test('wraps bare GeneratedImage in Server', () => {
+    const mdx = `# Section duration=2s
+
+<GeneratedImage prompt="a cat" seed={1} />
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes.map((n) => ({
+      key: n.key,
+      childName: n.node.children[0]?.name,
+    }))).toMatchInlineSnapshot(`
+      [
+        {
+          "childName": "GeneratedImage",
+          "key": "3",
+        },
+      ]
+    `)
+  })
+
+  test('wraps all three generated component types', () => {
+    const mdx = `# Section duration=5s
+
+<GeneratedImage prompt="a cat" seed={1} />
+
+<GeneratedVideo prompt="a dog running" seed={2} />
+
+<GeneratedAudio text="hello world" seed={3} />
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes.map((n) => ({
+      key: n.key,
+      childName: n.node.children[0]?.name,
+    }))).toMatchInlineSnapshot(`
+      [
+        {
+          "childName": "GeneratedImage",
+          "key": "3",
+        },
+        {
+          "childName": "GeneratedVideo",
+          "key": "5",
+        },
+        {
+          "childName": "GeneratedAudio",
+          "key": "7",
+        },
+      ]
+    `)
+  })
+
+  test('skips when already inside Server', () => {
+    const mdx = `# Section duration=2s
+
+<Server>
+  <GeneratedImage prompt="a cat" seed={1} />
+</Server>
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    // Only one Server node (the original), not double-wrapped
+    expect(nodes.length).toBe(1)
+    expect(nodes[0]!.node.children[0]?.name).not.toBe('Server')
+  })
+
+  test('preserves line positions for slot keying', () => {
+    const mdx = `# A duration=1s
+
+<GeneratedImage prompt="test" seed={1} />
+
+# B duration=1s
+
+<GeneratedVideo prompt="test" seed={2} />
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes.map((n) => n.key)).toMatchInlineSnapshot(`
+      [
+        "3",
+        "7",
+      ]
+    `)
+  })
+
+  test('wraps inside other wrapper elements', () => {
+    const mdx = `<FadeIn duration={15}>
+  <GeneratedImage prompt="nested" seed={1} />
+</FadeIn>
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes.length).toBe(1)
+    expect(nodes[0]!.node.children[0]?.name).toBe('GeneratedImage')
+  })
+
+  test('blankServerContents roundtrip preserves line count', () => {
+    const mdx = `# Section duration=2s
+
+<GeneratedImage prompt="a cat" seed={1} />
+
+some text after
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    const blanked = blankServerContents(mdx, nodes)
+    expect(blanked.split('\n').length).toBe(mdx.split('\n').length)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Caching utilities (server-components.tsx)
+// ---------------------------------------------------------------------------
+
+describe('stableJsonKey', () => {
+  test('produces identical output regardless of key order', () => {
+    const a = stableJsonKey({ prompt: 'cat', seed: 1, model: 'imagen-4' })
+    const b = stableJsonKey({ model: 'imagen-4', prompt: 'cat', seed: 1 })
+    expect(a).toBe(b)
+  })
+
+  test('different values produce different keys', () => {
+    const a = stableJsonKey({ prompt: 'cat', seed: 1 })
+    const b = stableJsonKey({ prompt: 'dog', seed: 1 })
+    expect(a).not.toBe(b)
+  })
+
+  test('undefined values are included', () => {
+    const a = stableJsonKey({ prompt: 'cat', seed: 1, model: undefined })
+    const b = stableJsonKey({ prompt: 'cat', seed: 1 })
+    // JSON.stringify drops undefined values, so these should be equal
+    expect(a).toBe(b)
+  })
+})
+
+describe('hashKey', () => {
+  test('produces 8-char hex string', () => {
+    const h = hashKey('test input')
+    expect(h).toMatch(/^[0-9a-f]{8}$/)
+  })
+
+  test('is deterministic', () => {
+    expect(hashKey('same')).toBe(hashKey('same'))
+  })
+})
+
+describe('promptPrefix', () => {
+  test('converts to kebab case', () => {
+    expect(promptPrefix('A beautiful sunset over the ocean')).toMatchInlineSnapshot(
+      `"a-beautiful-sunset-over-the-ocean"`,
+    )
+  })
+
+  test('truncates long prompts to 40 chars', () => {
+    const long = 'a very long prompt that exceeds forty characters and should be truncated'
+    const result = promptPrefix(long)
+    expect(result.length).toBeLessThanOrEqual(40)
+  })
+
+  test('removes special characters', () => {
+    expect(promptPrefix('Hello! @world #test (foo) [bar]')).toMatchInlineSnapshot(
+      `"hello-world-test-foo-bar"`,
+    )
+  })
+
+  test('handles empty string', () => {
+    expect(promptPrefix('')).toBe('')
+  })
+
+  test('does not end with a dash', () => {
+    const result = promptPrefix('a b c d e f g h i j k l m n o p q r s t u v')
+    expect(result.endsWith('-')).toBe(false)
   })
 })

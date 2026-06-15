@@ -1,12 +1,340 @@
 /**
- * Built-in SERVER components for MDX <Server> blocks.
+ * Server components for AI media generation in MDX <Server> blocks.
  *
- * No 'use client' directive: these execute in the RSC environment, so
- * they can be async, call APIs, and read the filesystem. Import them in
- * MDX via bare specifiers (e.g. `import { TextToSpeech } from
- * 'egaki/text-to-speech'`) and use them inside <Server> — app.tsx
- * resolves bare specifiers through vite's resolver at request time.
+ * No 'use client' directive: these execute in the RSC environment (async,
+ * filesystem access, API calls). They are auto-wrapped in <Server> by
+ * wrapGenerateNodes() in server-mdx.ts, so users write them bare in MDX.
+ *
+ * Each component:
+ *   1. Builds a stable cache key from generation params (sorted JSON)
+ *   2. Checks public/generated/{type}/ for an existing file with that hash
+ *   3. If cached, returns the client wrapper with the resolved URL immediately
+ *   4. If not cached, starts generation and returns immediately with a promise
+ *      that the client wrapper awaits via React 19 use()
+ *   5. On regeneration (seed change), marks old file as stale- prefix
+ *
+ * Generation props are type-safe, reusing the same option types from
+ * egaki/generate. Passthrough props (style, className, trim, etc.) are
+ * forwarded to the client wrapper which renders the actual media component.
  */
+
+import { createHash } from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
+import type { ComponentProps } from 'react'
+import type { GenerateImageOptions } from '../cli/generate.js'
+import type { GenerateVideoOptions } from '../cli/generate.js'
+import type { GenerateSpeechOptions } from '../cli/speech-generate.js'
+import {
+  GeneratedImageClient,
+  GeneratedVideoClient,
+  GeneratedAudioClient,
+} from './generated-media-client.tsx'
+import type { Img, Audio, Video } from './mdx-video.tsx'
+
+// projectRoot is provided by the virtual module at Vite runtime.
+// Using dynamic import so tests that import the caching utilities
+// don't fail trying to resolve the virtual module statically.
+let _projectRoot: string | undefined
+async function getProjectRoot(): Promise<string> {
+  if (_projectRoot) return _projectRoot
+  const mod = await import(/* @vite-ignore */ 'virtual:egaki-mdx')
+  _projectRoot = mod.projectRoot
+  return _projectRoot!
+}
+
+// ---------------------------------------------------------------------------
+// Caching utilities
+// ---------------------------------------------------------------------------
+
+/** Deterministic JSON from an object: keys sorted recursively. */
+export function stableJsonKey(obj: Record<string, any>): string {
+  return JSON.stringify(obj, Object.keys(obj).sort())
+}
+
+/** First 8 hex chars of sha256. */
+export function hashKey(input: string): string {
+  return createHash('sha256').update(input).digest('hex').slice(0, 8)
+}
+
+/** First ~40 chars of text, kebab-cased, filesystem-safe. */
+export function promptPrefix(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 40)
+    .replace(/-$/, '')
+}
+
+function extensionFromMediaType(mediaType: string): string {
+  const map: Record<string, string> = {
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/webp': '.webp',
+    'video/mp4': '.mp4',
+    'video/webm': '.webm',
+    'audio/mpeg': '.mp3',
+    'audio/wav': '.wav',
+    'audio/opus': '.opus',
+    'audio/ogg': '.ogg',
+    'audio/aac': '.aac',
+    'audio/flac': '.flac',
+  }
+  return map[mediaType] || '.bin'
+}
+
+type MediaType = 'image' | 'video' | 'audio'
+
+async function generatedDir(type: MediaType): Promise<string> {
+  const root = await getProjectRoot()
+  const dir = path.join(root, 'public', 'generated', type)
+  fs.mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+/** Find an existing cached file by hash in the generated directory.
+ *  Returns the filename (not full path) or undefined. Prefers non-stale
+ *  files, but also matches stale- files (restoring them) so switching
+ *  seed A→B→A doesn't regenerate unnecessarily. */
+function findCachedFile(dir: string, hash: string): string | undefined {
+  try {
+    const entries = fs.readdirSync(dir)
+    // Prefer non-stale match
+    const fresh = entries.find((f) => !f.startsWith('stale-') && f.includes(hash))
+    if (fresh) return fresh
+    // Fall back to stale match — restore it to non-stale
+    const stale = entries.find((f) => f.startsWith('stale-') && f.includes(hash))
+    if (stale) {
+      const restored = stale.replace(/^stale-/, '')
+      try { fs.renameSync(path.join(dir, stale), path.join(dir, restored)) } catch {}
+      return restored
+    }
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Find a previous generation with the same prompt prefix that can serve
+ *  as fallback while a new generation is in progress. Looks for non-stale
+ *  files matching the prefix (different hash = different seed/params). */
+function findFallbackFile(dir: string, prefix: string, currentHash: string): string | undefined {
+  try {
+    const entries = fs.readdirSync(dir)
+    return entries.find((f) =>
+      !f.startsWith('stale-')
+      && f.startsWith(prefix + '-')
+      && !f.includes(currentHash),
+    )
+  } catch {
+    return undefined
+  }
+}
+
+/** Mark an existing file as stale by adding stale- prefix.
+ *  Called after a new generation completes to retire old versions
+ *  while keeping them accessible for reuse. */
+function markStale(dir: string, filename: string): void {
+  try {
+    const src = path.join(dir, filename)
+    const dest = path.join(dir, 'stale-' + filename)
+    if (fs.existsSync(src)) fs.renameSync(src, dest)
+  } catch {
+    // Non-fatal: worst case we overwrite
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Generation queue: one promise per cache key, deduplicates concurrent calls
+// ---------------------------------------------------------------------------
+
+const generationQueue = new Map<string, Promise<string>>()
+
+// ---------------------------------------------------------------------------
+// GeneratedImage
+// ---------------------------------------------------------------------------
+
+type GeneratedImageGenProps = Pick<
+  GenerateImageOptions,
+  'prompt' | 'model' | 'seed' | 'aspectRatio' | 'quality' | 'resolution' | 'outputFormat' | 'negativePrompt'
+>
+
+export type GeneratedImageProps = GeneratedImageGenProps & {
+  /** Required. Change to trigger regeneration. */
+  seed: number
+} & Omit<ComponentProps<typeof Img>, 'src'>
+
+export async function GeneratedImage({ prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, ...passthrough }: GeneratedImageProps) {
+  const genParams = { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt }
+  const key = stableJsonKey({ _type: 'image', ...genParams })
+  const hash = hashKey(key)
+  const dir = await generatedDir('image')
+  const prefix = promptPrefix(prompt)
+
+  // Check cache
+  const cached = findCachedFile(dir, hash)
+  if (cached) {
+    const src = `/generated/image/${cached}`
+    return <GeneratedImageClient srcPromise={Promise.resolve(src)} {...passthrough} />
+  }
+
+  // Find a previous generation with same prompt to show while generating
+  const fallback = findFallbackFile(dir, prefix, hash)
+  const fallbackSrc = fallback ? `/generated/image/${fallback}` : undefined
+
+  // Deduplicate concurrent generations
+  let srcPromise = generationQueue.get(key)
+  if (!srcPromise) {
+    srcPromise = (async () => {
+      try {
+        console.log(`[egaki] generating image: ${prefix}-${hash}...`)
+        const { generateImage } = await import('../cli/generate.js')
+        const result = await generateImage(genParams)
+        if (result instanceof Error) {
+          console.error(`[egaki] image generation failed:`, result.message)
+          throw result
+        }
+        const file = result.images[0]
+        if (!file) throw new Error('No image generated')
+        const ext = extensionFromMediaType(file.mediaType)
+        const filename = `${prefix}-${hash}${ext}`
+        fs.writeFileSync(path.join(dir, filename), file.uint8Array)
+        // Mark the old fallback file as stale now that we have a fresh one
+        if (fallback) markStale(dir, fallback)
+        console.log(`[egaki] generated image: ${filename}`)
+        return `/generated/image/${filename}`
+      } finally {
+        generationQueue.delete(key)
+      }
+    })()
+    generationQueue.set(key, srcPromise)
+  }
+
+  return <GeneratedImageClient srcPromise={srcPromise} fallbackSrc={fallbackSrc} {...passthrough} />
+}
+
+// ---------------------------------------------------------------------------
+// GeneratedVideo
+// ---------------------------------------------------------------------------
+
+type GeneratedVideoGenProps = Pick<
+  GenerateVideoOptions,
+  'prompt' | 'model' | 'seed' | 'aspectRatio' | 'resolution' | 'duration' | 'fps' | 'negativePrompt'
+>
+
+export type GeneratedVideoProps = GeneratedVideoGenProps & {
+  /** Required. Change to trigger regeneration. */
+  seed: number
+} & Omit<ComponentProps<typeof Video>, 'src'>
+
+export async function GeneratedVideo({ prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, ...passthrough }: GeneratedVideoProps) {
+  const genParams = { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt }
+  const key = stableJsonKey({ _type: 'video', ...genParams })
+  const hash = hashKey(key)
+  const dir = await generatedDir('video')
+  const prefix = promptPrefix(prompt)
+
+  const cached = findCachedFile(dir, hash)
+  if (cached) {
+    const src = `/generated/video/${cached}`
+    return <GeneratedVideoClient srcPromise={Promise.resolve(src)} {...passthrough} />
+  }
+
+  const fallback = findFallbackFile(dir, prefix, hash)
+  const fallbackSrc = fallback ? `/generated/video/${fallback}` : undefined
+
+  let srcPromise = generationQueue.get(key)
+  if (!srcPromise) {
+    srcPromise = (async () => {
+      try {
+        console.log(`[egaki] generating video: ${prefix}-${hash}...`)
+        const { generateVideo } = await import('../cli/generate.js')
+        const result = await generateVideo(genParams)
+        if (result instanceof Error) {
+          console.error(`[egaki] video generation failed:`, result.message)
+          throw result
+        }
+        const file = result.videos[0]
+        if (!file) throw new Error('No video generated')
+        const ext = extensionFromMediaType(file.mediaType)
+        const filename = `${prefix}-${hash}${ext}`
+        fs.writeFileSync(path.join(dir, filename), file.uint8Array)
+        if (fallback) markStale(dir, fallback)
+        console.log(`[egaki] generated video: ${filename}`)
+        return `/generated/video/${filename}`
+      } finally {
+        generationQueue.delete(key)
+      }
+    })()
+    generationQueue.set(key, srcPromise)
+  }
+
+  return <GeneratedVideoClient srcPromise={srcPromise} fallbackSrc={fallbackSrc} {...passthrough} />
+}
+
+// ---------------------------------------------------------------------------
+// GeneratedAudio
+// ---------------------------------------------------------------------------
+
+type GeneratedAudioGenProps = Pick<
+  GenerateSpeechOptions,
+  'text' | 'model' | 'voice' | 'outputFormat' | 'instructions' | 'speed' | 'language'
+>
+
+export type GeneratedAudioProps = GeneratedAudioGenProps & {
+  /** Optional. Change to trigger regeneration. */
+  seed?: number
+} & Omit<ComponentProps<typeof Audio>, 'src'>
+
+export async function GeneratedAudio({ text, model, voice, outputFormat, instructions, speed, language, seed, ...passthrough }: GeneratedAudioProps) {
+  const genParams = { text, model, voice, outputFormat, instructions, speed, language, seed }
+  const key = stableJsonKey({ _type: 'audio', ...genParams })
+  const hash = hashKey(key)
+  const dir = await generatedDir('audio')
+  const prefix = promptPrefix(text)
+
+  const cached = findCachedFile(dir, hash)
+  if (cached) {
+    const src = `/generated/audio/${cached}`
+    return <GeneratedAudioClient srcPromise={Promise.resolve(src)} {...passthrough} />
+  }
+
+  const fallback = findFallbackFile(dir, prefix, hash)
+  const fallbackSrc = fallback ? `/generated/audio/${fallback}` : undefined
+
+  let srcPromise = generationQueue.get(key)
+  if (!srcPromise) {
+    srcPromise = (async () => {
+      try {
+        console.log(`[egaki] generating audio: ${prefix}-${hash}...`)
+        const { generateSpeech } = await import('../cli/speech-generate.js')
+        const result = await generateSpeech({ text, model, voice, outputFormat, instructions, speed, language })
+        if (result instanceof Error) {
+          console.error(`[egaki] audio generation failed:`, result.message)
+          throw result
+        }
+        const file = result.audio
+        const ext = extensionFromMediaType(file.mediaType)
+        const filename = `${prefix}-${hash}${ext}`
+        fs.writeFileSync(path.join(dir, filename), file.uint8Array)
+        if (fallback) markStale(dir, fallback)
+        console.log(`[egaki] generated audio: ${filename}`)
+        return `/generated/audio/${filename}`
+      } finally {
+        generationQueue.delete(key)
+      }
+    })()
+    generationQueue.set(key, srcPromise)
+  }
+
+  return <GeneratedAudioClient srcPromise={srcPromise} fallbackSrc={fallbackSrc} {...passthrough} />
+}
+
+// ---------------------------------------------------------------------------
+// TextToSpeech (legacy alias for GeneratedAudio, kept for backwards compat)
+// ---------------------------------------------------------------------------
 
 interface TextToSpeechProps {
   /** Text to synthesize. */
@@ -15,22 +343,6 @@ interface TextToSpeechProps {
   voice?: string
 }
 
-/**
- * TODO: Real TTS — call egaki gateway (or provider) synthesis, write audio
- * to the project/public path, return Remotion `<Audio src={...} />` (from
- * `@remotion/media`). This stub only proves bare-specifier `<Server>` imports.
- */
 export async function TextToSpeech({ text, voice = 'alloy' }: TextToSpeechProps) {
-  // TODO: replace with gateway TTS + <Audio>
-  await new Promise((resolve) => setTimeout(resolve, 10))
-  return (
-    <span
-      data-egaki-tts
-      data-voice={voice}
-      style={{ display: 'none' }}
-      aria-hidden
-    >
-      {text}
-    </span>
-  )
+  return GeneratedAudio({ text, voice })
 }

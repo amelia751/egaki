@@ -178,6 +178,59 @@ export function collectServerImportSources(mdast: { children?: RootContent[] }):
   return [...sources].sort()
 }
 
+// ---------------------------------------------------------------------------
+// Auto-wrap generated media components in <Server>
+//
+// <GeneratedImage>, <GeneratedVideo>, <GeneratedAudio> are server components
+// that call egaki's generation APIs. When found bare in the mdast (not inside
+// a <Server> block), this transform wraps them in a synthetic <Server> node
+// so findServerNodes() picks them up. The wrapper reuses the original node's
+// position so line numbers stay stable and no sourcemap fixup is needed.
+// ---------------------------------------------------------------------------
+
+/** Component names that should be auto-wrapped in <Server>. */
+export const GENERATED_COMPONENT_NAMES = new Set([
+  'GeneratedImage',
+  'GeneratedVideo',
+  'GeneratedAudio',
+])
+
+/** Walk the mdast and wrap bare generated media components in <Server>.
+ *  Mutates the tree in place. Wrapping reuses the original node's position
+ *  so slot keys and line numbers are unchanged. */
+export function wrapGenerateNodes(mdast: { children?: RootContent[] }): void {
+  const wrapInParent = (parent: { children?: RootContent[] }) => {
+    if (!parent.children) return
+    for (let i = 0; i < parent.children.length; i++) {
+      const node = parent.children[i]
+      const isGenerate =
+        (node.type === 'mdxJsxFlowElement' || node.type === 'mdxJsxTextElement')
+        && GENERATED_COMPONENT_NAMES.has(node.name)
+      if (isGenerate) {
+        // Wrap in a synthetic <Server> with the same position so slot
+        // keying (by start line) stays identical and blankServerContents
+        // replaces the right source span.
+        parent.children[i] = {
+          type: node.type,
+          name: 'Server',
+          attributes: [],
+          children: [node],
+          position: node.position ? { ...node.position } : undefined,
+        }
+        continue
+      }
+      // Don't descend into <Server> — already server-side
+      const isServer =
+        (node.type === 'mdxJsxFlowElement' || node.type === 'mdxJsxTextElement')
+        && node.name === 'Server'
+      if (isServer) continue
+      // Recurse into other elements
+      if (node.children) wrapInParent(node)
+    }
+  }
+  wrapInParent(mdast)
+}
+
 /** Filter mdxjsEsm import nodes to statements whose source is resolvable
  *  in the given modules map. Each environment's map only contains the
  *  modules that belong there, so this keeps exactly the imports that

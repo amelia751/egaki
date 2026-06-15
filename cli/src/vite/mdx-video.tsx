@@ -1127,11 +1127,11 @@ export function LayoutGhost({ children }: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 // Ghost-aware media components
 //
-// @remotion/media's Audio/Video register audio assets in layout effects even
-// when their DOM is hidden, so a raw re-export would leak/duplicate audio
-// when the previous section is re-rendered inside the hidden ghost. These
-// wrappers neutralize media inside the ghost: Audio renders nothing (it has
-// no layout footprint anyway), Video stays mounted for layout but muted.
+// @remotion/media's Audio/Video register media assets in layout effects even
+// when their DOM is hidden, so a raw re-export would leak/duplicate audio and
+// can make the Player buffer while a hidden ghost is pinned near trimAfter.
+// These wrappers neutralize media inside the ghost: Audio renders nothing (it
+// has no layout footprint anyway), Video becomes a layout-only placeholder.
 //
 // Video also integrates with tweakpane: when not exporting, it loads the
 // source media duration and registers start/end sliders (in seconds)
@@ -1174,6 +1174,7 @@ function useReportMediaDuration(props: {
   const sectionIndex = useSectionIndex()
   const { fps } = useVideoConfig()
   const { delayRender, continueRender } = useDelayRender()
+  const isExporting = useIsExporting()
   const [rawDuration, setRawDuration] = useState<number | null>(null)
 
   useEffect(() => {
@@ -1215,8 +1216,13 @@ function useReportMediaDuration(props: {
       return
     }
 
-    // Cache miss: block rendering while fetching metadata
-    delayHandle = delayRender('Fetching media duration for ' + props.src)
+    // Cache miss: during export, block rendering until metadata is known.
+    // In the interactive Player, delayRender still creates global handles even
+    // though playback buffering is handled by Remotion's separate BufferState.
+    // Keeping it export-only avoids stale render-ready state during trim seeks.
+    if (isExporting) {
+      delayHandle = delayRender('Fetching media duration for ' + props.src)
+    }
 
     void (async () => {
       try {
@@ -1252,9 +1258,24 @@ function useReportMediaDuration(props: {
         delayHandle = null
       }
     }
-  }, [props.src, skip, sectionIndex, instanceId, fps, props.trimBefore, props.trimAfter, props.playbackRate])
+  }, [props.src, skip, sectionIndex, instanceId, fps, props.trimBefore, props.trimAfter, props.playbackRate, isExporting])
 
   return rawDuration
+}
+
+export function Img(props: React.ImgHTMLAttributes<HTMLImageElement>) {
+  const container = useContext(LayoutContainerContext)
+  if (container === 'ghost') {
+    return (
+      <div
+        className={props.className}
+        style={{ width: props.width, height: props.height, ...props.style }}
+        data-egaki-ghost-img
+      />
+    )
+  }
+  // eslint-disable-next-line jsx-a11y/alt-text
+  return <img {...props} />
 }
 
 export function Audio(props: ComponentProps<typeof MediaAudio>) {
@@ -1269,7 +1290,7 @@ export function Video(props: ComponentProps<typeof MediaVideo>) {
   const isExporting = useIsExporting()
 
   if (container === 'ghost') {
-    return <MediaVideo {...props} muted volume={0} />
+    return <GhostVideoPlaceholder {...props} />
   }
 
   // During export, report duration but skip tweakpane UI
@@ -1278,6 +1299,16 @@ export function Video(props: ComponentProps<typeof MediaVideo>) {
   }
 
   return <VideoWithTweakpane {...props} />
+}
+
+function GhostVideoPlaceholder(props: ComponentProps<typeof MediaVideo>) {
+  return (
+    <div
+      className={props.className}
+      style={{ width: props.width, height: props.height, ...props.style }}
+      data-egaki-ghost-video
+    />
+  )
 }
 
 /** Export mode: reports duration to section store, renders plain MediaVideo. */
@@ -1370,7 +1401,10 @@ function VideoTrimControls(
     } else if (tp.end !== prevTrimEndRef.current) {
       // end changed → seek to the section-relative frame where source
       // shows the end point: F = (end - start) * fps - 1
-      const endRelative = Math.round((tp.end - tp.start) * fps) - 1
+      // Seek away from the cut. Browser/media decoders are often
+      // flaky at the exact final decodable frame of a trimmed range, and this
+      // seek is only preview feedback; trimAfter itself remains exact.
+      const endRelative = Math.round((tp.end - tp.start) * fps) - Math.round(fps * 0.25)
       targetFrame = offset + Math.max(0, Math.min(endRelative, sectionDuration - 1))
       prevTrimEndRef.current = tp.end
     }
@@ -1569,6 +1603,19 @@ export {
 /** Built-in JSX names available in MDX without user imports. Shared by
  *  client rendering (mdx-client.tsx) and <Server> slot rendering (app.tsx).
  *  Add new presentation components here once — not in app.tsx / mdx-client. */
+/** Client-side stubs for generated media components. These are always
+ *  rendered inside auto-wrapped <Server> slots, so the client never calls
+ *  them directly. They exist so safe-mdx's component resolution finds
+ *  them, and the prop types enable MDX LSP autocomplete. */
+import type {
+  GeneratedImageProps,
+  GeneratedVideoProps,
+  GeneratedAudioProps,
+} from './server-components.tsx'
+function GeneratedImage(_props: GeneratedImageProps) { return null }
+function GeneratedVideo(_props: GeneratedVideoProps) { return null }
+function GeneratedAudio(_props: GeneratedAudioProps) { return null }
+
 export const MDX_BUILTIN_COMPONENTS = {
   Background,
   LayoutTransition,
@@ -1584,6 +1631,7 @@ export const MDX_BUILTIN_COMPONENTS = {
   SpringPopIn,
   AnimatedChart,
   FeaturePill,
+  Img,
   Audio,
   Video,
   FadeIn,
@@ -1595,4 +1643,7 @@ export const MDX_BUILTIN_COMPONENTS = {
   BlurIn,
   BlurOut,
   Animate,
+  GeneratedImage,
+  GeneratedVideo,
+  GeneratedAudio,
 } as const
