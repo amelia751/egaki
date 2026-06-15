@@ -1131,7 +1131,8 @@ export function LayoutGhost({ children }: { children: ReactNode }) {
 // when their DOM is hidden, so a raw re-export would leak/duplicate audio and
 // can make the Player buffer while a hidden ghost is pinned near trimAfter.
 // These wrappers neutralize media inside the ghost: Audio renders nothing (it
-// has no layout footprint anyway), Video becomes a layout-only placeholder.
+// has no layout footprint anyway), Video renders muted, and images render
+// normally — both are needed for accurate LayoutTransition FLIP measurements.
 //
 // Video also integrates with tweakpane: when not exporting, it loads the
 // source media duration and registers start/end sliders (in seconds)
@@ -1264,16 +1265,6 @@ function useReportMediaDuration(props: {
 }
 
 export function Img(props: React.ImgHTMLAttributes<HTMLImageElement>) {
-  const container = useContext(LayoutContainerContext)
-  if (container === 'ghost') {
-    return (
-      <div
-        className={props.className}
-        style={{ width: props.width, height: props.height, ...props.style }}
-        data-egaki-ghost-img
-      />
-    )
-  }
   // eslint-disable-next-line jsx-a11y/alt-text
   return <img {...props} />
 }
@@ -1290,7 +1281,8 @@ export function Video(props: ComponentProps<typeof MediaVideo>) {
   const isExporting = useIsExporting()
 
   if (container === 'ghost') {
-    return <GhostVideoPlaceholder {...props} />
+    // Render real video muted so LayoutTransition FLIP gets accurate geometry
+    return <MediaVideo {...props} muted volume={0} />
   }
 
   // During export, report duration but skip tweakpane UI
@@ -1299,16 +1291,6 @@ export function Video(props: ComponentProps<typeof MediaVideo>) {
   }
 
   return <VideoWithTweakpane {...props} />
-}
-
-function GhostVideoPlaceholder(props: ComponentProps<typeof MediaVideo>) {
-  return (
-    <div
-      className={props.className}
-      style={{ width: props.width, height: props.height, ...props.style }}
-      data-egaki-ghost-video
-    />
-  )
 }
 
 /** Export mode: reports duration to section store, renders plain MediaVideo. */
