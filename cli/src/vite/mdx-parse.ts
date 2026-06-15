@@ -67,6 +67,46 @@ export function parseFrontmatter(mdast: Root): VideoFrontmatter {
 }
 
 // ---------------------------------------------------------------------------
+// Aspect ratio from composition dimensions
+// ---------------------------------------------------------------------------
+
+const STANDARD_RATIOS: [number, number][] = [
+  [1, 1], [3, 4], [4, 3], [9, 16], [16, 9],
+  [2, 3], [3, 2], [4, 5], [5, 4], [9, 21], [21, 9],
+]
+
+function gcd(a: number, b: number): number {
+  while (b) { [a, b] = [b, a % b] }
+  return a
+}
+
+/** Compute the closest standard aspect ratio string from pixel dimensions.
+ *  Reduces to the exact ratio first (e.g. 1920×1080 → 16:9). If the exact
+ *  ratio doesn't match a standard one, picks the closest by comparing
+ *  decimal ratios. */
+export function aspectRatioFromDimensions(width: number, height: number): string {
+  const d = gcd(width, height)
+  const rw = width / d
+  const rh = height / d
+  // Check exact match first
+  if (STANDARD_RATIOS.some(([w, h]) => w === rw && h === rh)) {
+    return `${rw}:${rh}`
+  }
+  // Find closest standard ratio by decimal value
+  const target = width / height
+  let best = STANDARD_RATIOS[0]!
+  let bestDiff = Infinity
+  for (const ratio of STANDARD_RATIOS) {
+    const diff = Math.abs(ratio[0] / ratio[1] - target)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      best = ratio
+    }
+  }
+  return `${best[0]}:${best[1]}`
+}
+
+// ---------------------------------------------------------------------------
 // Duration parsing from heading text
 // ---------------------------------------------------------------------------
 

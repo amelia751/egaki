@@ -13,7 +13,7 @@ import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
-import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter } from './mdx-parse.ts'
+import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter, aspectRatioFromDimensions } from './mdx-parse.ts'
 import { findServerNodes, blankServerContents, collectServerImportSources, wrapGenerateNodes } from './server-mdx.ts'
 import { stableJsonKey, hashKey, promptPrefix } from './server-components.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
@@ -34,8 +34,8 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "FadeIn",
         "FadeOut",
         "FeaturePill",
-        "GeneratedAudio",
         "GeneratedImage",
+        "GeneratedSpeech",
         "GeneratedVideo",
         "GlassCodeBlock",
         "Img",
@@ -339,6 +339,28 @@ describe('parseFrontmatter and MDX scope (FPS, BEAT)', () => {
     const ast = mdxParse(`---\nwidth: 1080\nheight: 1920\n---\n\n# Vertical`)
     const fm = parseFrontmatter(ast)
     expect(fm).toEqual({ fps: 30, bpm: 120, width: 1080, height: 1920 })
+  })
+
+  test('aspectRatioFromDimensions: exact standard ratios', () => {
+    expect(aspectRatioFromDimensions(1920, 1080)).toBe('16:9')
+    expect(aspectRatioFromDimensions(1080, 1920)).toBe('9:16')
+    expect(aspectRatioFromDimensions(1080, 1080)).toBe('1:1')
+    expect(aspectRatioFromDimensions(1440, 1080)).toBe('4:3')
+    expect(aspectRatioFromDimensions(1080, 1440)).toBe('3:4')
+    expect(aspectRatioFromDimensions(1080, 1350)).toBe('4:5')
+    expect(aspectRatioFromDimensions(1350, 1080)).toBe('5:4')
+    expect(aspectRatioFromDimensions(1080, 1620)).toBe('2:3')
+    expect(aspectRatioFromDimensions(1620, 1080)).toBe('3:2')
+  })
+
+  test('aspectRatioFromDimensions: non-standard picks closest', () => {
+    // 1920×1200 = 8:5 (1.6) — closest standard is 16:9 (1.778) vs 3:2 (1.5)
+    // 3:2 is closer (diff 0.1 vs 0.178)
+    expect(aspectRatioFromDimensions(1920, 1200)).toBe('3:2')
+    // 2560×1440 = 16:9 exact
+    expect(aspectRatioFromDimensions(2560, 1440)).toBe('16:9')
+    // 3840×2160 = 16:9 exact
+    expect(aspectRatioFromDimensions(3840, 2160)).toBe('16:9')
   })
 
   test('FPS and BEAT available in safe-mdx scope for expressions', () => {
@@ -1509,7 +1531,7 @@ describe('wrapGenerateNodes', () => {
 
 <GeneratedVideo prompt="a dog running" seed={2} />
 
-<GeneratedAudio text="hello world" seed={3} />
+<GeneratedSpeech text="hello world" seed={3} />
 `
     const ast = mdxParse(mdx)
     wrapGenerateNodes(ast)
@@ -1528,7 +1550,7 @@ describe('wrapGenerateNodes', () => {
           "key": "5",
         },
         {
-          "childName": "GeneratedAudio",
+          "childName": "GeneratedSpeech",
           "key": "7",
         },
       ]
@@ -1653,7 +1675,11 @@ describe('promptPrefix', () => {
   })
 
   test('handles empty string', () => {
-    expect(promptPrefix('')).toBe('')
+    expect(promptPrefix('')).toBe('generated')
+  })
+
+  test('handles non-ascii-only string', () => {
+    expect(promptPrefix('🎨🖼️')).toBe('generated')
   })
 
   test('does not end with a dash', () => {

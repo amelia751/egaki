@@ -28,7 +28,7 @@ import type { GenerateSpeechOptions } from '../cli/speech-generate.js'
 import {
   GeneratedImageClient,
   GeneratedVideoClient,
-  GeneratedAudioClient,
+  GeneratedSpeechClient,
 } from './generated-media-client.tsx'
 import type { Img, Audio, Video } from './mdx-video.tsx'
 
@@ -36,11 +36,19 @@ import type { Img, Audio, Video } from './mdx-video.tsx'
 // Using dynamic import so tests that import the caching utilities
 // don't fail trying to resolve the virtual module statically.
 let _projectRoot: string | undefined
-async function getProjectRoot(): Promise<string> {
-  if (_projectRoot) return _projectRoot
+let _compositionAspectRatio: string | undefined
+async function getVirtualMdx() {
+  if (_projectRoot && _compositionAspectRatio) return { projectRoot: _projectRoot, compositionAspectRatio: _compositionAspectRatio }
   const mod = await import(/* @vite-ignore */ 'virtual:egaki-mdx')
   _projectRoot = mod.projectRoot
-  return _projectRoot!
+  _compositionAspectRatio = mod.compositionAspectRatio
+  return { projectRoot: _projectRoot!, compositionAspectRatio: _compositionAspectRatio! }
+}
+async function getProjectRoot(): Promise<string> {
+  return (await getVirtualMdx()).projectRoot
+}
+async function getCompositionAspectRatio(): Promise<string> {
+  return (await getVirtualMdx()).compositionAspectRatio
 }
 
 // ---------------------------------------------------------------------------
@@ -107,13 +115,14 @@ export function hashKey(input: string | Uint8Array): string {
 
 /** First ~40 chars of text, kebab-cased, filesystem-safe. */
 export function promptPrefix(text: string): string {
-  return text
+  const slug = text
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-')
     .slice(0, 40)
     .replace(/-$/, '')
+  return slug || 'generated'
 }
 
 function extensionFromMediaType(mediaType: string): string {
@@ -193,7 +202,10 @@ export type GeneratedImageProps = GeneratedImageGenProps & Omit<ComponentProps<t
 
 export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: maskImagePath, ...props }: GeneratedImageProps) {
   // Split generation params from passthrough (component) props
-  const { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, ...passthrough } = props
+  const { prompt, model, seed, aspectRatio: aspectRatioProp, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, ...passthrough } = props
+  // Default to the composition's aspect ratio (from frontmatter width/height)
+  // so generated images match the video frame by default.
+  const aspectRatio = aspectRatioProp ?? await getCompositionAspectRatio()
   const inputImages = inputImagePaths ? await Promise.all(inputImagePaths.map(readAssetBytes)) : undefined
   const maskImage = maskImagePath ? await readAssetBytes(maskImagePath) : undefined
   const genParams: GenerateImageOptions = { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, inputImages, maskImage }
@@ -264,8 +276,11 @@ type GeneratedVideoGenProps = Omit<GenerateVideoOptions, 'count' | 'inputImage'>
 export type GeneratedVideoProps = GeneratedVideoGenProps & Omit<ComponentProps<typeof Video>, 'src'>
 
 export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: GeneratedVideoProps) {
-  const { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, mode, videoUrl, referenceImages, ...passthrough } = props
+  const { prompt, model, seed, aspectRatio: aspectRatioProp, resolution, duration, fps, negativePrompt, mode, videoUrl, referenceImages, ...passthrough } = props
   const inputImage = inputImagePath ? await readAssetBytes(inputImagePath) : undefined
+  // Default to the composition's aspect ratio (from frontmatter width/height)
+  // so generated videos match the video frame by default.
+  const aspectRatio = aspectRatioProp ?? await getCompositionAspectRatio()
   const genParams: GenerateVideoOptions = { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, inputImage, mode, videoUrl, referenceImages }
   const key = stableJsonKey({
     _type: 'video', prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, mode, videoUrl, referenceImages,
@@ -314,17 +329,17 @@ export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: G
 }
 
 // ---------------------------------------------------------------------------
-// GeneratedAudio
+// GeneratedSpeech
 // ---------------------------------------------------------------------------
 
-type GeneratedAudioGenProps = GenerateSpeechOptions & {
+type GeneratedSpeechGenProps = GenerateSpeechOptions & {
   /** Optional. Change to trigger regeneration. */
   seed?: number
 }
 
-export type GeneratedAudioProps = GeneratedAudioGenProps & Omit<ComponentProps<typeof Audio>, 'src'>
+export type GeneratedSpeechProps = GeneratedSpeechGenProps & Omit<ComponentProps<typeof Audio>, 'src'>
 
-export async function GeneratedAudio(props: GeneratedAudioProps) {
+export async function GeneratedSpeech(props: GeneratedSpeechProps) {
   const { text, model, voice, outputFormat, instructions, speed, language, seed, ...passthrough } = props
   const genParams = { text, model, voice, outputFormat, instructions, speed, language, seed }
   const key = stableJsonKey({ _type: 'audio', ...genParams })
@@ -335,7 +350,7 @@ export async function GeneratedAudio(props: GeneratedAudioProps) {
   const cached = findCachedFile(dir, hash)
   if (cached) {
     const src = `/generated/audio/${cached}`
-    return <GeneratedAudioClient srcPromise={Promise.resolve(src)} {...passthrough} />
+    return <GeneratedSpeechClient srcPromise={Promise.resolve(src)} {...passthrough} />
   }
 
   const fallback = findFallbackFile(dir, prefix, hash)
@@ -366,11 +381,11 @@ export async function GeneratedAudio(props: GeneratedAudioProps) {
     generationQueue.set(key, srcPromise)
   }
 
-  return <GeneratedAudioClient srcPromise={srcPromise} fallbackSrc={fallbackSrc} {...passthrough} />
+  return <GeneratedSpeechClient srcPromise={srcPromise} fallbackSrc={fallbackSrc} {...passthrough} />
 }
 
 // ---------------------------------------------------------------------------
-// TextToSpeech (legacy alias for GeneratedAudio, kept for backwards compat)
+// TextToSpeech (legacy alias for GeneratedSpeech, kept for backwards compat)
 // ---------------------------------------------------------------------------
 
 interface TextToSpeechProps {
@@ -381,5 +396,5 @@ interface TextToSpeechProps {
 }
 
 export async function TextToSpeech({ text, voice = 'alloy' }: TextToSpeechProps) {
-  return GeneratedAudio({ text, voice })
+  return GeneratedSpeech({ text, voice })
 }
