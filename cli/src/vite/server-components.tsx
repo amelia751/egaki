@@ -47,9 +47,21 @@ async function getProjectRoot(): Promise<string> {
 // Caching utilities
 // ---------------------------------------------------------------------------
 
-/** Deterministic JSON from an object: keys sorted recursively. */
-export function stableJsonKey(obj: Record<string, any>): string {
-  return JSON.stringify(obj, Object.keys(obj).sort())
+/** Deterministic JSON from a value: keys sorted recursively, undefined
+ *  values stripped. Safe for nested objects and arrays. */
+export function stableJsonKey(value: unknown): string {
+  return JSON.stringify(sortValue(value))
+}
+
+function sortValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortValue)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => [k, sortValue(v)]),
+  )
 }
 
 /** First 8 hex chars of sha256. */
@@ -95,54 +107,26 @@ async function generatedDir(type: MediaType): Promise<string> {
 }
 
 /** Find an existing cached file by hash in the generated directory.
- *  Returns the filename (not full path) or undefined. Prefers non-stale
- *  files, but also matches stale- files (restoring them) so switching
- *  seed A→B→A doesn't regenerate unnecessarily. */
-function findCachedFile(dir: string, hash: string): string | undefined {
+ *  Returns the filename (not full path) or undefined. */
+export function findCachedFile(dir: string, hash: string): string | undefined {
   try {
-    const entries = fs.readdirSync(dir)
-    // Prefer non-stale match
-    const fresh = entries.find((f) => !f.startsWith('stale-') && f.includes(hash))
-    if (fresh) return fresh
-    // Fall back to stale match — restore it to non-stale
-    const stale = entries.find((f) => f.startsWith('stale-') && f.includes(hash))
-    if (stale) {
-      const restored = stale.replace(/^stale-/, '')
-      try { fs.renameSync(path.join(dir, stale), path.join(dir, restored)) } catch {}
-      return restored
-    }
-    return undefined
+    return fs.readdirSync(dir).find((f) => f.includes(hash))
   } catch {
     return undefined
   }
 }
 
 /** Find a previous generation with the same prompt prefix that can serve
- *  as fallback while a new generation is in progress. Looks for non-stale
- *  files matching the prefix (different hash = different seed/params). */
-function findFallbackFile(dir: string, prefix: string, currentHash: string): string | undefined {
+ *  as fallback while a new generation is in progress. Looks for files
+ *  matching the prefix but with a different hash (different seed/params). */
+export function findFallbackFile(dir: string, prefix: string, currentHash: string): string | undefined {
   try {
-    const entries = fs.readdirSync(dir)
-    return entries.find((f) =>
-      !f.startsWith('stale-')
-      && f.startsWith(prefix + '-')
+    return fs.readdirSync(dir).find((f) =>
+      f.startsWith(prefix + '-')
       && !f.includes(currentHash),
     )
   } catch {
     return undefined
-  }
-}
-
-/** Mark an existing file as stale by adding stale- prefix.
- *  Called after a new generation completes to retire old versions
- *  while keeping them accessible for reuse. */
-function markStale(dir: string, filename: string): void {
-  try {
-    const src = path.join(dir, filename)
-    const dest = path.join(dir, 'stale-' + filename)
-    if (fs.existsSync(src)) fs.renameSync(src, dest)
-  } catch {
-    // Non-fatal: worst case we overwrite
   }
 }
 
@@ -202,7 +186,7 @@ export async function GeneratedImage({ prompt, model, seed, aspectRatio, quality
         const filename = `${prefix}-${hash}${ext}`
         fs.writeFileSync(path.join(dir, filename), file.uint8Array)
         // Mark the old fallback file as stale now that we have a fresh one
-        if (fallback) markStale(dir, fallback)
+        // Files are immutable cache entries — never renamed or deleted
         console.log(`[egaki] generated image: ${filename}`)
         return `/generated/image/${filename}`
       } finally {
@@ -261,7 +245,7 @@ export async function GeneratedVideo({ prompt, model, seed, aspectRatio, resolut
         const ext = extensionFromMediaType(file.mediaType)
         const filename = `${prefix}-${hash}${ext}`
         fs.writeFileSync(path.join(dir, filename), file.uint8Array)
-        if (fallback) markStale(dir, fallback)
+        // Files are immutable cache entries — never renamed or deleted
         console.log(`[egaki] generated video: ${filename}`)
         return `/generated/video/${filename}`
       } finally {
@@ -319,7 +303,7 @@ export async function GeneratedAudio({ text, model, voice, outputFormat, instruc
         const ext = extensionFromMediaType(file.mediaType)
         const filename = `${prefix}-${hash}${ext}`
         fs.writeFileSync(path.join(dir, filename), file.uint8Array)
-        if (fallback) markStale(dir, fallback)
+        // Files are immutable cache entries — never renamed or deleted
         console.log(`[egaki] generated audio: ${filename}`)
         return `/generated/audio/${filename}`
       } finally {
