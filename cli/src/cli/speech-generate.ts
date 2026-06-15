@@ -4,7 +4,7 @@
 // file I/O, stdout piping, interactive pickers, and formatted console output.
 //
 // Usage:
-//   import { generateSpeech } from 'egaki/speech'
+//   import { generateSpeech } from 'egaki/generate'
 //   const result = await generateSpeech({ text: 'Hello world', model: 'tts-1' })
 //   if (result instanceof Error) { /* handle */ }
 //   result.audio.uint8Array // raw audio bytes

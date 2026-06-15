@@ -15,10 +15,6 @@
       "types": "./dist/cli/generate.d.ts",
       "default": "./dist/cli/generate.js"
     },
-    "./speech": {
-      "types": "./dist/cli/speech-generate.d.ts",
-      "default": "./dist/cli/speech-generate.js"
-    },
     "./video": {
       "types": "./src/vite/mdx-video.tsx",
       "default": "./src/vite/mdx-video.tsx"

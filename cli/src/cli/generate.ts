@@ -4,7 +4,7 @@
 // file I/O, stdout piping, interactive pickers, and formatted console output.
 //
 // Usage:
-//   import { generateImage, generateVideo } from 'egaki/generate'
+//   import { generateImage, generateVideo, generateSpeech } from 'egaki/generate'
 //   const result = await generateImage({ prompt: 'a sunset', model: 'imagen-4.0-generate-001' })
 //   if (result instanceof Error) { /* handle */ }
 //   result.images[0].uint8Array // raw bytes
@@ -787,3 +787,12 @@ async function generateWithResponsesApi(opts: {
     revisedPrompt,
   }
 }
+
+// ─── re-export speech generation ─────────────────────────────────────────────
+
+export {
+  generateSpeech,
+  calculateSpeechCost,
+  type GenerateSpeechOptions,
+  type GenerateSpeechResult,
+} from './speech-generate.js'
