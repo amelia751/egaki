@@ -14,8 +14,30 @@
  * users can set style, className, trimBefore, trimAfter, playbackRate, etc.
  */
 
-import { Suspense, use, type ComponentProps } from 'react'
-import { Img, Audio, Video } from './mdx-video.tsx'
+import { Suspense, use, useEffect, type ComponentProps, type ReactNode } from 'react'
+import { useDelayRender } from 'remotion'
+import { Img, Audio, Video, useIsExporting } from './mdx-video.tsx'
+
+// ---------------------------------------------------------------------------
+// Export-aware Suspense fallback — blocks Remotion frame capture while
+// a generated media promise is still pending. Only active during export
+// (renderMediaOnWeb / renderStillOnWeb); in the interactive Player,
+// delayRender is a no-op but we skip it entirely via useIsExporting()
+// to avoid creating unnecessary handles.
+// ---------------------------------------------------------------------------
+
+function GeneratedMediaFallback({ children }: { children?: ReactNode }) {
+  const isExporting = useIsExporting()
+  const { delayRender, continueRender } = useDelayRender()
+  useEffect(() => {
+    if (!isExporting) return
+    const handle = delayRender('Waiting for generated media', {
+      timeoutInMilliseconds: 10 * 60 * 1000,
+    })
+    return () => continueRender(handle)
+  }, [isExporting, delayRender, continueRender])
+  return <>{children}</>
+}
 
 // ---------------------------------------------------------------------------
 // Inner components that call use() — must be inside <Suspense>
@@ -49,7 +71,7 @@ export function GeneratedImageClient({
   fallbackSrc?: string
 } & ComponentProps<typeof Img>) {
   return (
-    <Suspense fallback={fallbackSrc ? <Img src={fallbackSrc} {...rest} /> : null}>
+    <Suspense fallback={<GeneratedMediaFallback>{fallbackSrc ? <Img src={fallbackSrc} {...rest} /> : null}</GeneratedMediaFallback>}>
       <ResolvedImage srcPromise={srcPromise} {...rest} />
     </Suspense>
   )
@@ -64,7 +86,7 @@ export function GeneratedVideoClient({
   fallbackSrc?: string
 } & ComponentProps<typeof Video>) {
   return (
-    <Suspense fallback={fallbackSrc ? <Video src={fallbackSrc} {...rest} /> : null}>
+    <Suspense fallback={<GeneratedMediaFallback>{fallbackSrc ? <Video src={fallbackSrc} {...rest} /> : null}</GeneratedMediaFallback>}>
       <ResolvedVideo srcPromise={srcPromise} {...rest} />
     </Suspense>
   )
@@ -79,7 +101,7 @@ export function GeneratedAudioClient({
   fallbackSrc?: string
 } & ComponentProps<typeof Audio>) {
   return (
-    <Suspense fallback={fallbackSrc ? <Audio src={fallbackSrc} {...rest} /> : null}>
+    <Suspense fallback={<GeneratedMediaFallback>{fallbackSrc ? <Audio src={fallbackSrc} {...rest} /> : null}</GeneratedMediaFallback>}>
       <ResolvedAudio srcPromise={srcPromise} {...rest} />
     </Suspense>
   )
