@@ -13,7 +13,7 @@ import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
-import { splitIntoSections, calculateTotalDuration, parseFrontmatter } from './mdx-parse.ts'
+import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter } from './mdx-parse.ts'
 import { findServerNodes, blankServerContents, collectServerImportSources } from './server-mdx.ts'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 
@@ -94,19 +94,19 @@ Goodbye
         },
         "sections": [
           {
-            "durationInFrames": 150,
+            "durationInFrames": null,
             "heading": "Intro",
             "nodes": 1,
             "transitionFrames": 0,
           },
           {
-            "durationInFrames": 150,
+            "durationInFrames": null,
             "heading": "Middle",
             "nodes": 1,
             "transitionFrames": 0,
           },
           {
-            "durationInFrames": 150,
+            "durationInFrames": null,
             "heading": "End",
             "nodes": 1,
             "transitionFrames": 0,
@@ -285,7 +285,7 @@ More
   })
 
   test('calculateTotalDuration subtracts transition overlaps', () => {
-    const { sections } = split(`
+    const { sections, frontmatter } = split(`
 # A duration=100 transition=20
 
 x
@@ -294,8 +294,9 @@ x
 
 y
     `)
+    const resolved = resolveAutoDurations(sections, frontmatter.fps, frontmatter.bpm)
     // 100 + 200 - 20 = 280
-    expect(calculateTotalDuration(sections)).toBe(280)
+    expect(calculateTotalDuration(resolved)).toBe(280)
   })
 
   test('content before first heading goes to preamble', () => {
@@ -382,7 +383,7 @@ describe('parseFrontmatter and MDX scope (FPS, BEAT)', () => {
 
 describe('calculateTotalDuration', () => {
   test('sums all section durations', () => {
-    const { sections } = split(`
+    const { sections, frontmatter } = split(`
 # A duration=100
 
 x
@@ -395,7 +396,71 @@ y
 
 z
     `)
-    expect(calculateTotalDuration(sections)).toBe(350)
+    const resolved = resolveAutoDurations(sections, frontmatter.fps, frontmatter.bpm)
+    expect(calculateTotalDuration(resolved)).toBe(350)
+  })
+})
+
+describe('resolveAutoDurations', () => {
+  test('resolves null duration from section durations map', () => {
+    const { sections, frontmatter } = split(`
+# Scene
+
+Content
+    `)
+    expect(sections[0]!.durationInFrames).toBe(null)
+
+    // sectionDurations keyed by section index as string
+    const resolved = resolveAutoDurations(
+      sections, frontmatter.fps, frontmatter.bpm,
+      { '0': 10 },
+    )
+    // 10 seconds * 30 fps = 300 frames
+    expect(resolved[0]!.durationInFrames).toBe(300)
+  })
+
+  test('falls back to default when no section duration available', () => {
+    const { sections, frontmatter } = split(`
+# Scene
+
+Just text
+    `)
+    const resolved = resolveAutoDurations(sections, frontmatter.fps, frontmatter.bpm)
+    // Default: 10 beats at 120bpm/30fps = 150 frames
+    expect(resolved[0]!.durationInFrames).toBe(150)
+  })
+
+  test('preserves explicit duration unchanged', () => {
+    const { sections, frontmatter } = split(`
+# Scene duration=3s
+
+Content
+    `)
+    expect(sections[0]!.durationInFrames).toBe(90) // 3s * 30fps
+    // Even if the store has a duration for this section, explicit wins
+    const resolved = resolveAutoDurations(
+      sections, frontmatter.fps, frontmatter.bpm,
+      { '0': 100 },
+    )
+    expect(resolved[0]!.durationInFrames).toBe(90)
+  })
+
+  test('mixed sections: explicit and auto', () => {
+    const { sections, frontmatter } = split(`
+# Explicit duration=2s
+
+Text
+
+# Auto
+
+More text
+    `)
+    const resolved = resolveAutoDurations(
+      sections, frontmatter.fps, frontmatter.bpm,
+      { '1': 45.2 },
+    )
+    expect(resolved[0]!.durationInFrames).toBe(60) // 2s * 30fps (explicit)
+    expect(resolved[1]!.durationInFrames).toBe(1356) // round(45.2 * 30) (auto)
   })
 })
 

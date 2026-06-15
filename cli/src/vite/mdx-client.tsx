@@ -18,17 +18,18 @@
  * through useSyncExternalStore.
  */
 
-import { createContext, useContext, useMemo, useSyncExternalStore } from 'react'
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { eagerModules as initialModules } from 'virtual:egaki-modules'
-import { splitIntoSections, calculateTotalDuration, parseFrontmatter } from './mdx-parse.ts'
+import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter } from './mdx-parse.ts'
 import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 import { MdxCodeBlockWrapper } from './code-block.tsx'
+import { useMediaDurations, resetSectionDurations } from './media-duration-store.ts'
 
 // ---------------------------------------------------------------------------
 // MDX components map
@@ -229,7 +230,6 @@ function buildComposition(mdxSource: string, modules: EagerModules) {
   }
 
   const result = splitIntoSections(ast)
-  const totalDuration = calculateTotalDuration(result.sections)
 
   // Extract import nodes (mdxjsEsm) from the full mdast. Section splitting
   // drops them, but SafeMdxRenderer needs them to resolve imported components
@@ -271,7 +271,7 @@ function buildComposition(mdxSource: string, modules: EagerModules) {
     ? renderNodes(result.preamble)
     : undefined
 
-  return { sections, totalDuration, preamble }
+  return { sections, preamble, frontmatter: result.frontmatter }
 }
 
 // ---------------------------------------------------------------------------
@@ -294,10 +294,48 @@ export function MdxClientApp({
   entryPath: string
 }) {
   const modules = useSyncExternalStore(subscribeModules, getModules, getModules)
-  const { sections, totalDuration, preamble } = useMemo(
-    () => buildComposition(mdx, modules),
-    [mdx, modules],
-  )
+
+  // Subscribe to media duration reports. When Audio/Video components report
+  // their durations (via mediabunny metadata fetch), this re-renders and
+  // sections without explicit duration= get auto-sized to their media content.
+  // The map is keyed by section index (as string) → max media duration in
+  // seconds, derived from the src-keyed persistent cache.
+  const sectionDurations = useMediaDurations()
+
+  // Split into two memos to avoid an infinite loop:
+  // 1. buildComposition creates JSX (depends on mdx + modules only).
+  //    If this re-ran on sectionDurations changes, it would create new JSX
+  //    identity → React unmounts Audio/Video → clearSectionDuration fires →
+  //    snapshot changes → sectionDurations changes → infinite loop.
+  // 2. resolveAutoDurations fills in null durations from the section store.
+  //    This memo is cheap and can re-run on every sectionDurations change
+  //    without touching JSX identity.
+  const composed = useMemo(() => buildComposition(mdx, modules), [mdx, modules])
+
+  // Reset section duration reports when the composition changes (HMR,
+  // MDX edit, module update). Media components will re-report on mount.
+  // Does NOT clear the raw src cache so cached durations resolve instantly.
+  useEffect(() => {
+    resetSectionDurations()
+  }, [composed])
+
+  const { sections, totalDuration, preamble, hasUnresolvedDurations } = useMemo(() => {
+    const { fps, bpm } = composed.frontmatter
+    const resolved = resolveAutoDurations(composed.sections, fps, bpm, sectionDurations)
+    // A section is "unresolved" if it had no explicit duration= AND the
+    // media duration store has no reports for it yet (still using the
+    // default placeholder). This gates the export button.
+    const hasUnresolved = composed.sections.some((s, i) =>
+      s.durationInFrames === null && sectionDurations[String(i)] === undefined,
+    )
+    return {
+      sections: resolved,
+      totalDuration: calculateTotalDuration(resolved),
+      preamble: composed.preamble,
+      hasUnresolvedDurations: hasUnresolved,
+    }
+  }, [composed, sectionDurations])
+
   return (
     <ServerSlotsContext.Provider value={serverSlots}>
       <PlayerPage
@@ -305,6 +343,7 @@ export function MdxClientApp({
         totalDuration={totalDuration}
         preamble={preamble}
         entryPath={entryPath}
+        hasUnresolvedDurations={hasUnresolvedDurations}
       />
     </ServerSlotsContext.Provider>
   )

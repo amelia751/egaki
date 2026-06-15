@@ -48,6 +48,39 @@ component to the runtime map automatically makes it available in the LSP.
 When creating new example projects, always include all three pieces. After
 changes, restart the TS server in VS Code for the MDX LSP to pick them up.
 
+### IDE setup
+
+**VS Code**: install the [MDX extension](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx).
+It bundles `@mdx-js/typescript-plugin` and the language server. Make sure
+`mdx.server.enable` is `true` (the default). Restart the TS server after
+adding `egaki-env.d.ts` or changing tsconfig.
+
+**Zed**: install the [zed-mdx](https://github.com/srazzak/zed-mdx) extension.
+TypeScript support is **off by default**; enable it in `settings.json`:
+
+```json
+{
+  "languages": {
+    "MDX": {
+      "lsp": {
+        "mdx-analyzer": {
+          "initialization_options": {
+            "typescript": { "enabled": true }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Limitations
+
+`tsc` cannot check `.mdx` files. TypeScript plugins are editor-only;
+they do not run with the `tsc` CLI. MDX type checking is limited to
+the editor LSP. A dedicated `@mdx-js/cli` is tracked upstream at
+https://github.com/mdx-js/mdx-analyzer/issues/292 but does not exist yet.
+
 ## Conventions
 
 **CLI framework:** Built with [goke](https://github.com/remorses/goke), a type-safe CLI
@@ -657,6 +690,9 @@ egaki video renders in the browser via `@remotion/web-renderer` (WebCodecs, no F
 - HtmlInCanvas is **Chromium-only**. Export must happen in Chrome or Chromium-based browsers.
 - No multithreading; rendering is single-threaded.
 - Background browser tabs throttle `requestAnimationFrame`, slowing down export. Keep the tab in the foreground during export.
+- **`getRemotionEnvironment().isRendering` does NOT work** with client-side rendering
+  (`@remotion/web-renderer`). It always returns `false`. To detect export mode, use our
+  custom `useIsExporting()` hook (reads `ExportContext`, set in `render-client.ts`).
 
 <details>
 <summary>Walk renderer CSS limitations (NOT applicable to egaki, listed for reference only)</summary>

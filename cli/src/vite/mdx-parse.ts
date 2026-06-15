@@ -103,7 +103,8 @@ function parseHeadingProps(
 export interface MdxSection {
   heading: string | null
   nodes: RootContent[]
-  durationInFrames: number
+  /** Duration in frames. `null` means "auto-infer from media content". */
+  durationInFrames: number | null
   /** Transition overlap with the NEXT section, in frames. 0 = hard cut. */
   transitionFrames: number
 }
@@ -157,7 +158,7 @@ export function splitIntoSections(mdast: Root): SplitResult {
       current = {
         heading: parsed.label,
         nodes: [],
-        durationInFrames: parsed.durationInFrames ?? defaultDuration,
+        durationInFrames: parsed.durationInFrames ?? null,
         transitionFrames: parsed.transitionFrames ?? 0,
       }
       sections.push(current)
@@ -177,8 +178,9 @@ export function splitIntoSections(mdast: Root): SplitResult {
   return { sections, frontmatter, imports, preamble }
 }
 
-/** Calculate total composition duration, subtracting transition overlaps. */
-export function calculateTotalDuration(sections: MdxSection[]): number {
+/** Calculate total composition duration, subtracting transition overlaps.
+ *  All sections must have resolved (non-null) durations. */
+export function calculateTotalDuration(sections: { durationInFrames: number; transitionFrames: number }[]): number {
   let total = 0
   for (const s of sections) {
     total += s.durationInFrames
@@ -189,4 +191,49 @@ export function calculateTotalDuration(sections: MdxSection[]): number {
     total -= s.transitionFrames
   }
   return total
+}
+
+// ---------------------------------------------------------------------------
+// Auto-duration resolution
+// ---------------------------------------------------------------------------
+
+/** MdxSection with a guaranteed non-null durationInFrames. */
+export type ResolvedMdxSection = MdxSection & { durationInFrames: number }
+
+/**
+ * Resolve null (auto) durations using per-section media durations.
+ *
+ * `sectionDurations` is keyed by section index (as string) → max media
+ * duration in seconds. Audio/Video components populate this at runtime
+ * via the media duration store after fetching metadata with mediabunny.
+ *
+ * For each section with `durationInFrames === null`:
+ *   1. Look up the section's index in `sectionDurations`.
+ *   2. If found, set duration = Math.round(seconds * fps).
+ *   3. Otherwise fall back to DEFAULT_SECTION_BEATS * framesPerBeat.
+ *
+ * Sections with explicit durations are returned unchanged.
+ * Generic so extra fields (like `jsx`) are preserved in the return type.
+ */
+export function resolveAutoDurations<T extends { durationInFrames: number | null; transitionFrames: number }>(
+  sections: T[],
+  fps: number,
+  bpm: number,
+  sectionDurations: Record<string, number> = {},
+): (T & { durationInFrames: number })[] {
+  const framesPerBeat = fps / (bpm / 60)
+  const defaultDuration = Math.round(DEFAULT_SECTION_BEATS * framesPerBeat)
+
+  return sections.map((section, i): T & { durationInFrames: number } => {
+    if (section.durationInFrames !== null) {
+      return section as T & { durationInFrames: number }
+    }
+
+    const seconds = sectionDurations[String(i)]
+    const durationInFrames = seconds !== undefined && seconds > 0
+      ? Math.round(seconds * fps)
+      : defaultDuration
+
+    return { ...section, durationInFrames }
+  })
 }

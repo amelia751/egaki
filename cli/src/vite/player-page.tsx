@@ -32,6 +32,7 @@ import {
   LayoutGhost,
   LayoutTransitionProvider,
 } from './mdx-video.tsx'
+import { SectionIndexContext } from './media-duration-store.ts'
 
 // Module-level stable callbacks for useSyncExternalStore (never re-subscribes)
 const subscribeNoop = () => () => {}
@@ -59,6 +60,22 @@ function XIcon() {
     <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'>
       <line x1='18' y1='6' x2='6' y2='18' />
       <line x1='6' y1='6' x2='18' y2='18' />
+    </svg>
+  )
+}
+
+function ChevronUpIcon() {
+  return (
+    <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'>
+      <polyline points='18 15 12 9 6 15' />
+    </svg>
+  )
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'>
+      <polyline points='6 9 12 15 18 9' />
     </svg>
   )
 }
@@ -234,15 +251,17 @@ function VideoComposition({
             // @ts-ignore — name prop exists on Series.Sequence
             name={section.heading || `Section ${i}`}
           >
-            <Suspense fallback={<SuspenseFallback />}>
-              {/* Background components inside jsx self-position as AbsoluteFill
-                  layers behind content via DOM order (rendered first = behind). */}
-              <SectionWithLayoutTransition
-                jsx={section.jsx}
-                prevJsx={i > 0 ? sections[i - 1]!.jsx : null}
-                prevDurationInFrames={i > 0 ? sections[i - 1]!.durationInFrames : 0}
-              />
-            </Suspense>
+            <SectionIndexContext.Provider value={i}>
+              <Suspense fallback={<SuspenseFallback />}>
+                {/* Background components inside jsx self-position as AbsoluteFill
+                    layers behind content via DOM order (rendered first = behind). */}
+                <SectionWithLayoutTransition
+                  jsx={section.jsx}
+                  prevJsx={i > 0 ? sections[i - 1]!.jsx : null}
+                  prevDurationInFrames={i > 0 ? sections[i - 1]!.durationInFrames : 0}
+                />
+              </Suspense>
+            </SectionIndexContext.Provider>
           </Series.Sequence>
         ))}
       </Series>
@@ -255,12 +274,16 @@ export function PlayerPage({
   totalDuration,
   preamble,
   entryPath,
+  hasUnresolvedDurations = false,
 }: {
   sections: SectionProps[]
   totalDuration: number
   preamble?: ReactNode
   /** Absolute path of the MDX entry file, included in copy prompts. */
   entryPath: string
+  /** True when auto-duration sections haven't been visited yet (media
+   *  durations still unknown). Gates the export button. */
+  hasUnresolvedDurations?: boolean
 }) {
   // Stable component function that reads latest props from a ref.
   // Created once so its identity never changes between renders.
@@ -306,6 +329,93 @@ export function PlayerPage({
   const [progress, setProgress] = useState(0)
   const abortRef = useRef<AbortController | null>(null)
   const [playbackRate, setPlaybackRate] = useState(1)
+  const [currentFrame, setCurrentFrame] = useState(0)
+
+  // Track current frame for scene navigation button states
+  useEffect(() => {
+    const player = playerRef.current
+    if (!player) return
+    const onFrame = () => setCurrentFrame(player.getCurrentFrame())
+    // Remotion Player fires 'frameupdate' on seek and during playback
+    player.addEventListener('frameupdate', onFrame as any)
+    return () => player.removeEventListener('frameupdate', onFrame as any)
+  }, [mounted])
+
+  // Precompute section start frames for navigation
+  const sectionStarts: number[] = []
+  {
+    let acc = 0
+    for (const s of sections) {
+      sectionStarts.push(acc)
+      acc += s.durationInFrames
+    }
+  }
+
+  // Determine which section the current frame is in
+  let currentSectionIdx = 0
+  for (let i = sectionStarts.length - 1; i >= 0; i--) {
+    if (currentFrame >= sectionStarts[i]!) {
+      currentSectionIdx = i
+      break
+    }
+  }
+  const hasPrevScene = currentSectionIdx > 0 || currentFrame > 0
+  const hasNextScene = currentSectionIdx < sections.length - 1
+
+  // Double-tap prev: first tap seeks to current section start, second tap
+  // within 400ms jumps to the previous section (like music player track skip).
+  const lastPrevTapRef = useRef<{ time: number; targetFrame: number }>({ time: 0, targetFrame: -1 })
+
+  const goToPrevScene = useCallback(() => {
+    const player = playerRef.current
+    if (!player) return
+    const wasPlaying = player.isPlaying()
+    if (wasPlaying) player.pause()
+    const frame = player.getCurrentFrame()
+    // Find the section start strictly before the current frame
+    let target = 0
+    for (let i = sectionStarts.length - 1; i >= 0; i--) {
+      if (sectionStarts[i]! < frame) {
+        target = sectionStarts[i]!
+        break
+      }
+    }
+    // Double-tap: if we just seeked to this same target within 400ms,
+    // go one section further back
+    const now = Date.now()
+    const last = lastPrevTapRef.current
+    if (now - last.time < 400 && last.targetFrame === target && target > 0) {
+      // Find the section start before the current target
+      let deeperTarget = 0
+      for (let i = sectionStarts.length - 1; i >= 0; i--) {
+        if (sectionStarts[i]! < target) {
+          deeperTarget = sectionStarts[i]!
+          break
+        }
+      }
+      target = deeperTarget
+    }
+    lastPrevTapRef.current = { time: now, targetFrame: target }
+    player.seekTo(target)
+    if (wasPlaying) player.play()
+  }, [sectionStarts])
+
+  const goToNextScene = useCallback(() => {
+    const player = playerRef.current
+    if (!player) return
+    const wasPlaying = player.isPlaying()
+    if (wasPlaying) player.pause()
+    const frame = player.getCurrentFrame()
+    let target = totalDuration - 1
+    for (const start of sectionStarts) {
+      if (start > frame) {
+        target = start
+        break
+      }
+    }
+    player.seekTo(target)
+    if (wasPlaying) player.play()
+  }, [sectionStarts, totalDuration])
 
   // Sync playbackRate state when user changes it via the gear menu
   useEffect(() => {
@@ -341,14 +451,6 @@ export function PlayerPage({
   //   0-9               jump to 0%-90% of timeline
   useEffect(() => {
     if (editing) return
-
-    // Precompute section start frames for Up/Down navigation
-    const sectionStarts: number[] = []
-    let acc = 0
-    for (const s of sections) {
-      sectionStarts.push(acc)
-      acc += s.durationInFrames
-    }
 
     const clamp = (frame: number) => Math.max(0, Math.min(totalDuration - 1, frame))
 
@@ -401,33 +503,16 @@ export function PlayerPage({
         return
       }
 
-      // --- Section navigation (Up/Down) ---
+      // --- Section navigation (Up/Down) — delegates to goToPrev/NextScene
+      //     which preserve playback state and support double-tap prev ---
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        if (player.isPlaying()) player.pause()
-        // Find the section start that is strictly before the current frame
-        let target = 0
-        for (let i = sectionStarts.length - 1; i >= 0; i--) {
-          if (sectionStarts[i]! < frame) {
-            target = sectionStarts[i]!
-            break
-          }
-        }
-        player.seekTo(target)
+        goToPrevScene()
         return
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        if (player.isPlaying()) player.pause()
-        // Find the next section start after the current frame
-        let target = totalDuration - 1
-        for (const start of sectionStarts) {
-          if (start > frame) {
-            target = start
-            break
-          }
-        }
-        player.seekTo(target)
+        goToNextScene()
         return
       }
 
@@ -487,7 +572,7 @@ export function PlayerPage({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [editing, totalDuration, sections])
+  }, [editing, totalDuration, sections, goToPrevScene, goToNextScene])
 
   const handleExport = useCallback(async () => {
     setRendering(true)
@@ -543,6 +628,7 @@ export function PlayerPage({
             fps={30}
             compositionWidth={1920}
             compositionHeight={1080}
+            loop
             controls
             clickToPlay={!editing}
             spaceKeyToPlayOrPause
@@ -651,6 +737,28 @@ export function PlayerPage({
         >
           {playbackRate === 1 ? '1x' : `${playbackRate}x`}
         </button>
+
+        <ToolbarSeparator />
+
+        {/* Scene navigation — prev (Up) / next (Down) */}
+        <div className='flex items-center'>
+          <button
+            onClick={goToPrevScene}
+            disabled={!hasPrevScene}
+            className='flex items-center justify-center rounded-full w-7 h-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-zinc-400'
+            title='Previous scene (↑)'
+          >
+            <ChevronUpIcon />
+          </button>
+          <button
+            onClick={goToNextScene}
+            disabled={!hasNextScene}
+            className='flex items-center justify-center rounded-full w-7 h-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-zinc-400'
+            title='Next scene (↓)'
+          >
+            <ChevronDownIcon />
+          </button>
+        </div>
 
         <ToolbarSeparator />
 
