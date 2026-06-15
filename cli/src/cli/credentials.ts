@@ -69,6 +69,11 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
     hint: 'Sign in with your xAI / Grok account via browser',
     oauth: true,
   },
+  elevenlabs: {
+    envVar: 'ELEVENLABS_API_KEY',
+    label: 'ElevenLabs (speech)',
+    hint: 'Get your key at https://elevenlabs.io/app/settings/api-keys',
+  },
 }
 
 export const EGAKI_GATEWAY_URL = 'https://egaki.org/v3/ai'

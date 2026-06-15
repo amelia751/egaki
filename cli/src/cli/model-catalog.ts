@@ -154,6 +154,8 @@ export type VideoModelEntry = {
 /** @deprecated Use ImageModelEntry instead */
 export type ModelEntry = ImageModelEntry
 
+export type { SpeechModelEntry } from './speech-catalog.js'
+
 export type AnyModelEntry = ImageModelEntry | VideoModelEntry
 
 // ─── shared fragments ────────────────────────────────────────────────────────
@@ -2325,3 +2327,6 @@ export function findVideoModel(id: string): VideoModelEntry | undefined {
 export function findAnyModel(id: string): AnyModelEntry | undefined {
   return imageCatalogIndex.get(id) ?? videoCatalogIndex.get(id)
 }
+
+// Re-export speech catalog for convenience in CLI code that needs all catalogs.
+export { SPEECH_CATALOG, findSpeechModel } from './speech-catalog.js'

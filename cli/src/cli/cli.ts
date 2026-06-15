@@ -56,6 +56,16 @@ import {
   ValidationError,
   type GeneratedFile,
 } from './generate.js'
+import {
+  generateSpeech,
+} from './speech-generate.js'
+import {
+  SPEECH_CATALOG,
+  type SpeechModelEntry,
+} from './speech-catalog.js'
+import {
+  DEFAULT_SPEECH_MODEL,
+} from './speech-models.js'
 
 const cli = goke('egaki')
 
@@ -575,6 +585,136 @@ cli
     }
   })
 
+// ─── speech command ──────────────────────────────────────────────────────────
+
+cli
+  .command(
+    'speech [text]',
+    dedent`
+      Generate speech audio from text using AI text-to-speech models.
+      Supports OpenAI (tts-1, tts-1-hd, gpt-4o-mini-tts) and ElevenLabs
+      (eleven_v3, eleven_multilingual_v2, eleven_flash_v2_5).
+      Uses your provider API key directly (egaki subscription does not
+      cover speech yet).
+    `,
+  )
+  .option(
+    '-m, --model [model]',
+    z.string().describe('Speech model ID. If omitted, shows an interactive picker (or uses default in non-TTY mode)'),
+  )
+  .option(
+    '-o, --output [path]',
+    z
+      .string()
+      .default('egaki-output.mp3')
+      .describe('Output file path for the generated audio'),
+  )
+  .option(
+    '--voice [voice]',
+    z
+      .string()
+      .describe('Voice ID or name (provider-specific). OpenAI: alloy, echo, nova, etc. ElevenLabs: voice ID from their library'),
+  )
+  .option(
+    '--output-format [format]',
+    z
+      .string()
+      .describe('Audio output format: mp3, wav, pcm, opus, aac, flac (provider support varies)'),
+  )
+  .option(
+    '--speed [speed]',
+    z
+      .number()
+      .describe('Playback speed multiplier (OpenAI: 0.25-4.0)'),
+  )
+  .option(
+    '--instructions [text]',
+    z
+      .string()
+      .describe('Style instructions for speech (only gpt-4o-mini-tts and ElevenLabs). E.g. "Speak in a calm, soothing tone"'),
+  )
+  .option(
+    '--language [lang]',
+    z
+      .string()
+      .describe('ISO 639-1 language code (e.g. en, es, fr). ElevenLabs only'),
+  )
+  .option(
+    '--stdin',
+    'Read text from stdin instead of the positional argument',
+  )
+  .option(
+    '--json',
+    'Output result metadata as JSON to stdout (model, file path, cost)',
+  )
+  .option(
+    '--stdout',
+    'Write raw audio bytes to stdout instead of saving to a file. Useful for piping',
+  )
+  .example('# Generate speech with default model')
+  .example('egaki speech "Hello, welcome to egaki!"')
+  .example('# Use a specific model and voice')
+  .example('egaki speech "Good morning" -m tts-1-hd --voice nova')
+  .example('# Use GPT-4o Mini TTS with style instructions')
+  .example('egaki speech "Breaking news today" -m gpt-4o-mini-tts --instructions "Speak like a news anchor"')
+  .example('# ElevenLabs with a voice ID')
+  .example('egaki speech "Hello world" -m eleven_v3 --voice 21m00Tcm4TlvDq8ikWAM')
+  .example('# Read text from stdin')
+  .example('cat script.txt | egaki speech --stdin -o narration.mp3')
+  .example('# Pipe audio to another tool')
+  .example('egaki speech "test" --stdout | ffplay -nodisp -autoexit -')
+  .action(async (text = '', options) => {
+    let inputText = text
+    if (options.stdin) {
+      inputText = await readTextFromStdin()
+    }
+
+    if (!inputText || inputText.trim().length === 0) {
+      console.error(pc.red('No text provided. Pass text as an argument or use --stdin.'))
+      process.exit(1)
+    }
+
+    const model = options.model ?? await resolveSpeechModel()
+    const outputPath = options.output ?? 'egaki-output.mp3'
+
+    if (!options.stdout) {
+      console.error(pc.dim(`Model: ${model}`))
+      console.error(pc.dim(`Text: ${inputText.length > 80 ? inputText.slice(0, 80) + '...' : inputText}`))
+      console.error(pc.cyan('Generating speech...'))
+    }
+
+    const result = await runProviderCall('Speech generation', () => generateSpeech({
+      text: inputText,
+      model,
+      voice: options.voice,
+      outputFormat: options.outputFormat,
+      instructions: options.instructions,
+      speed: options.speed,
+      language: options.language,
+    }))
+
+    if (options.stdout) {
+      process.stdout.write(Buffer.from(result.audio.uint8Array))
+      return
+    }
+
+    const ext = extensionFromMediaType(result.audio.mediaType)
+    const finalPath = ensureExtension(outputPath, ext)
+    fs.writeFileSync(finalPath, result.audio.uint8Array)
+    console.error(pc.green(`Saved: ${finalPath}`))
+    printCost(result.cost)
+
+    if (options.json) {
+      console.log(JSON.stringify({
+        model,
+        file: finalPath,
+        cost: result.cost,
+        textLength: inputText.length,
+        warnings: result.warnings,
+      }, null, 2))
+    }
+  })
+
 // ─── models command ──────────────────────────────────────────────────────────
 
 cli
@@ -592,9 +732,9 @@ cli
   .option(
     '--type [type]',
     z
-      .enum(['all', 'image', 'video'])
+      .enum(['all', 'image', 'video', 'speech'])
       .default('all')
-      .describe('Filter by model type: image (image+text-image), video, or all'),
+      .describe('Filter by model type: image, video, speech, or all'),
   )
   .option('--json', 'Output as JSON instead of YAML')
   .action(async (options) => {
@@ -603,12 +743,14 @@ cli
       Object.keys(PROVIDERS).map((provider) => [provider, getKeyStatus(provider)]),
     )
 
-    let models: Array<typeof CATALOG[number] | typeof VIDEO_CATALOG[number]> =
+    let models: Array<typeof CATALOG[number] | typeof VIDEO_CATALOG[number] | SpeechModelEntry> =
       options.type === 'video'
         ? [...VIDEO_CATALOG]
         : options.type === 'image'
           ? [...CATALOG]
-          : [...CATALOG, ...VIDEO_CATALOG]
+          : options.type === 'speech'
+            ? [...SPEECH_CATALOG]
+            : [...CATALOG, ...VIDEO_CATALOG, ...SPEECH_CATALOG]
 
     if (options.provider) {
       models = models.filter((m) => m.provider === options.provider)
@@ -641,14 +783,25 @@ cli
                 ? `${m.features.durationRangeSec.min}-${m.features.durationRangeSec.max}`
                 : 'unknown',
             }
-          : {
-              editing: m.features.editing,
-              inpainting: m.features.inpainting,
-              seed: m.features.seed,
-              multipleImages: m.features.multipleImages,
-              aspectRatios: m.features.aspectRatios.join(', ') || 'none',
-              ...(m.features.sizes ? { sizes: m.features.sizes.join(', ') } : {}),
-            },
+          : m.strategy === 'speech'
+            ? {
+                outputFormats: m.features.outputFormats.join(', '),
+                instructions: m.features.instructions,
+                speed: m.features.speed,
+                language: m.features.language,
+                maxChars: m.features.maxChars || 'unlimited',
+                voices: m.features.defaultVoices.length > 0
+                  ? m.features.defaultVoices.join(', ')
+                  : 'use provider voice library',
+              }
+            : {
+                editing: m.features.editing,
+                inpainting: m.features.inpainting,
+                seed: m.features.seed,
+                multipleImages: m.features.multipleImages,
+                aspectRatios: m.features.aspectRatios.join(', ') || 'none',
+                ...(m.features.sizes ? { sizes: m.features.sizes.join(', ') } : {}),
+              },
     }))
 
     if (options.json) {
@@ -905,6 +1058,46 @@ async function resolveVideoModel(): Promise<string> {
   return selected
 }
 
+/**
+ * Resolve the speech model: show interactive picker in TTY, use default otherwise.
+ */
+async function resolveSpeechModel(): Promise<string> {
+  const isTTY = process.stdin.isTTY && process.stderr.isTTY
+  if (!isTTY) return DEFAULT_SPEECH_MODEL
+
+  const options = SPEECH_CATALOG.map((m) => {
+    const cost = pc.dim(`$${m.cost.perMillionChars}/M chars`)
+    return {
+      value: m.id,
+      label: `${m.name} ${cost}`,
+      hint: m.id,
+    }
+  })
+
+  const selected = await select({
+    message: 'Select a speech model',
+    options,
+  })
+
+  if (isCancel(selected)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
+
+  return selected
+}
+
+/**
+ * Read text from stdin (for piping: cat file.txt | egaki speech --stdin).
+ */
+async function readTextFromStdin(): Promise<string> {
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk)
+  }
+  return Buffer.concat(chunks).toString('utf-8').trim()
+}
+
 function isUrl(input: string): boolean {
   return /^https?:\/\//i.test(input)
 }
@@ -920,6 +1113,13 @@ function mimeTypeFromExtension(ext: string): string {
     '.jpeg': 'image/jpeg',
     '.webp': 'image/webp',
     '.gif': 'image/gif',
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.pcm': 'audio/pcm',
+    '.opus': 'audio/opus',
+    '.aac': 'audio/aac',
+    '.flac': 'audio/flac',
+    '.ogg': 'audio/ogg',
   }
   return map[ext.toLowerCase()] || 'application/octet-stream'
 }
@@ -1051,6 +1251,9 @@ function formatCatalogCost(
     defaultDurationSec: number
     tiers: Array<{ resolution?: string; mode?: string; audio?: boolean; costPerSecond: number }>
   } | {
+    type: 'per-character'
+    perMillionChars: number
+  } | {
     type: 'unknown'
   },
 ): string {
@@ -1059,6 +1262,9 @@ function formatCatalogCost(
   }
   if (cost.type === 'per-token') {
     return `$${cost.inputPerM}/M input, $${cost.outputPerM}/M output`
+  }
+  if (cost.type === 'per-character') {
+    return `$${cost.perMillionChars}/M chars`
   }
   if (cost.type === 'per-video-second') {
     const tierText = cost.tiers
@@ -1094,8 +1300,18 @@ function extensionFromMediaType(mediaType: string): string {
     'video/mp4': '.mp4',
     'video/webm': '.webm',
     'video/quicktime': '.mov',
+    'audio/mpeg': '.mp3',
+    'audio/wav': '.wav',
+    'audio/pcm': '.pcm',
+    'audio/opus': '.opus',
+    'audio/aac': '.aac',
+    'audio/flac': '.flac',
+    'audio/ogg': '.ogg',
   }
-  return map[mediaType] || (mediaType.startsWith('video/') ? '.mp4' : '.png')
+  if (map[mediaType]) return map[mediaType]!
+  if (mediaType.startsWith('audio/')) return '.mp3'
+  if (mediaType.startsWith('video/')) return '.mp4'
+  return '.png'
 }
 
 function ensureExtension(filePath: string, ext: string): string {
