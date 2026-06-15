@@ -44,6 +44,38 @@ async function getProjectRoot(): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Asset path resolution — paths starting with `/` resolve to the project's
+// public/ folder (Vite convention), then fall back to absolute/relative paths.
+// ---------------------------------------------------------------------------
+
+/** Resolve a path prop to an absolute filesystem path.
+ *  `/photo.png` → `{projectRoot}/public/photo.png` if the file exists.
+ *  Relative paths resolve against projectRoot.
+ *  Absolute paths and URLs pass through unchanged. */
+async function resolveAssetPath(p: string): Promise<string> {
+  if (p.startsWith('http://') || p.startsWith('https://')) return p
+  const root = await getProjectRoot()
+  if (p.startsWith('/')) {
+    const publicPath = path.join(root, 'public', p)
+    if (fs.existsSync(publicPath)) return publicPath
+  }
+  if (path.isAbsolute(p)) return p
+  return path.resolve(root, p)
+}
+
+/** Resolve a path and read it as bytes. Works with public paths (`/img.png`),
+ *  relative paths, absolute paths, and URLs (http/https). */
+async function readAssetBytes(p: string): Promise<Uint8Array> {
+  const resolved = await resolveAssetPath(p)
+  if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+    const res = await fetch(resolved)
+    if (!res.ok) throw new Error(`Failed to fetch ${resolved}: ${res.status}`)
+    return new Uint8Array(await res.arrayBuffer())
+  }
+  return new Uint8Array(fs.readFileSync(resolved))
+}
+
+// ---------------------------------------------------------------------------
 // Caching utilities
 // ---------------------------------------------------------------------------
 
@@ -131,27 +163,36 @@ export function findFallbackFile(dir: string, prefix: string, currentHash: strin
 }
 
 // ---------------------------------------------------------------------------
-// Generation queue: one promise per cache key, deduplicates concurrent calls
+// Generation queue: one promise per cache key, deduplicates concurrent calls.
+// Stored on globalThis so in-flight promises survive Vite HMR module reloads.
+// Without this, a module reload would drop the reference to a pending promise,
+// causing the next render to start a duplicate generation.
 // ---------------------------------------------------------------------------
 
-const generationQueue = new Map<string, Promise<string>>()
+const generationQueue: Map<string, Promise<string>> =
+  (globalThis as any).__egakiGenerationQueue ??= new Map<string, Promise<string>>()
 
 // ---------------------------------------------------------------------------
 // GeneratedImage
 // ---------------------------------------------------------------------------
 
-type GeneratedImageGenProps = Pick<
-  GenerateImageOptions,
-  'prompt' | 'model' | 'seed' | 'aspectRatio' | 'quality' | 'resolution' | 'outputFormat' | 'negativePrompt'
->
+// Omit binary props (replaced with string paths) and `count` (always 1 per component).
+type GeneratedImageGenProps = Omit<GenerateImageOptions, 'count' | 'inputImages' | 'maskImage'> & {
+  /** Input image paths for image-to-image. Accepts public paths (`/photo.png`),
+   *  relative paths, absolute paths, or URLs. Read as bytes before generation. */
+  inputImages?: string[]
+  /** Mask image path for inpainting. Same resolution rules as inputImages. */
+  maskImage?: string
+}
 
-export type GeneratedImageProps = GeneratedImageGenProps & {
-  /** Required. Change to trigger regeneration. */
-  seed: number
-} & Omit<ComponentProps<typeof Img>, 'src'>
+export type GeneratedImageProps = GeneratedImageGenProps & Omit<ComponentProps<typeof Img>, 'src'>
 
-export async function GeneratedImage({ prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, ...passthrough }: GeneratedImageProps) {
-  const genParams = { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt }
+export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: maskImagePath, ...props }: GeneratedImageProps) {
+  // Split generation params from passthrough (component) props
+  const { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, ...passthrough } = props
+  const inputImages = inputImagePaths ? await Promise.all(inputImagePaths.map(readAssetBytes)) : undefined
+  const maskImage = maskImagePath ? await readAssetBytes(maskImagePath) : undefined
+  const genParams: GenerateImageOptions = { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, inputImages, maskImage }
   const key = stableJsonKey({ _type: 'image', ...genParams })
   const hash = hashKey(key)
   const dir = await generatedDir('image')
@@ -203,18 +244,19 @@ export async function GeneratedImage({ prompt, model, seed, aspectRatio, quality
 // GeneratedVideo
 // ---------------------------------------------------------------------------
 
-type GeneratedVideoGenProps = Pick<
-  GenerateVideoOptions,
-  'prompt' | 'model' | 'seed' | 'aspectRatio' | 'resolution' | 'duration' | 'fps' | 'negativePrompt'
->
+// Omit binary props (replaced with string path) and `count` (always 1 per component).
+type GeneratedVideoGenProps = Omit<GenerateVideoOptions, 'count' | 'inputImage'> & {
+  /** Input image path for image-to-video. Accepts public paths (`/photo.png`),
+   *  relative paths, absolute paths, or URLs. Read as bytes before generation. */
+  inputImage?: string
+}
 
-export type GeneratedVideoProps = GeneratedVideoGenProps & {
-  /** Required. Change to trigger regeneration. */
-  seed: number
-} & Omit<ComponentProps<typeof Video>, 'src'>
+export type GeneratedVideoProps = GeneratedVideoGenProps & Omit<ComponentProps<typeof Video>, 'src'>
 
-export async function GeneratedVideo({ prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, ...passthrough }: GeneratedVideoProps) {
-  const genParams = { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt }
+export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: GeneratedVideoProps) {
+  const { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, mode, videoUrl, referenceImages, ...passthrough } = props
+  const inputImage = inputImagePath ? await readAssetBytes(inputImagePath) : undefined
+  const genParams: GenerateVideoOptions = { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, inputImage, mode, videoUrl, referenceImages }
   const key = stableJsonKey({ _type: 'video', ...genParams })
   const hash = hashKey(key)
   const dir = await generatedDir('video')
@@ -262,17 +304,15 @@ export async function GeneratedVideo({ prompt, model, seed, aspectRatio, resolut
 // GeneratedAudio
 // ---------------------------------------------------------------------------
 
-type GeneratedAudioGenProps = Pick<
-  GenerateSpeechOptions,
-  'text' | 'model' | 'voice' | 'outputFormat' | 'instructions' | 'speed' | 'language'
->
-
-export type GeneratedAudioProps = GeneratedAudioGenProps & {
+type GeneratedAudioGenProps = GenerateSpeechOptions & {
   /** Optional. Change to trigger regeneration. */
   seed?: number
-} & Omit<ComponentProps<typeof Audio>, 'src'>
+}
 
-export async function GeneratedAudio({ text, model, voice, outputFormat, instructions, speed, language, seed, ...passthrough }: GeneratedAudioProps) {
+export type GeneratedAudioProps = GeneratedAudioGenProps & Omit<ComponentProps<typeof Audio>, 'src'>
+
+export async function GeneratedAudio(props: GeneratedAudioProps) {
+  const { text, model, voice, outputFormat, instructions, speed, language, seed, ...passthrough } = props
   const genParams = { text, model, voice, outputFormat, instructions, speed, language, seed }
   const key = stableJsonKey({ _type: 'audio', ...genParams })
   const hash = hashKey(key)
