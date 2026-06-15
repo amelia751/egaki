@@ -49,7 +49,22 @@ export interface GenerateSpeechOptions {
   outputFormat?: AudioOutputFormat
   /** Style instructions for models that support it (e.g. gpt-4o-mini-tts). */
   instructions?: string
-  /** Playback speed multiplier (provider support varies). */
+  /**
+   * Playback speed multiplier. `1.0` is normal speed; values below slow
+   * down, values above speed up.
+   *
+   * Accepted ranges vary by provider:
+   *
+   * | Provider    | Range       | Notes                                                        |
+   * |-------------|-------------|--------------------------------------------------------------|
+   * | OpenAI      | 0.25 – 4.0  | Works with `tts-1`, `tts-1-hd`, `gpt-4o-mini-tts`.          |
+   * | ElevenLabs  | 0.25 – 4.0  | Passed as `voice_settings.speed`. Extreme values degrade     |
+   * |             |             | quality. Flash/turbo models may ignore it.                   |
+   * | Cartesia    | 0.6 – 1.5   | Passed as `generation_config.speed`. Sonic models treat it   |
+   * |             |             | as guidance, not an exact multiplier.                        |
+   *
+   * @default 1.0
+   */
   speed?: number
   /** ISO 639-1 language code (e.g. "en", "es", "fr"). */
   language?: string
