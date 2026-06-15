@@ -14,7 +14,7 @@
  * users can set style, className, trimBefore, trimAfter, playbackRate, etc.
  */
 
-import { Suspense, use, useEffect, type ComponentProps, type ReactNode } from 'react'
+import { Suspense, use, useLayoutEffect, type ComponentProps, type ReactNode } from 'react'
 import { useDelayRender } from 'remotion'
 import { Img, Audio, Video, useIsExporting } from './mdx-video.tsx'
 
@@ -29,7 +29,9 @@ import { Img, Audio, Video, useIsExporting } from './mdx-video.tsx'
 function GeneratedMediaFallback({ children }: { children?: ReactNode }) {
   const isExporting = useIsExporting()
   const { delayRender, continueRender } = useDelayRender()
-  useEffect(() => {
+  // useLayoutEffect prevents a first-frame capture race: the delay handle
+  // is registered before the browser paints, matching Remotion's own pattern.
+  useLayoutEffect(() => {
     if (!isExporting) return
     const handle = delayRender('Waiting for generated media', {
       timeoutInMilliseconds: 10 * 60 * 1000,

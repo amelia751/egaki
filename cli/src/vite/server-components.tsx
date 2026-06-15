@@ -56,8 +56,12 @@ async function resolveAssetPath(p: string): Promise<string> {
   if (p.startsWith('http://') || p.startsWith('https://')) return p
   const root = await getProjectRoot()
   if (p.startsWith('/')) {
-    const publicPath = path.join(root, 'public', p)
-    if (fs.existsSync(publicPath)) return publicPath
+    const publicDir = path.join(root, 'public')
+    const publicPath = path.resolve(publicDir, '.' + p)
+    // Guard against path traversal (e.g. `/../secret.txt`)
+    if (publicPath.startsWith(publicDir + path.sep) && fs.existsSync(publicPath)) {
+      return publicPath
+    }
   }
   if (path.isAbsolute(p)) return p
   return path.resolve(root, p)
@@ -97,7 +101,7 @@ function sortValue(value: unknown): unknown {
 }
 
 /** First 8 hex chars of sha256. */
-export function hashKey(input: string): string {
+export function hashKey(input: string | Uint8Array): string {
   return createHash('sha256').update(input).digest('hex').slice(0, 8)
 }
 
@@ -193,7 +197,13 @@ export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: 
   const inputImages = inputImagePaths ? await Promise.all(inputImagePaths.map(readAssetBytes)) : undefined
   const maskImage = maskImagePath ? await readAssetBytes(maskImagePath) : undefined
   const genParams: GenerateImageOptions = { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, inputImages, maskImage }
-  const key = stableJsonKey({ _type: 'image', ...genParams })
+  // Cache key uses content hashes of binary data instead of raw bytes to
+  // avoid multi-megabyte JSON strings in the generation queue map keys.
+  const key = stableJsonKey({
+    _type: 'image', prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize,
+    inputImages: inputImages?.map((b) => hashKey(b)),
+    maskImage: maskImage ? hashKey(maskImage) : undefined,
+  })
   const hash = hashKey(key)
   const dir = await generatedDir('image')
   const prefix = promptPrefix(prompt)
@@ -257,7 +267,10 @@ export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: G
   const { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, mode, videoUrl, referenceImages, ...passthrough } = props
   const inputImage = inputImagePath ? await readAssetBytes(inputImagePath) : undefined
   const genParams: GenerateVideoOptions = { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, inputImage, mode, videoUrl, referenceImages }
-  const key = stableJsonKey({ _type: 'video', ...genParams })
+  const key = stableJsonKey({
+    _type: 'video', prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, mode, videoUrl, referenceImages,
+    inputImage: inputImage ? hashKey(inputImage) : undefined,
+  })
   const hash = hashKey(key)
   const dir = await generatedDir('video')
   const prefix = promptPrefix(prompt)

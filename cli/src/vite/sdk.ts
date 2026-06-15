@@ -342,7 +342,11 @@ class EgakiSDK {
     return Wrapped
   }
 
-  /** Render a single frame and return a data URL string. */
+  /** Render a single frame and return a data URL string.
+   *  Intentionally does NOT wrap in ExportContext — screenshots capture the
+   *  current visual state including Suspense fallbacks. This matches what
+   *  the user sees in the Player. Use export() for production renders that
+   *  wait for all generated media to resolve via delayRender. */
   async screenshot(options: ScreenshotOptions = {}): Promise<string> {
     const c = this.getConfig()
     const format = options.format ?? 'png'

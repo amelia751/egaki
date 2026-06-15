@@ -1178,7 +1178,9 @@ function useReportMediaDuration(props: {
   const isExporting = useIsExporting()
   const [rawDuration, setRawDuration] = useState<number | null>(null)
 
-  useEffect(() => {
+  // useLayoutEffect ensures delayRender is registered before paint,
+  // preventing the renderer from capturing a frame before the handle exists.
+  useLayoutEffect(() => {
     if (!props.src || skip) return
 
     let delayHandle: number | null = null

@@ -13,7 +13,7 @@
 
 import './styles.css'
 import { Player, type PlayerRef } from '@remotion/player'
-import { Suspense, useCallback, useEffect, useRef, useSyncExternalStore, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore, useState, type ReactNode } from 'react'
 import {
   AbsoluteFill,
   Freeze,
@@ -92,7 +92,9 @@ function ChevronDownIcon() {
  */
 function SuspenseFallback() {
   const { delayRender, continueRender } = useDelayRender()
-  useEffect(() => {
+  // useLayoutEffect registers the delay handle before paint, preventing
+  // the renderer from capturing a frame before the handle exists.
+  useLayoutEffect(() => {
     const handle = delayRender('Waiting for section to unsuspend', {
       timeoutInMilliseconds: 10 * 60 * 1000,
     })
