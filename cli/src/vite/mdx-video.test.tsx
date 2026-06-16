@@ -14,6 +14,7 @@ import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
 import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter, aspectRatioFromDimensions } from './mdx-parse.ts'
+import { findChangedSectionIndex } from './vite-plugin.ts'
 import { computeEffectiveDuration } from './media-duration-store.ts'
 import { findServerNodes, blankServerContents, collectServerImportSources, wrapGenerateNodes } from './server-mdx.ts'
 import { stableJsonKey, hashKey, promptPrefix } from './server-components.tsx'
@@ -1735,5 +1736,72 @@ describe('computeEffectiveDuration with gap props', () => {
 
   test('returns null when duration cannot be determined', () => {
     expect(computeEffectiveDuration({ fps: 30, gapBefore: 30 })).toBeNull()
+  })
+})
+
+describe('findChangedSectionIndex', () => {
+  const base = [
+    '---',
+    'fps: 30',
+    'bpm: 120',
+    '---',
+    '',
+    '# Intro duration=3s',
+    '',
+    'Hello world',
+    '',
+    '# Middle duration=2s',
+    '',
+    'Some content here',
+    '',
+    '# Outro duration=1s',
+    '',
+    'Goodbye',
+  ].join('\n')
+
+  test('identical content returns null', () => {
+    expect(findChangedSectionIndex(base, base)).toBe(null)
+  })
+
+  test('editing first section returns 0', () => {
+    const edited = base.replace('Hello world', 'Hello EDITED')
+    expect(findChangedSectionIndex(base, edited)).toBe(0)
+  })
+
+  test('editing second section returns 1', () => {
+    const edited = base.replace('Some content here', 'New content')
+    expect(findChangedSectionIndex(base, edited)).toBe(1)
+  })
+
+  test('editing last section returns 2', () => {
+    const edited = base.replace('Goodbye', 'See ya')
+    expect(findChangedSectionIndex(base, edited)).toBe(2)
+  })
+
+  test('adding a new section returns its index', () => {
+    const added = base + '\n\n# Bonus duration=1s\n\nExtra stuff'
+    expect(findChangedSectionIndex(base, added)).toBe(3)
+  })
+
+  test('deleting last section returns null (skip deletions)', () => {
+    const deleted = base.replace('\n# Outro duration=1s\n\nGoodbye', '')
+    expect(findChangedSectionIndex(base, deleted)).toBe(null)
+  })
+
+  test('editing heading text returns that section index', () => {
+    const edited = base.replace('# Middle duration=2s', '# Middle Renamed duration=2s')
+    expect(findChangedSectionIndex(base, edited)).toBe(1)
+  })
+
+  test('preamble-only change returns null', () => {
+    const withPreamble = '<Audio src="/bg.mp3" />\n\n' + base.split('\n').slice(4).join('\n')
+    const oldPreamble = '---\nfps: 30\nbpm: 120\n---\n\n' + withPreamble
+    const newPreamble = oldPreamble.replace('/bg.mp3', '/new-bg.mp3')
+    expect(findChangedSectionIndex(oldPreamble, newPreamble)).toBe(null)
+  })
+
+  test('frontmatter-only change returns null', () => {
+    const edited = base.replace('fps: 30', 'fps: 60')
+    expect(findChangedSectionIndex(base, edited)).toBe(null)
   })
 })

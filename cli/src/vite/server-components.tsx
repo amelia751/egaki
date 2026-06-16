@@ -162,9 +162,10 @@ async function generatedDir(type: MediaType): Promise<string> {
 }
 
 /** Find an existing cached file by hash in the generated directory.
- *  Also checks the stale/ subfolder — if found there, moves it back
- *  to the main directory so it's reused without regenerating.
- *  Returns the filename (not full path) or undefined. */
+ *  Also checks the stale/ subfolder — if found there, restores it to the
+ *  main directory via renameSync. This self-corrects cases where a file
+ *  was moved to stale by a sibling component's generation but is still
+ *  needed by this component. Returns the filename or undefined. */
 export function findCachedFile(dir: string, hash: string): string | undefined {
   try {
     const found = fs.readdirSync(dir).find((f) => f.includes(hash))
@@ -211,43 +212,25 @@ export function findFallbackFile(dir: string, prefix: string, currentHash: strin
 const generationQueue: Map<string, Promise<string>> =
   (globalThis as any).__egakiGenerationQueue ??= new Map<string, Promise<string>>()
 
-// Set of hashes currently being generated. moveSamePrefixToStale skips
-// files whose hash is in this set to avoid moving files that another
-// concurrent generation (same prompt, different seed) is still serving.
-const activeHashes: Set<string> =
-  (globalThis as any).__egakiActiveHashes ??= new Set<string>()
-
 // ---------------------------------------------------------------------------
-// Stale file cleanup — when a new generation completes, move older files
-// with the same prompt prefix but a different hash to stale/. Skips files
-// whose hash is still in activeHashes (concurrent generation in progress).
+// Stale file cleanup — when a new generation completes, move the specific
+// fallback file (the previous generation this component was showing) to
+// stale/. Each generation only moves its own predecessor, so concurrent
+// components with the same prompt but different seeds never interfere.
 // ---------------------------------------------------------------------------
 
-/** Move files matching `prefix-*` that have a different hash into `stale/`.
- *  Called after a successful generation writes a new file. Skips files
- *  whose hash is in the activeHashes set (in-flight concurrent generation). */
-function moveSamePrefixToStale(dir: string, prefix: string, currentHash: string) {
+/** Move a specific file into the stale/ subfolder of its directory.
+ *  No-op if the file is already in stale/ or doesn't exist. */
+function moveFileToStale(dir: string, fallback: { filename: string; inStale: boolean }) {
+  if (fallback.inStale) return
+  const src = path.join(dir, fallback.filename)
   const staleDir = path.join(dir, 'stale')
-  let entries: string[]
   try {
-    entries = fs.readdirSync(dir)
-  } catch {
-    return
-  }
-  for (const name of entries) {
-    if (name === 'stale') continue
-    if (!name.startsWith(prefix + '-')) continue
-    if (name.includes(currentHash)) continue
-    // Skip files belonging to another in-flight generation
-    if ([...activeHashes].some((h) => name.includes(h))) continue
-    const fullPath = path.join(dir, name)
-    try {
-      if (!fs.statSync(fullPath).isFile()) continue
-    } catch { continue }
+    if (!fs.existsSync(src)) return
     fs.mkdirSync(staleDir, { recursive: true })
-    fs.renameSync(fullPath, path.join(staleDir, name))
-    console.log(`[egaki] moved stale: ${name} → stale/`)
-  }
+    fs.renameSync(src, path.join(staleDir, fallback.filename))
+    console.log(`[egaki] moved stale: ${fallback.filename} → stale/`)
+  } catch { /* race with another rename, safe to ignore */ }
 }
 
 /** Format key params for logging, omitting undefined values and the _type field. */
@@ -298,11 +281,10 @@ export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: 
   const dir = await generatedDir('image')
   const prefix = promptPrefix(prompt)
 
-  // Check cache (also restores from stale/ if found there)
+  // Check cache (restores from stale/ if found there)
   const cached = findCachedFile(dir, hash)
   if (cached) {
-    const src = `/generated/image/${cached}`
-    return <GeneratedImageClient srcPromise={Promise.resolve(src)} {...passthrough} />
+    return <GeneratedImageClient srcPromise={Promise.resolve(`/generated/image/${cached}`)} {...passthrough} />
   }
 
   // Find a previous generation with same prompt to show while generating
@@ -314,7 +296,6 @@ export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: 
   // Deduplicate concurrent generations
   let srcPromise = generationQueue.get(key)
   if (!srcPromise) {
-    activeHashes.add(hash)
     srcPromise = (async () => {
       try {
         console.log(`[egaki] generating image: ${prefix}-${hash} (${formatKeyParams(keyParams)})`)
@@ -330,10 +311,9 @@ export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: 
         const filename = `${prefix}-${hash}${ext}`
         fs.writeFileSync(path.join(dir, filename), file.uint8Array)
         console.log(`[egaki] generated image: ${filename}`)
-        moveSamePrefixToStale(dir, prefix, hash)
+        if (fallback) moveFileToStale(dir, fallback)
         return `/generated/image/${filename}`
       } finally {
-        activeHashes.delete(hash)
         generationQueue.delete(key)
       }
     })()
@@ -378,8 +358,7 @@ export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: G
 
   const cached = findCachedFile(dir, hash)
   if (cached) {
-    const src = `/generated/video/${cached}`
-    return <GeneratedVideoClient srcPromise={Promise.resolve(src)} {...passthrough} />
+    return <GeneratedVideoClient srcPromise={Promise.resolve(`/generated/video/${cached}`)} {...passthrough} />
   }
 
   const fallback = findFallbackFile(dir, prefix, hash)
@@ -389,7 +368,6 @@ export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: G
 
   let srcPromise = generationQueue.get(key)
   if (!srcPromise) {
-    activeHashes.add(hash)
     srcPromise = (async () => {
       try {
         console.log(`[egaki] generating video: ${prefix}-${hash} (${formatKeyParams(keyParams)})`)
@@ -405,10 +383,9 @@ export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: G
         const filename = `${prefix}-${hash}${ext}`
         fs.writeFileSync(path.join(dir, filename), file.uint8Array)
         console.log(`[egaki] generated video: ${filename}`)
-        moveSamePrefixToStale(dir, prefix, hash)
+        if (fallback) moveFileToStale(dir, fallback)
         return `/generated/video/${filename}`
       } finally {
-        activeHashes.delete(hash)
         generationQueue.delete(key)
       }
     })()
@@ -440,8 +417,7 @@ export async function GeneratedSpeech(props: GeneratedSpeechProps) {
 
   const cached = findCachedFile(dir, hash)
   if (cached) {
-    const src = `/generated/audio/${cached}`
-    return <GeneratedSpeechClient srcPromise={Promise.resolve(src)} {...passthrough} />
+    return <GeneratedSpeechClient srcPromise={Promise.resolve(`/generated/audio/${cached}`)} {...passthrough} />
   }
 
   const fallback = findFallbackFile(dir, prefix, hash)
@@ -451,7 +427,6 @@ export async function GeneratedSpeech(props: GeneratedSpeechProps) {
 
   let srcPromise = generationQueue.get(key)
   if (!srcPromise) {
-    activeHashes.add(hash)
     srcPromise = (async () => {
       try {
         console.log(`[egaki] generating audio: ${prefix}-${hash} (${formatKeyParams(keyParams)})`)
@@ -466,10 +441,9 @@ export async function GeneratedSpeech(props: GeneratedSpeechProps) {
         const filename = `${prefix}-${hash}${ext}`
         fs.writeFileSync(path.join(dir, filename), file.uint8Array)
         console.log(`[egaki] generated audio: ${filename}`)
-        moveSamePrefixToStale(dir, prefix, hash)
+        if (fallback) moveFileToStale(dir, fallback)
         return `/generated/audio/${filename}`
       } finally {
-        activeHashes.delete(hash)
         generationQueue.delete(key)
       }
     })()
