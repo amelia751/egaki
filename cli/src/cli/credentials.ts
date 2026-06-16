@@ -79,6 +79,16 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
     label: 'Cartesia (speech)',
     hint: 'Get your key at https://play.cartesia.ai/keys',
   },
+  deepgram: {
+    envVar: 'DEEPGRAM_API_KEY',
+    label: 'Deepgram (transcription)',
+    hint: 'Get your key at https://console.deepgram.com/api-keys',
+  },
+  groq: {
+    envVar: 'GROQ_API_KEY',
+    label: 'Groq (fast transcription)',
+    hint: 'Get your key at https://console.groq.com/keys',
+  },
 }
 
 export const EGAKI_GATEWAY_URL = 'https://egaki.org/v3/ai'

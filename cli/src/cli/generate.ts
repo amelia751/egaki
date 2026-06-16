@@ -837,3 +837,12 @@ export {
   type GenerateSpeechOptions,
   type GenerateSpeechResult,
 } from './speech-generate.js'
+
+// ─── re-export transcription ─────────────────────────────────────────────────
+
+export {
+  transcribeAudio,
+  calculateTranscriptionCost,
+  type TranscribeOptions,
+  type TranscribeResult,
+} from './transcription-generate.js'

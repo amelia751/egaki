@@ -60,12 +60,22 @@ import {
   generateSpeech,
 } from './speech-generate.js'
 import {
+  transcribeAudio,
+} from './transcription-generate.js'
+import {
   SPEECH_CATALOG,
   type SpeechModelEntry,
 } from './speech-catalog.js'
 import {
+  TRANSCRIPTION_CATALOG,
+  type TranscriptionModelEntry,
+} from './transcription-catalog.js'
+import {
   DEFAULT_SPEECH_MODEL,
 } from './speech-models.js'
+import {
+  DEFAULT_TRANSCRIPTION_MODEL,
+} from './transcription-models.js'
 
 const cli = goke('egaki')
 
@@ -717,6 +727,123 @@ cli
     }
   })
 
+// ─── transcribe command ──────────────────────────────────────────────────────
+
+cli
+  .command(
+    'transcribe [audio]',
+    dedent`
+      Transcribe audio to text using AI speech-to-text models.
+      Supports OpenAI (whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe),
+      ElevenLabs (scribe_v1), Deepgram (nova-3), and Groq (whisper-large-v3,
+      whisper-large-v3-turbo, distil-whisper-large-v3-en).
+      Outputs JSON with text, word-level timestamps, language, and duration.
+    `,
+  )
+  .option(
+    '-m, --model [model]',
+    z.string().describe('Transcription model ID. If omitted, shows an interactive picker (or uses default in non-TTY mode)'),
+  )
+  .option(
+    '-o, --output [path]',
+    z
+      .string()
+      .describe('Output file path for the JSON result'),
+  )
+  .option(
+    '--language [lang]',
+    z
+      .string()
+      .describe('ISO 639-1 language hint (e.g. en, es, fr). Helps accuracy for known languages'),
+  )
+  .option(
+    '--stdin',
+    'Read audio from stdin instead of a file path',
+  )
+  .option(
+    '--stdout',
+    'Write only the plain text transcript to stdout (no JSON metadata)',
+  )
+  .example('# Transcribe an audio file with default model')
+  .example('egaki transcribe recording.mp3')
+  .example('# Use a specific model')
+  .example('egaki transcribe interview.wav -m gpt-4o-transcribe')
+  .example('# Groq for fast, cheap transcription')
+  .example('egaki transcribe podcast.mp3 -m whisper-large-v3')
+  .example('# Get plain text only')
+  .example('egaki transcribe recording.mp3 --stdout')
+  .example('# Save JSON result to file')
+  .example('egaki transcribe recording.mp3 -o transcript.json')
+  .example('# Pipe audio from another command')
+  .example('ffmpeg -i video.mp4 -f mp3 - | egaki transcribe --stdin -m whisper-1')
+  .action(async (audioPath = '', options) => {
+    if (!options.stdin && !audioPath) {
+      console.error(pc.red('No audio provided. Pass an audio file path or use --stdin.'))
+      process.exit(1)
+    }
+
+    let audioData: Uint8Array
+
+    if (options.stdin) {
+      const chunks: Buffer[] = []
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk)
+      }
+      audioData = new Uint8Array(Buffer.concat(chunks))
+    } else {
+      const resolved = path.resolve(audioPath)
+      if (!fs.existsSync(resolved)) {
+        console.error(pc.red(`File not found: ${resolved}`))
+        process.exit(1)
+      }
+      audioData = new Uint8Array(fs.readFileSync(resolved))
+    }
+
+    if (audioData.length === 0) {
+      console.error(pc.red('No audio data provided. Pass an audio file path or use --stdin.'))
+      process.exit(1)
+    }
+
+    const model = options.model ?? await resolveTranscriptionModel()
+
+    if (!options.stdout) {
+      console.error(pc.dim(`Model: ${model}`))
+      console.error(pc.dim(`Audio: ${options.stdin ? 'stdin' : audioPath} (${(audioData.length / 1024).toFixed(1)} KB)`))
+      console.error(pc.cyan('Transcribing...'))
+    }
+
+    const result = await runProviderCall('Transcription', () => transcribeAudio({
+      audio: audioData,
+      model,
+      language: options.language,
+    }))
+
+    if (options.stdout) {
+      process.stdout.write(result.text)
+      return
+    }
+
+    const output = {
+      text: result.text,
+      segments: result.segments,
+      language: result.language,
+      durationInSeconds: result.durationInSeconds,
+      model: result.model,
+      cost: result.cost,
+      warnings: result.warnings,
+    }
+
+    if (options.output) {
+      const outputPath = path.resolve(options.output)
+      fs.writeFileSync(outputPath, JSON.stringify(output, null, 2))
+      console.error(pc.green(`Saved: ${outputPath}`))
+    } else {
+      console.log(JSON.stringify(output, null, 2))
+    }
+
+    printCost(result.cost)
+  })
+
 // ─── models command ──────────────────────────────────────────────────────────
 
 cli
@@ -734,9 +861,9 @@ cli
   .option(
     '--type [type]',
     z
-      .enum(['all', 'image', 'video', 'speech'])
+      .enum(['all', 'image', 'video', 'speech', 'transcription'])
       .default('all')
-      .describe('Filter by model type: image, video, speech, or all'),
+      .describe('Filter by model type: image, video, speech, transcription, or all'),
   )
   .option('--json', 'Output as JSON instead of YAML')
   .action(async (options) => {
@@ -745,14 +872,16 @@ cli
       Object.keys(PROVIDERS).map((provider) => [provider, getKeyStatus(provider)]),
     )
 
-    let models: Array<typeof CATALOG[number] | typeof VIDEO_CATALOG[number] | SpeechModelEntry> =
+    let models: Array<typeof CATALOG[number] | typeof VIDEO_CATALOG[number] | SpeechModelEntry | TranscriptionModelEntry> =
       options.type === 'video'
         ? [...VIDEO_CATALOG]
         : options.type === 'image'
           ? [...CATALOG]
           : options.type === 'speech'
             ? [...SPEECH_CATALOG]
-            : [...CATALOG, ...VIDEO_CATALOG, ...SPEECH_CATALOG]
+            : options.type === 'transcription'
+              ? [...TRANSCRIPTION_CATALOG]
+              : [...CATALOG, ...VIDEO_CATALOG, ...SPEECH_CATALOG, ...TRANSCRIPTION_CATALOG]
 
     if (options.provider) {
       models = models.filter((m) => m.provider === options.provider)
@@ -796,7 +925,16 @@ cli
                   ? m.features.defaultVoices.join(', ')
                   : 'use provider voice library',
               }
-            : {
+            : m.strategy === 'transcription'
+              ? {
+                  wordTimestamps: m.features.wordTimestamps,
+                  diarization: m.features.diarization,
+                  languageDetection: m.features.languageDetection,
+                  languageHint: m.features.languageHint,
+                  inputFormats: m.features.inputFormats.join(', '),
+                  maxDurationSec: m.features.maxDurationSec || 'unlimited',
+                }
+              : {
                 editing: m.features.editing,
                 inpainting: m.features.inpainting,
                 seed: m.features.seed,
@@ -1090,6 +1228,35 @@ async function resolveSpeechModel(): Promise<string> {
 }
 
 /**
+ * Resolve the transcription model: show interactive picker in TTY, use default otherwise.
+ */
+async function resolveTranscriptionModel(): Promise<string> {
+  const isTTY = process.stdin.isTTY && process.stderr.isTTY
+  if (!isTTY) return DEFAULT_TRANSCRIPTION_MODEL
+
+  const options = TRANSCRIPTION_CATALOG.map((m) => {
+    const cost = pc.dim(`${formatCost(m.cost.perSecond * 60)}/min`)
+    return {
+      value: m.id,
+      label: `${m.name} ${cost}`,
+      hint: m.id,
+    }
+  })
+
+  const selected = await select({
+    message: 'Select a transcription model',
+    options,
+  })
+
+  if (isCancel(selected)) {
+    cancel('Cancelled.')
+    process.exit(0)
+  }
+
+  return selected
+}
+
+/**
  * Read text from stdin (for piping: cat file.txt | egaki speech --stdin).
  */
 async function readTextFromStdin(): Promise<string> {
@@ -1256,6 +1423,9 @@ function formatCatalogCost(
     type: 'per-character'
     perMillionChars: number
   } | {
+    type: 'per-second'
+    perSecond: number
+  } | {
     type: 'unknown'
   },
 ): string {
@@ -1267,6 +1437,9 @@ function formatCatalogCost(
   }
   if (cost.type === 'per-character') {
     return `$${cost.perMillionChars}/M chars`
+  }
+  if (cost.type === 'per-second') {
+    return `${formatCost(cost.perSecond * 60)}/min`
   }
   if (cost.type === 'per-video-second') {
     const tierText = cost.tiers
@@ -1287,6 +1460,9 @@ function formatCatalogCost(
 }
 
 function formatCost(dollars: number): string {
+  if (dollars < 0.0001) {
+    return `$${dollars.toFixed(6)}`
+  }
   if (dollars < 0.01) {
     return `$${dollars.toFixed(4)}`
   }

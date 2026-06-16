@@ -2330,3 +2330,7 @@ export function findAnyModel(id: string): AnyModelEntry | undefined {
 
 // Re-export speech catalog for convenience in CLI code that needs all catalogs.
 export { SPEECH_CATALOG, findSpeechModel } from './speech-catalog.js'
+
+// Re-export transcription catalog.
+export { TRANSCRIPTION_CATALOG, findTranscriptionModel } from './transcription-catalog.js'
+export type { TranscriptionModelEntry } from './transcription-catalog.js'
