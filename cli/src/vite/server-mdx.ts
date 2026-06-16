@@ -181,7 +181,7 @@ export function collectServerImportSources(mdast: { children?: RootContent[] }):
 // ---------------------------------------------------------------------------
 // Auto-wrap generated media components in <Server>
 //
-// <GeneratedImage>, <GeneratedVideo>, <GeneratedAudio> are server components
+// <GeneratedImage>, <GeneratedVideo>, <GeneratedSpeech> are server components
 // that call egaki's generation APIs. When found bare in the mdast (not inside
 // a <Server> block), this transform wraps them in a synthetic <Server> node
 // so findServerNodes() picks them up. The wrapper reuses the original node's
@@ -192,7 +192,7 @@ export function collectServerImportSources(mdast: { children?: RootContent[] }):
 export const GENERATED_COMPONENT_NAMES = new Set([
   'GeneratedImage',
   'GeneratedVideo',
-  'GeneratedAudio',
+  'GeneratedSpeech',
 ])
 
 /** Walk the mdast and wrap bare generated media components in <Server>.

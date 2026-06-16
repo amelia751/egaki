@@ -43,7 +43,7 @@ import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 import {
   GeneratedImage,
   GeneratedVideo,
-  GeneratedAudio,
+  GeneratedSpeech,
 } from './server-components.tsx'
 
 /** Dynamically import the modules referenced inside <Server> blocks.
@@ -87,7 +87,7 @@ async function importServerModules(ast: any): Promise<EagerModules> {
 export const app = new Spiceflow()
   .page('/', async () => {
     const ast = mdxParse(mdxSource)
-    // Auto-wrap <GeneratedImage>, <GeneratedVideo>, <GeneratedAudio> in
+    // Auto-wrap <GeneratedImage>, <GeneratedVideo>, <GeneratedSpeech> in
     // <Server> so they render server-side without manual wrapping in MDX.
     wrapGenerateNodes(ast)
     const serverNodes = findServerNodes(ast)
@@ -115,7 +115,7 @@ export const app = new Spiceflow()
       ...MDX_BUILTIN_COMPONENTS,
       GeneratedImage,
       GeneratedVideo,
-      GeneratedAudio,
+      GeneratedSpeech,
     }
 
     const serverSlots: Record<string, ReactNode> = {}

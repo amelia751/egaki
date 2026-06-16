@@ -1621,11 +1621,11 @@ export {
 import type {
   GeneratedImageProps,
   GeneratedVideoProps,
-  GeneratedAudioProps,
+  GeneratedSpeechProps,
 } from './server-components.tsx'
 function GeneratedImage(_props: GeneratedImageProps) { return null }
 function GeneratedVideo(_props: GeneratedVideoProps) { return null }
-function GeneratedAudio(_props: GeneratedAudioProps) { return null }
+function GeneratedSpeech(_props: GeneratedSpeechProps) { return null }
 
 export const MDX_BUILTIN_COMPONENTS = {
   Background,
@@ -1656,5 +1656,5 @@ export const MDX_BUILTIN_COMPONENTS = {
   Animate,
   GeneratedImage,
   GeneratedVideo,
-  GeneratedAudio,
+  GeneratedSpeech,
 } as const

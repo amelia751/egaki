@@ -1,39 +1,63 @@
 ---
 fps: 30
 bpm: 120
+width: 1080
+height: 1920
 ---
 
-# AI Generated Image duration=5s
+# AI Generated Image
+
+<GeneratedSpeech
+  text="Welcome to the future. This city never sleeps."
+
+voice="alloy"
+/>
 
 <FadeIn duration={20}>
   <GeneratedImage
     prompt="a futuristic neon city at night with flying cars, cyberpunk style"
     seed={42}
     model="imagen-4.0-generate-001"
-    style={{ width: '80%', borderRadius: 16, objectFit: 'cover' }}
+    style={{ width: "80%", margin: 'auto', borderRadius: 16, objectFit: "cover" }}
   />
 </FadeIn>
 
-# AI Narration duration=5s
+## another duration=5s
 
-<GeneratedAudio
-  text="Welcome to the future. This city never sleeps."
-  voice="alloy"
+
+<FadeIn duration={20}>
+  <GeneratedImage
+    prompt="a non futuristic neon city at night with flying cars, cyberpunk style"
+    seed={42}
+    model="imagen-4.0-generate-001"
+    style={{ width: "100%", borderRadius: 16, objectFit: "cover" }}
+  />
+</FadeIn>
+
+
+# AI Narration
+
+<GeneratedSpeech
+  model="eleven_v3"
+  text="Welcome to the italy. This city never sleeps."
+  voice="NNl6r8mD7vthiJatiJt1"
 />
 
 <FadeIn duration={15}>
-  <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-    fontSize: 48,
-    fontWeight: 700,
-    color: '#fafafa',
-    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-    textAlign: 'center',
-    padding: '0 120px',
-  }}>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      height: "100%",
+      fontSize: 48,
+      fontWeight: 700,
+      color: "#fafafa",
+      fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+      textAlign: "center",
+      padding: "0 120px",
+    }}
+  >
     Welcome to the future. This city never sleeps.
   </div>
 </FadeIn>
@@ -45,6 +69,6 @@ bpm: 120
     prompt="a serene japanese garden with cherry blossoms and a small pond, watercolor style"
     seed={7}
     model="imagen-4.0-generate-001"
-    style={{ width: '80%', borderRadius: 16, objectFit: 'cover' }}
+    style={{ width: "100%", borderRadius: 16, objectFit: "cover" }}
   />
 </FadeIn>
