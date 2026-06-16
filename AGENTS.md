@@ -6,6 +6,25 @@ only exist when the value is used in multiple places or when the name carries im
 semantic meaning that the raw value does not convey. This applies to all egaki component
 files, example recreations, and video templates.
 
+**HMR-safe global state (server code only).** The Vite plugin explicitly invalidates
+RSC/SSR modules on user file changes (`hotUpdate` in `vite-plugin.ts`), so server-side
+module-level state resets mid-session. Any mutable state in server code (`app.tsx`,
+`server-components.tsx`, files without `'use client'`) that must survive these
+invalidations (caches, queues, in-flight promises) must be stored on `globalThis`
+with a `??=` initializer:
+
+```ts
+const generationQueue: Map<string, Promise<string>> =
+  (globalThis as any).__egakiGenerationQueue ??= new Map()
+```
+
+Client-side code (`'use client'` files like `mdx-client.tsx`, `tweakpane-hook.tsx`,
+`code-block.tsx`, etc.) does NOT need this pattern. Vite's HMR watcher excludes
+`node_modules`, and the only HMR boundary in `mdx-client.tsx` is a dependency-accept
+for `virtual:egaki-modules` (the module itself does not re-execute). React Fast Refresh
+patches component functions in place without re-running module scope. Client module-level
+`Map`s, `Set`s, and singletons are safe as bare initializers.
+
 **Import easings from egaki, never redefine them.** `egaki/video` exports `EASE` (preset
 curves at intensity 50), continuous preset functions like `smoothEasing(intensity)`,
 `impulseOvershoot(intensity)`, and primitives like `polybezier()`. When a component needs
@@ -353,6 +372,8 @@ Conventions and rules:
 **Components** (`components.tsx`): ported from [remocn](https://github.com/kapishdima/remocn). Includes `MeshGradientBg`, `BlurReveal`, `MaskedSlideReveal`, `StaggeredFadeUp`, `TerminalSimulator`, `GlassCodeBlock`, `ShimmerSweep`, `SpringPopIn`, `AnimatedChart`, `FeaturePill`. All use Remotion hooks (`useCurrentFrame`, `useVideoConfig`, `spring`, `interpolate`).
 
 **Animation wrappers** (`mdx-video.tsx`): `FadeIn`, `FadeOut`, `ZoomIn`, `ZoomOut`, `SlideIn`, `SlideOut`, `BlurIn`, `BlurOut`, and `<Animate enter="fadeIn" exit="zoomOut">` shorthand. Enter animations use ease-out by default (decelerate into place); exit animations use ease-in (accelerate away). `SlideIn`/`SlideOut` use a `from` prop (not `direction`): `from="left"` on SlideIn means the element enters from the left; `from="left"` on SlideOut means it exits to the right (opposite of where it came from). All wrappers accept a `delay` prop (frames) instead of `offset`: positive delays the start, negative starts earlier.
+
+**`<Fill>`** (`mdx-video.tsx`): a full-frame layer like Remotion's `AbsoluteFill` but with better defaults for video content. Children **stretch horizontally** to fill the frame and **center vertically**. Available in MDX without imports (part of `MDX_BUILTIN_COMPONENTS`). Also exported from `egaki/video`. Accepts the same `style` and HTML attributes as a `div`; pass `style` to override alignment when needed. Prefer `<Fill>` over raw `<AbsoluteFill>` in egaki components and MDX files. The scene content wrapper in `player-page.tsx` uses `<Fill>` internally.
 
 ## `FPS` and `BEAT` scope variables
 
