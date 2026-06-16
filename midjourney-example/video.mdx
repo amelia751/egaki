@@ -1,0 +1,88 @@
+---
+fps: 30
+bpm: 130
+---
+
+import { MidjourneyExploreImage } from '@egaki/midjourney/explore.server'
+import { TextOverlay } from './components'
+
+# Clouds duration=2s transition=0.3s
+
+<Background>
+  <MidjourneyExploreImage index={4} search="ethereal clouds soft light drawing" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Background>
+
+<FadeIn duration={15}>
+  <TextOverlay text="IMAGINE" />
+</FadeIn>
+
+# Ink duration=1.5s transition=0.3s
+
+<Background>
+  <MidjourneyExploreImage index={0} search="ethereal clouds soft light drawing" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Background>
+<SlideIn from="down" duration={12}>
+  <TextOverlay text="CREATE" position="bottom" />
+</SlideIn>
+
+# Mountains duration=2s transition=0.3s
+
+<Background>
+  <MidjourneyExploreImage search="vast mountain landscape cinematic" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Background>
+
+<FadeIn duration={20}>
+  <TextOverlay text="EXPLORE" />
+</FadeIn>
+
+# Geometry duration=1.5s transition=0.3s
+
+<Background>
+  <MidjourneyExploreImage search="geometric patterns gold and black" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Background>
+
+<BlurIn duration={15}>
+  <TextOverlay text="DESIGN" position="bottom" />
+</BlurIn>
+
+# Ocean duration=2s transition=0.3s
+
+<Background>
+  <MidjourneyExploreImage search="ocean waves aerial turquoise" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Background>
+
+<FadeIn duration={15}>
+  <TextOverlay text="FLOW" />
+</FadeIn>
+
+# Flora duration=1.5s transition=0.3s
+
+<Background>
+  <MidjourneyExploreImage search="botanical illustration detailed flowers" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Background>
+
+<SlideIn from="left" duration={12}>
+  <TextOverlay text="GROW" position="bottom" />
+</SlideIn>
+
+# Cosmos duration=2s transition=0.3s
+
+<Background>
+  <MidjourneyExploreImage search="nebula deep space stars cosmic" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Background>
+
+<FadeIn duration={20}>
+  <TextOverlay text="DREAM" />
+</FadeIn>
+
+# End duration=2s transition=0.5s
+
+<Background>
+  <MidjourneyExploreImage search="abstract light rays prismatic" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Background>
+
+<ZoomIn duration={30}>
+  <FadeIn duration={20}>
+    <TextOverlay text="MIDJOURNEY" subtitle="Explore the imagination" />
+  </FadeIn>
+</ZoomIn>
