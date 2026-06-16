@@ -16,7 +16,7 @@ import { MdastToJsx } from 'safe-mdx'
 import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter, aspectRatioFromDimensions } from './mdx-parse.ts'
 import { findChangedSectionIndex } from './vite-plugin.ts'
 import { computeEffectiveDuration } from './media-duration-store.ts'
-import { findServerNodes, blankServerContents, collectServerImportSources, wrapGenerateNodes } from './server-mdx.ts'
+import { findServerNodes, blankServerContents, collectServerImportSources, wrapGenerateNodes, collectServerFileImportNames } from './server-mdx.ts'
 import { stableJsonKey, hashKey, promptPrefix } from './server-components.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 
@@ -1631,6 +1631,179 @@ some text after
     const nodes = findServerNodes(ast)
     const blanked = blankServerContents(mdx, nodes)
     expect(blanked.split('\n').length).toBe(mdx.split('\n').length)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// collectServerFileImportNames + auto-wrap .server imports
+// ---------------------------------------------------------------------------
+
+describe('collectServerFileImportNames', () => {
+  test('collects names from .server import source', () => {
+    const mdx = `import { HeroScene } from './hero-scene.server'
+
+# Scene
+<HeroScene />
+`
+    const ast = mdxParse(mdx)
+    expect([...collectServerFileImportNames(ast)]).toMatchInlineSnapshot(`
+      [
+        "HeroScene",
+      ]
+    `)
+  })
+
+  test('collects names from .server.tsx import source', () => {
+    const mdx = `import { HeroScene, Sidebar } from './hero-scene.server.tsx'
+
+# Scene
+<HeroScene />
+`
+    const ast = mdxParse(mdx)
+    expect([...collectServerFileImportNames(ast)].sort()).toMatchInlineSnapshot(`
+      [
+        "HeroScene",
+        "Sidebar",
+      ]
+    `)
+  })
+
+  test('collects default imports from .server files', () => {
+    const mdx = `import MyScene from './my-scene.server'
+
+# Scene
+<MyScene />
+`
+    const ast = mdxParse(mdx)
+    expect([...collectServerFileImportNames(ast)]).toMatchInlineSnapshot(`
+      [
+        "MyScene",
+      ]
+    `)
+  })
+
+  test('ignores non-server imports', () => {
+    const mdx = `import { Widget } from './widget'
+import { ServerThing } from './thing.server'
+
+# Scene
+<Widget />
+<ServerThing />
+`
+    const ast = mdxParse(mdx)
+    expect([...collectServerFileImportNames(ast)]).toMatchInlineSnapshot(`
+      [
+        "ServerThing",
+      ]
+    `)
+  })
+})
+
+describe('wrapGenerateNodes with .server imports', () => {
+  test('auto-wraps components from .server import', () => {
+    const mdx = `import { HeroScene } from './hero-scene.server'
+
+# Scene duration=5s
+
+<HeroScene />
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes.map((n) => ({
+      key: n.key,
+      childName: n.node.children[0]?.name,
+    }))).toMatchInlineSnapshot(`
+      [
+        {
+          "childName": "HeroScene",
+          "key": "5",
+        },
+      ]
+    `)
+  })
+
+  test('does not wrap non-server imports', () => {
+    const mdx = `import { Widget } from './widget'
+
+# Scene duration=5s
+
+<Widget />
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes).toMatchInlineSnapshot(`[]`)
+  })
+
+  test('mixed: wraps server imports, leaves regular imports alone', () => {
+    const mdx = `import { HeroScene } from './hero-scene.server'
+import { Widget } from './widget'
+
+# Scene duration=5s
+
+<HeroScene />
+<Widget />
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes.map((n) => ({
+      key: n.key,
+      childName: n.node.children[0]?.name,
+    }))).toMatchInlineSnapshot(`
+      [
+        {
+          "childName": "HeroScene",
+          "key": "6",
+        },
+      ]
+    `)
+  })
+
+  test('skips when .server component is already inside Server', () => {
+    const mdx = `import { HeroScene } from './hero-scene.server'
+
+# Scene duration=5s
+
+<Server>
+  <HeroScene />
+</Server>
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes.length).toBe(1)
+    expect(nodes[0]!.node.children[0]?.name).not.toBe('Server')
+  })
+
+  test('blankServerContents preserves line count for .server wrapping', () => {
+    const mdx = `import { HeroScene } from './hero-scene.server'
+
+# Scene duration=5s
+
+<HeroScene />
+
+some text after
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    const blanked = blankServerContents(mdx, nodes)
+    expect(blanked.split('\n').length).toBe(mdx.split('\n').length)
+  })
+
+  test('.server.ts extension is recognized', () => {
+    const mdx = `import { DataScene } from './data.server.ts'
+
+# Scene
+<DataScene />
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes.length).toBe(1)
+    expect(nodes[0]!.node.children[0]?.name).toBe('DataScene')
   })
 })
 

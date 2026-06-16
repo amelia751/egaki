@@ -195,18 +195,45 @@ export const GENERATED_COMPONENT_NAMES = new Set([
   'GeneratedSpeech',
 ])
 
-/** Walk the mdast and wrap bare generated media components in <Server>.
+/** Collect local names imported from *.server.* sources in the MDX.
+ *  These components should be auto-wrapped in <Server> because the
+ *  .server postfix signals they run in the RSC environment. */
+export function collectServerFileImportNames(mdast: { children?: RootContent[] }): Set<string> {
+  const names = new Set<string>()
+  for (const node of mdast.children || []) {
+    if (node.type !== 'mdxjsEsm') continue
+    for (const stmt of node.data?.estree?.body || []) {
+      if (stmt.type !== 'ImportDeclaration') continue
+      const source = stmt.source?.value
+      if (typeof source !== 'string') continue
+      if (!/\.server(\.[jt]sx?)?$/.test(source)) continue
+      for (const spec of stmt.specifiers || []) {
+        if (spec.local?.name) names.add(spec.local.name)
+      }
+    }
+  }
+  return names
+}
+
+/** Walk the mdast and wrap bare server components in <Server>.
+ *  Targets two categories:
+ *  1. Built-in generated media components (GeneratedImage, etc.)
+ *  2. Components imported from *.server.* files
  *  Mutates the tree in place. Wrapping reuses the original node's position
  *  so slot keys and line numbers are unchanged. */
 export function wrapGenerateNodes(mdast: { children?: RootContent[] }): void {
+  const serverImportNames = collectServerFileImportNames(mdast)
+  const shouldWrap = (name: string) =>
+    GENERATED_COMPONENT_NAMES.has(name) || serverImportNames.has(name)
+
   const wrapInParent = (parent: { children?: RootContent[] }) => {
     if (!parent.children) return
     for (let i = 0; i < parent.children.length; i++) {
       const node = parent.children[i]
-      const isGenerate =
+      if (
         (node.type === 'mdxJsxFlowElement' || node.type === 'mdxJsxTextElement')
-        && GENERATED_COMPONENT_NAMES.has(node.name)
-      if (isGenerate) {
+        && shouldWrap(node.name)
+      ) {
         // Wrap in a synthetic <Server> with the same position so slot
         // keying (by start line) stays identical and blankServerContents
         // replaces the right source span.

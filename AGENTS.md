@@ -375,6 +375,105 @@ Conventions and rules:
 
 **`<Fill>`** (`mdx-video.tsx`): a full-frame layer like Remotion's `AbsoluteFill` but with better defaults for video content. Children **stretch horizontally** to fill the frame and **center vertically**. Available in MDX without imports (part of `MDX_BUILTIN_COMPONENTS`). Also exported from `egaki/video`. Accepts the same `style` and HTML attributes as a `div`; pass `style` to override alignment when needed. Prefer `<Fill>` over raw `<AbsoluteFill>` in egaki components and MDX files. The scene content wrapper in `player-page.tsx` uses `<Fill>` internally.
 
+## Generated media in TSX server components
+
+`GeneratedImage`, `GeneratedVideo`, and `GeneratedSpeech` can be used inside
+separate `.server.tsx` files instead of directly in MDX. This lets you compose
+generated media with custom logic, loops, conditionals, and TypeScript type safety.
+
+### Why `egaki/video` stubs don't work in TSX
+
+`egaki/video` exports **client stubs** that return `null`. These exist only for
+MDX component resolution and LSP autocomplete. In MDX, `wrapGenerateNodes()`
+walks the AST and auto-wraps bare `<GeneratedImage>` in `<Server>`, replacing
+the stub with the real async server implementation at render time. But when
+`GeneratedImage` is inside a TSX component, the MDX parser only sees the
+outer component name (e.g. `<HeroScene />`), not what's inside it. The
+auto-wrapping never fires, and the stub silently renders nothing. No error,
+no warning.
+
+### The pattern: `.server.tsx` + `egaki/generate-media`
+
+Two things are needed:
+
+1. **Import from `egaki/generate-media`** (not `egaki/video`). This module
+   exports the real async server implementations that call AI generation APIs.
+2. **Use the `.server.tsx` file extension.** The Vite plugin excludes
+   `*.server.{ts,tsx}` from the client bundle, so node-only imports and
+   API keys stay out of the browser.
+
+Components imported from `.server.*` files are **automatically wrapped in
+`<Server>`** by `wrapGenerateNodes()` in `server-mdx.ts`. The function scans
+the MDX's import declarations for sources matching the `.server` postfix and
+collects their local names. Any JSX element with a matching name gets wrapped
+in a synthetic `<Server>` node (same technique used for `GeneratedImage`).
+No manual `<Server>` block is needed in the MDX.
+
+```tsx
+// hero-scene.server.tsx
+import { GeneratedImage } from 'egaki/generate-media'
+import { FadeIn, Fill } from 'egaki/video'
+
+export async function HeroScene() {
+  return (
+    <Fill>
+      <FadeIn duration={20}>
+        <GeneratedImage
+          prompt="a magical forest with glowing mushrooms"
+          seed={99}
+          model="imagen-4.0-generate-001"
+          style={{ width: '80%', margin: 'auto', borderRadius: 16 }}
+        />
+      </FadeIn>
+    </Fill>
+  )
+}
+```
+
+```mdx
+import { HeroScene } from './hero-scene.server'
+
+# Scene duration=5s
+
+<HeroScene />
+```
+
+Client-only imports like `FadeIn` and `Fill` from `egaki/video` are fine
+inside `.server.tsx` files. They have `'use client'` directives, so the RSC
+module runner treats them as client references and they render correctly in
+the browser.
+
+### How it flows
+
+```
+MDX
+ │
+ ├── wrapGenerateNodes() detects './hero-scene.server' import
+ │      │
+ │      ▼
+ │   <HeroScene /> auto-wrapped in synthetic <Server> node
+ │      │
+ │      ▼
+ │   collectServerImportSources() finds './hero-scene.server'
+ │      │
+ │      ▼
+ │   importServerModules() dynamically imports it in RSC env
+ │      │
+ │      ▼
+ │   HeroScene() runs server-side (async, node APIs available)
+ │      │
+ │      ├── GeneratedImage from egaki/generate-media
+ │      │     └── checks cache ► generates image ► returns GeneratedImageClient
+ │      │
+ │      └── FadeIn, Fill from egaki/video
+ │            └── 'use client' ► client references, render in browser
+ │
+ └── Client receives RSC flight with streamed slot content
+```
+
+The `generated-media-example/` project has a working `hero-scene.server.tsx`
+demonstrating this pattern.
+
 ## `FPS` and `BEAT` scope variables
 
 MDX expressions have access to `FPS` and `BEAT` as global scope variables,
