@@ -64,8 +64,9 @@ export function VideoShowcase() {
         translateZ={175}
         perspective={750}
         bokehBlur={14}
+        bokehOffset={0.66}
         backgroundColor="#050510"
-        debug={true}
+        debug={false}
         width="100%"
         height="100%"
         style={{ transform: `translateX(${translateX}px)` }}
