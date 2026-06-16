@@ -230,6 +230,38 @@ test.describe.serial('video HMR @dev', () => {
     }, { timeout: 20_000, message: 'server component HMR: new value did not appear' }).toBe('updated')
   })
 
+  test('editing frontmatter width/height updates player dimensions via HMR', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+
+    const playerContainer = page.locator('[style*="aspect-ratio"]').first()
+    await expect(playerContainer).toBeVisible()
+    await page.waitForFunction(() => window.egakiSDK?.getInfo)
+
+    // Default composition is 1920×1080
+    const before = await page.evaluate(() => window.egakiSDK.getInfo())
+    expect(before.width).toBe(1920)
+    expect(before.height).toBe(1080)
+
+    await page.evaluate(() => { (window as any).__hmr_marker = true })
+
+    // Change frontmatter to vertical 1080×1920
+    const updatedMdx = originalMdx.replace(
+      '---\nfps: 30\nbpm: 120\n---',
+      '---\nfps: 30\nbpm: 120\nwidth: 1080\nheight: 1920\n---',
+    )
+    expect(updatedMdx).not.toBe(originalMdx)
+
+    await expect.poll(async () => {
+      fs.writeFileSync(mdxPath, updatedMdx + `\n{/* hmr ${Date.now()} */}`)
+      const markerAlive = await page.evaluate(() => (window as any).__hmr_marker === true).catch(() => false)
+      if (!markerAlive) return 'full-reload'
+      const info = await page.evaluate(() => window.egakiSDK.getInfo())
+      if (info.width === 1080 && info.height === 1920) return 'updated'
+      return 'waiting'
+    }, { timeout: 15_000, message: 'frontmatter width/height HMR: dimensions did not update' }).toBe('updated')
+  })
+
   test('moving a component into <Server> works without a page reload', async ({ page }) => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
