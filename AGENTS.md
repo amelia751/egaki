@@ -25,6 +25,14 @@ for `virtual:egaki-modules` (the module itself does not re-execute). React Fast 
 patches component functions in place without re-running module scope. Client module-level
 `Map`s, `Set`s, and singletons are safe as bare initializers.
 
+**`useSyncExternalStore` requires referentially stable snapshots.** All three
+arguments (`subscribe`, `getSnapshot`, `getServerSnapshot`) must be module-level
+constants, never inline closures. `getSnapshot` must return the **same reference**
+when the derived value hasn't changed, because React compares snapshots with
+`Object.is()`. Returning a new object or array every call causes an infinite
+re-render loop. Cache the last snapshot at module level and shallow-compare
+before returning. See `cli/src/vite/store.ts` for the canonical pattern.
+
 **Import easings from egaki, never redefine them.** `egaki/video` exports `EASE` (preset
 curves at intensity 50), continuous preset functions like `smoothEasing(intensity)`,
 `impulseOvershoot(intensity)`, and primitives like `polybezier()`. When a component needs
@@ -839,6 +847,51 @@ The walk renderer (used when `allowHtmlInCanvas` is false) has these CSS limitat
 - Filters (`blur`, `brightness`, etc.) do not work in Safari/WebKit
 </details>
 
+## Making images and videos fill the frame (cover)
+
+`<Video>` and `<Img>` from `egaki/video` support an `objectFit` prop that controls
+how media is resized to fit its container. Use `objectFit="cover"` to fill the
+frame edge to edge, cropping excess content. This is a component prop, not a CSS
+style; the component applies it to its internal canvas element.
+
+```tsx
+import { Video, Img, Fill } from 'egaki/video'
+
+// Video background that fills the entire composition
+<Fill>
+  <Video
+    src="https://cdn.example.com/bg.mp4"
+    muted
+    loop
+    objectFit="cover"
+    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+  />
+</Fill>
+
+// Image background that fills the frame
+<Fill>
+  <Img
+    src="/hero.png"
+    objectFit="cover"
+    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+  />
+</Fill>
+```
+
+| Value | Behavior |
+|---|---|
+| `"cover"` | Fills the container, crops overflow (no black bars) |
+| `"fill"` | Stretches to fill, ignores aspect ratio |
+| `"n"` | Default; fits inside the container with letterboxing |
+| `"none"` | No resizing, centered at native size |
+| `"scale-down"` | Like `none` or `contain`, whichever is smaller |
+
+When using `objectFit="cover"` with `filter: blur()`, add `transform: scale(1.05)`
+to prevent the blur from revealing transparent edges at the borders.
+
+Do **not** use CSS `object-fit` in the `style` prop; the component overrides it
+internally on its canvas element. Always use the `objectFit` component prop.
+
 ## Preventing subpixel jitter in animations
 
 Animating `transform: scale()` or `translateX/Y()` with fractional values causes
@@ -867,6 +920,153 @@ const s = Math.round(scale * 1000) / 1000
   willChange: 'transform',
 }}>
 ```
+
+**Never** round to whole pixels (`Math.round(value)`) for smooth scrolling or
+scale animations. Integer snapping causes visible stutter because the element jumps
+by full pixels each frame instead of gliding smoothly.
+
+## Zoom/scale effect at a specific point
+
+Animate `transform: scale()` with `transformOrigin` set to the focal point. This is
+the standard pattern for zoom-into-detail effects on code blocks, screenshots, or any
+content.
+
+**`transformOrigin`** controls where the zoom anchors: `'50% 50%'` = center,
+`'0% 0%'` = top-left, `'70% 30%'` = upper-right area, `'960px 540px'` = exact pixel.
+
+```tsx
+const scale = interpolate(frame, [0, 90], [1, 1.2], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.cinematic,
+})
+const s = Math.round(scale * 1000) / 1000
+
+<div style={{
+  transform: `scale(${s})`,
+  transformOrigin: '55% 35%',
+  willChange: 'transform',
+}}>
+  {children}
+</div>
+```
+
+For a **Ken Burns** pan+zoom, combine scale with translate:
+
+```tsx
+const x = interpolate(frame, [0, 3 * fps], [0, -15], { ...clamp, easing: EASE.cinematic })
+const y = interpolate(frame, [0, 3 * fps], [0, -8], { ...clamp, easing: EASE.cinematic })
+
+<div style={{
+  transform: `scale(${s}) translate(${x}%, ${y}%)`,
+  transformOrigin: '60% 40%',
+  willChange: 'transform',
+}}>
+```
+
+For a **bouncy pop** zoom, use `springFromDuration`:
+
+```tsx
+const scale = spring({ frame, fps, config: springFromDuration(0.6, 0.3) })
+```
+
+Always apply `willChange: 'transform'` and round to 3 decimal places (see next section).
+
+## Preventing subpixel jitter in animations
+
+Animating `transform: scale()` or `translateX/Y()` with fractional values causes
+**subpixel stuttering** — text re-rasterizes at slightly different subpixel positions
+each frame. Monospace text and thin lines (gridlines, borders) are especially sensitive.
+
+Two rules to prevent it:
+
+1. **Add `willChange: 'transform'`** on the animated element. This promotes the layer
+   to its own compositor surface so the browser rasterizes once and transforms the
+   bitmap instead of re-laying-out text every frame.
+2. **Round interpolated values** to 3 decimal places to reduce uniquely-valued frames:
+   `Math.round(value * 1000) / 1000`.
+
+```tsx
+const scale = interpolate(frame, [0, 90], [1, 1.35], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.cinematic,
+})
+const s = Math.round(scale * 1000) / 1000
+
+<div style={{
+  transform: `scale(${s})`,
+  transformOrigin: '60% 45%',
+  willChange: 'transform',
+}}>
+```
+
+## Predictable end position for entrance animations
+
+When animating scale or translate as an **entrance effect**, interpolate from a negative
+offset to 0 (or 1) instead of from 1 (or 0) to a target value. This way the element's
+**final resting position is the natural layout position**, making it trivial to match
+across consecutive scenes or compose with other animations.
+
+```tsx
+// Fast zoom-in (the main entrance)
+const zoomIn = interpolate(frame, [0, 45], [1, 1.35], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.cinematic,
+})
+
+// Slow linear drift: starts below target, ends exactly at 0 (no offset).
+// Final scale = 1.35 + 0 = 1.35, matching the next scene perfectly.
+const drift = interpolate(frame, [0, 90], [-0.08, 0], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+
+const s = Math.round((zoomIn + drift) * 1000) / 1000
+```
+
+The same principle applies to translate: animate from a negative displacement to 0
+rather than from 0 to a positive displacement. The end state is always the element's
+natural CSS position, so the next scene or a `LayoutTransition` can pick up exactly
+where this one left off.
+
+## Ambient drift to keep scenes alive
+
+No scene should feel static after its entrance animation ends. Always layer a **slow
+linear animation** that runs over the **full scene duration** on top of entrance effects.
+A subtle continuous scale creep or translate drift keeps the frame alive without the
+viewer consciously noticing it.
+
+Use **linear easing** (no easing function, just the default linear interpolation) and
+keep the magnitude small: +0.05 to +0.10 for scale, 10-30px for translate. The motion
+should feel like ambient room tone, always present, never drawing attention.
+
+Interpolate from a **negative offset to 0** so the drift is additive and the element
+lands at its natural position at the end of the scene. This keeps the final frame
+predictable for the next scene to match.
+
+```tsx
+// Entrance: fast zoom-in over 1.5s
+const zoomIn = interpolate(frame, [0, 45], [1, 1.35], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.cinematic,
+})
+
+// Ambient drift: slow linear scale over full 3s scene
+// Ends at 0, so final scale = exactly 1.35
+const drift = interpolate(frame, [0, 90], [-0.08, 0], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+
+const s = Math.round((zoomIn + drift) * 1000) / 1000
+```
+
+Combine multiple axes for richer movement: zoom in slowly while translating left, or
+scale while rotating slightly on Y. Compound motion feels more natural than a single
+axis alone. See `docs/patterns.md` "Constant subtle camera drift" for more detail.
 
 ## Remotion resources
 
