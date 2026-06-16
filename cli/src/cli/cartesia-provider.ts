@@ -4,13 +4,48 @@
 // TTS: POST https://api.cartesia.ai/tts/bytes (Sonic models)
 // STT: POST https://api.cartesia.ai/stt (Ink models)
 //
-// OpenAPI spec: https://docs.cartesia.ai/latest.yml
-// TTS bytes endpoint: https://docs.cartesia.ai/api-reference/tts/bytes
-// STT endpoint: https://docs.cartesia.ai/api-reference/stt/transcribe
-// Models: https://docs.cartesia.ai/build-with-cartesia/tts-models/latest
-// Pricing: https://docs.cartesia.ai/pricing
+// Source of truth for request/response types:
+//   JS SDK (auto-generated from OpenAPI spec by Stainless):
+//   https://github.com/cartesia-ai/cartesia-js/blob/main/src/resources/stt/stt.ts
+//   https://github.com/cartesia-ai/cartesia-js/blob/main/src/resources/tts.ts
+//
+// API docs:
+//   TTS bytes: https://docs.cartesia.ai/api-reference/tts/bytes
+//   STT batch: https://docs.cartesia.ai/api-reference/stt/transcribe
+//   TTS models: https://docs.cartesia.ai/build-with-cartesia/tts-models/latest
+//   STT models: https://docs.cartesia.ai/build-with-cartesia/stt/latest
+//   Pricing: https://docs.cartesia.ai/pricing
 
 import type { SpeechModel, TranscriptionModel } from 'ai'
+
+// ─── Cartesia STT response types (from cartesia-js SDK) ─────────────────────
+// Source: https://github.com/cartesia-ai/cartesia-js/blob/main/src/resources/stt/stt.ts
+
+type CartesiaSTTResponse = {
+  /** The transcribed text. */
+  text: string
+  /** Always 'transcript' for batch transcription. */
+  type: 'transcript'
+  /** Duration of input audio in seconds. */
+  duration?: number
+  /** The specified language of the input audio. */
+  language?: string
+  /** Unique identifier for this transcription request. */
+  request_id?: string
+  /** @deprecated Not used for batch transcription. */
+  is_final?: boolean
+  /** Word-level timestamps. Only included when timestamp_granularities[] includes 'word'. */
+  words?: Array<CartesiaSTTWord>
+}
+
+type CartesiaSTTWord = {
+  /** The transcribed word. */
+  word: string
+  /** Start time of the word in seconds. */
+  start: number
+  /** End time of the word in seconds. */
+  end: number
+}
 
 const CARTESIA_API_BASE = 'https://api.cartesia.ai'
 const CARTESIA_API_VERSION = '2026-03-01'
@@ -203,12 +238,7 @@ export function createCartesiaTranscriptionModel(modelId: string): Transcription
         )
       }
 
-      const json = await response.json() as {
-        text: string
-        language?: string
-        duration?: number
-        words?: Array<{ word: string; start: number; end: number }>
-      }
+      const json = await response.json() as CartesiaSTTResponse
 
       const responseHeaders: Record<string, string> = {}
       response.headers.forEach((v, k) => { responseHeaders[k] = v })
