@@ -65,13 +65,61 @@ export function calculateTranscriptionCost(
   return durationInSeconds * cost.perSecond
 }
 
-// ─── provider-specific language options ──────────────────────────────────────
+// ─── provider-specific options ───────────────────────────────────────────────
 
-/** ElevenLabs uses `languageCode` instead of `language` in providerOptions. */
-function buildLanguageOptions(provider: string, language: string): Record<string, Record<string, string>> {
+/**
+ * Build providerOptions for the AI SDK transcribe() call.
+ *
+ * Each provider has quirks:
+ * - ElevenLabs uses `languageCode` instead of `language`
+ * - Deepgram needs `detectLanguage: true` for auto language detection
+ * - Groq needs `responseFormat: 'verbose_json'` to get timestamps and duration
+ * - OpenAI Whisper needs `timestampGranularities: ['word']` for word-level timestamps
+ */
+function buildProviderOptions(
+  provider: string,
+  modelId: string,
+  language: string | undefined,
+): Record<string, Record<string, string | boolean | string[]>> | undefined {
   if (provider === 'elevenlabs') {
+    if (!language) return undefined
     return { elevenlabs: { languageCode: language } }
   }
+
+  if (provider === 'deepgram') {
+    return {
+      deepgram: {
+        ...(language ? { language } : { detectLanguage: true }),
+      },
+    }
+  }
+
+  if (provider === 'groq') {
+    return {
+      groq: {
+        responseFormat: 'verbose_json',
+        timestampGranularities: ['segment'],
+        ...(language ? { language } : {}),
+      },
+    }
+  }
+
+  if (provider === 'openai') {
+    // whisper-1 supports word-level timestamps; gpt-4o-transcribe models
+    // use their own format and don't support timestampGranularities
+    if (modelId === 'whisper-1') {
+      return {
+        openai: {
+          timestampGranularities: ['word'],
+          ...(language ? { language } : {}),
+        },
+      }
+    }
+    if (!language) return undefined
+    return { openai: { language } }
+  }
+
+  if (!language) return undefined
   return { [provider]: { language } }
 }
 
@@ -95,14 +143,14 @@ export async function transcribeAudio(opts: TranscribeOptions): Promise<Error | 
     return new Error(`Model ${model} does not support a language hint`)
   }
 
+  const providerOptions = buildProviderOptions(config.provider, model, opts.language)
+
   let result
   try {
     result = await aiTranscribe({
       model: transcriptionModel,
       audio: opts.audio,
-      ...(opts.language ? {
-        providerOptions: buildLanguageOptions(config.provider, opts.language),
-      } : {}),
+      ...(providerOptions ? { providerOptions } : {}),
     })
   } catch (err) {
     return err instanceof Error ? err : new Error(String(err))
