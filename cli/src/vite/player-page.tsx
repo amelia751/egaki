@@ -29,6 +29,7 @@ import { egakiSDK } from './sdk.ts'
 import { LayoutEditor, type SectionMeta } from './layout-editor.tsx'
 import { TweakpaneRoot } from './tweakpane-hook.tsx'
 import {
+  Fill,
   LayoutAnimationLayer,
   LayoutGhost,
   LayoutTransitionProvider,
@@ -170,10 +171,6 @@ interface SectionProps {
 // if both use the exact same layout styles.
 const SECTION_CONTENT_STYLE: React.CSSProperties = {
   zIndex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'stretch',
-  justifyContent: 'center',
   gap: 'clamp(1rem, 2vw, 2.5rem)',
   // Force Chrome GPU compositing for subpixel text rendering.
   // Without this, Chrome snaps text positions to whole pixels
@@ -242,15 +239,15 @@ function SectionWithLayoutTransition({
                   layout="none"
                   showInTimeline={false}
                 >
-                  <AbsoluteFill style={SECTION_CONTENT_STYLE}>
+                  <Fill style={SECTION_CONTENT_STYLE}>
                     {prevJsx}
-                  </AbsoluteFill>
+                  </Fill>
                 </Sequence>
               </Freeze>
             </LayoutGhost>
           </AbsoluteFill>
         ) : null}
-        <AbsoluteFill style={SECTION_CONTENT_STYLE}>{jsx}</AbsoluteFill>
+        <Fill style={SECTION_CONTENT_STYLE}>{jsx}</Fill>
         <LayoutAnimationLayer />
       </AbsoluteFill>
     </LayoutTransitionProvider>

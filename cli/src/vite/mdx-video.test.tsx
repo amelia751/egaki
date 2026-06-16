@@ -35,6 +35,7 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "FadeIn",
         "FadeOut",
         "FeaturePill",
+        "Fill",
         "GeneratedImage",
         "GeneratedSpeech",
         "GeneratedVideo",

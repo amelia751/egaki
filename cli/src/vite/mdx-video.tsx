@@ -408,6 +408,32 @@ export function impulseOvershootEasing(intensity: number): EasingFunction {
 }
 
 // ---------------------------------------------------------------------------
+// Fill — full-frame layer with stretch + vertical center
+//
+// Like Remotion's AbsoluteFill but with better defaults for video content:
+// children stretch horizontally to fill the frame, center vertically.
+// ---------------------------------------------------------------------------
+
+export function Fill({
+  children,
+  style,
+  ...rest
+}: { children?: ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <AbsoluteFill
+      style={{
+        alignItems: 'stretch',
+        justifyContent: 'center',
+        ...style,
+      }}
+      {...rest}
+    >
+      {children}
+    </AbsoluteFill>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Background — real component that self-positions as an absolute layer
 //
 // Works both in MDX and when imported from TSX components. Renders its
@@ -1628,6 +1654,7 @@ function GeneratedVideo(_props: GeneratedVideoProps) { return null }
 function GeneratedSpeech(_props: GeneratedSpeechProps) { return null }
 
 export const MDX_BUILTIN_COMPONENTS = {
+  Fill,
   Background,
   LayoutTransition,
   AngledScreen,
