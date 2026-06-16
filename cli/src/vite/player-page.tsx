@@ -24,7 +24,7 @@ import {
   useVideoConfig,
 } from 'remotion'
 import { renderInBrowser } from './render-client.ts'
-import { useGenerationStatus, type GenerationStatus } from './store.ts'
+import { useGenerationStatus, type GenerationStatus } from './store-hooks.ts'
 import { egakiSDK } from './sdk.ts'
 import { LayoutEditor, type SectionMeta } from './layout-editor.tsx'
 import { TweakpaneRoot } from './tweakpane-hook.tsx'

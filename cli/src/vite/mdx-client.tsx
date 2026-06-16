@@ -29,7 +29,8 @@ import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 import { MdxCodeBlockWrapper } from './code-block.tsx'
-import { egakiStore, useModules, useMediaDurations } from './store.ts'
+import { egakiStore } from './store.ts'
+import { useModules, useMediaDurations } from './store-hooks.ts'
 import { resetSectionDurations } from './media-duration-store.ts'
 
 // ---------------------------------------------------------------------------

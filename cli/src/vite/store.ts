@@ -1,10 +1,7 @@
-'use client'
-
 /**
  * Centralized client-side state store (zustand/vanilla).
  *
- * Replaces three independent hand-rolled useSyncExternalStore + Set<listener>
- * mini-stores with one source of truth. State slices:
+ * Pure vanilla store with no React imports. State slices:
  *
  * 1. **modules** — eagerly-imported user .tsx/.ts modules, updated via HMR
  * 2. **sectionReports** — per-section effective media durations reported by
@@ -12,15 +9,12 @@
  * 3. **activeGenerations** — tracks in-flight AI generation promises for the
  *    toolbar status indicator
  *
- * React hooks read slices via useSyncExternalStore with selectors so each
- * consumer only re-renders when its slice changes.
+ * React hooks live in store-hooks.ts ('use client') to keep this file
+ * importable from any environment (RSC, SSR, client) without pulling in React.
  */
 
-import { useSyncExternalStore } from 'react'
-import { useStore } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import { subscribeWithSelector } from 'zustand/middleware'
-import { useShallow } from 'zustand/shallow'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -98,42 +92,4 @@ export function selectGenerationStatus(state: EgakiClientState): GenerationStatu
   return { images, videos, speeches, total: images + videos + speeches }
 }
 
-// ---------------------------------------------------------------------------
-// React hooks — useStore with selectors
-// ---------------------------------------------------------------------------
 
-/**
- * Hook: per-section max media durations.
- * Returns Record<string, number> (section-index-as-string → seconds).
- * Uses shallow equality so a new object is only returned when values change.
- */
-export function useMediaDurations(): Record<string, number> {
-  return useStore(egakiStore, useShallow(selectMediaDurations))
-}
-
-/** Hook: generation counts while media is being generated, or null. */
-export function useGenerationStatus(): GenerationStatus | null {
-  return useStore(egakiStore, useShallow(selectGenerationStatus))
-}
-
-// Stable references for useModules — useSyncExternalStore re-subscribes
-// whenever the subscribe function identity changes, so these must be
-// module-level constants.
-const subscribeModules = (callback: () => void) =>
-  egakiStore.subscribe((state) => state.modules, callback)
-const getModules = () => egakiStore.getState().modules
-
-/**
- * Hook: user modules from virtual:egaki-modules.
- *
- * Uses useSyncExternalStore instead of useStore because the server snapshot
- * must reflect the current modules (set via setModules during module init),
- * not the store's initial state (empty {}). Zustand's useStore uses
- * getInitialState() for SSR which stays empty forever.
- *
- * Uses subscribeWithSelector's selector-based subscribe so only module
- * changes fire the callback (not sectionReports or activeGenerations).
- */
-export function useModules(): EagerModules {
-  return useSyncExternalStore(subscribeModules, getModules, getModules)
-}

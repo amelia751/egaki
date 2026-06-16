@@ -23,12 +23,8 @@
 import { Suspense, use, useId, useLayoutEffect, type ComponentProps, type ReactNode } from 'react'
 import { useDelayRender } from 'remotion'
 import { Img, Audio, Video, useIsExporting } from './mdx-video.tsx'
-import {
-  egakiStore,
-  useGenerationStatus,
-  type GenerationStatus,
-  type GeneratingMediaType,
-} from './store.ts'
+import { egakiStore, type GeneratingMediaType } from './store.ts'
+import { useGenerationStatus, type GenerationStatus } from './store-hooks.ts'
 
 export { useGenerationStatus, type GenerationStatus }
 

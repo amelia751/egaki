@@ -23,7 +23,8 @@
  */
 
 import { createContext, useContext } from 'react'
-import { egakiStore, useMediaDurations } from './store.ts'
+import { egakiStore } from './store.ts'
+import { useMediaDurations } from './store-hooks.ts'
 
 // ---------------------------------------------------------------------------
 // Section index context
