@@ -55,9 +55,65 @@ function resolveSourceToFile(root: string, source: string): string | undefined {
   return undefined
 }
 
+/**
+ * Extract raw source text ranges per section directly from the mdast.
+ * Works with heading nodes' positions to capture the FULL raw heading
+ * text including props like `duration=3s` and `transition=20` that
+ * `splitIntoSections` strips during parsing. Each section spans from
+ * its heading's start offset to the next heading's start (or EOF).
+ */
+function sectionRawTexts(source: string, mdast: any): string[] {
+  // Collect the start offsets of each heading node
+  const headingStarts: number[] = []
+  for (const node of mdast.children) {
+    if (node.type === 'heading' && node.position?.start?.offset != null) {
+      headingStarts.push(node.position.start.offset)
+    }
+  }
+  // Slice source between consecutive headings, trimming trailing whitespace
+  // so boundary changes (adding/removing a following section) don't cause
+  // false positives on the preceding section.
+  return headingStarts.map((start, i) => {
+    const end = i + 1 < headingStarts.length ? headingStarts[i + 1]! : source.length
+    return source.slice(start, end).trimEnd()
+  })
+}
+
+/**
+ * Compare old and new MDX sources section-by-section. Returns the index
+ * of the first added or edited section, or null if nothing changed (or
+ * only deletions occurred, which we skip per design).
+ */
+export function findChangedSectionIndex(oldSource: string, newSource: string): number | null {
+  try {
+    const oldTexts = sectionRawTexts(oldSource, mdxParse(oldSource))
+    const newTexts = sectionRawTexts(newSource, mdxParse(newSource))
+
+    const maxLen = Math.max(oldTexts.length, newTexts.length)
+    for (let i = 0; i < maxLen; i++) {
+      if (i >= oldTexts.length) return i // new section added
+      if (i >= newTexts.length) return null // section deleted, skip
+      if (oldTexts[i] !== newTexts[i]) {
+        // Distinguish edit from deletion: if the next old section matches
+        // the current new section, a section was deleted (shifted down).
+        // Look ahead to detect deletions at any position, not just the tail.
+        if (newTexts.length < oldTexts.length && oldTexts[i + 1] === newTexts[i]) {
+          return null // deletion, skip
+        }
+        return i // content changed
+      }
+    }
+    return null // no scene-level change (frontmatter/preamble only)
+  } catch {
+    return null // parse error, don't seek
+  }
+}
+
 export function video(options: VideoPluginOptions): PluginOption[] {
   let root: string
   let entryPath: string
+  /** Cached previous MDX source for section-level diff detection. */
+  let previousMdxSource: string | null = null
 
   /** Is this file referenced inside a <Server> block of the entry MDX?
    *  Parsed on demand (no cache — file changes are rare and parsing is
@@ -86,6 +142,10 @@ export function video(options: VideoPluginOptions): PluginOption[] {
           `Set entry to a path relative to the vite root.`,
         )
       }
+
+      // Seed the previous source so the first edit has a baseline for
+      // section-level diff detection.
+      previousMdxSource = fs.readFileSync(entryPath, 'utf-8')
 
       // Auto-generate egaki-env.d.ts so MDX LSP knows about built-in
       // components via the global MDXProvidedComponents type. Same
@@ -251,16 +311,42 @@ export function video(options: VideoPluginOptions): PluginOption[] {
 
       if (isEntryMdx) {
         invalidateVirtual([RESOLVED_APP, RESOLVED_MDX])
+
         // Send rsc:update so the client re-fetches the RSC payload.
         // Moving components in/out of <Server> needs nothing extra: the
         // refetch re-runs app.tsx, which dynamically imports whatever the
         // new MDX references inside <Server>.
+        //
+        // Section diff and cache update are inside the client branch so
+        // rsc/ssr environments (which also run hotUpdate) don't consume
+        // previousMdxSource first, causing the client pass to compare
+        // new-vs-new and miss the change.
         if (this.environment.name === 'client') {
+          // Detect which section changed so the client can auto-seek to it.
+          // Compare old vs new MDX raw text per section. Fast: just string
+          // slicing using mdast heading positions, no diff library.
+          const newMdxSource = fs.readFileSync(entryPath, 'utf-8')
+          const changedSection = previousMdxSource != null
+            ? findChangedSectionIndex(previousMdxSource, newMdxSource)
+            : null
+          previousMdxSource = newMdxSource
+
           ctx.server.environments.client?.hot.send({
             type: 'custom',
             event: 'rsc:update',
             data: { file: ctx.file },
           })
+          // Send scene-changed AFTER rsc:update so both events arrive in
+          // order over the WebSocket. The client stores the index in a
+          // module-level variable; a useEffect([sections]) in PlayerPage
+          // consumes it after React re-renders with fresh content.
+          if (changedSection != null) {
+            ctx.server.environments.client?.hot.send({
+              type: 'custom',
+              event: 'egaki:scene-changed',
+              data: { sectionIndex: changedSection },
+            })
+          }
         }
         return []
       }

@@ -1788,6 +1788,11 @@ describe('findChangedSectionIndex', () => {
     expect(findChangedSectionIndex(base, deleted)).toBe(null)
   })
 
+  test('deleting middle section returns null (skip deletions)', () => {
+    const deleted = base.replace('\n# Middle duration=2s\n\nSome content here\n', '\n')
+    expect(findChangedSectionIndex(base, deleted)).toBe(null)
+  })
+
   test('editing heading text returns that section index', () => {
     const edited = base.replace('# Middle duration=2s', '# Middle Renamed duration=2s')
     expect(findChangedSectionIndex(base, edited)).toBe(1)
@@ -1803,5 +1808,16 @@ describe('findChangedSectionIndex', () => {
   test('frontmatter-only change returns null', () => {
     const edited = base.replace('fps: 30', 'fps: 60')
     expect(findChangedSectionIndex(base, edited)).toBe(null)
+  })
+
+  test('editing heading duration returns that section index', () => {
+    const edited = base.replace('duration=3s', 'duration=4s')
+    expect(findChangedSectionIndex(base, edited)).toBe(0)
+  })
+
+  test('editing heading transition returns that section index', () => {
+    const old = '# Intro duration=3s transition=10\n\nHello'
+    const edited = '# Intro duration=3s transition=20\n\nHello'
+    expect(findChangedSectionIndex(old, edited)).toBe(0)
   })
 })
