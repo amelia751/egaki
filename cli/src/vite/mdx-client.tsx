@@ -24,7 +24,7 @@ import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { eagerModules as initialModules } from 'virtual:egaki-modules'
-import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter } from './mdx-parse.ts'
+import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter, buildMdxScope } from './mdx-parse.ts'
 import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
 import { MDX_BUILTIN_COMPONENTS, Img, ServerSlotsContext, type ServerSlots } from './mdx-video.tsx'
@@ -238,10 +238,7 @@ function buildComposition(mdxSource: string, modules: EagerModules): Composition
   // Compute FPS and BEAT from frontmatter early so they're available as
   // scope variables for all SafeMdxRenderer calls (including imported MDX).
   const { fps, bpm } = parseFrontmatter(ast)
-  const mdxScope = {
-    FPS: fps,
-    BEAT: fps / (bpm / 60),
-  }
+  const mdxScope = buildMdxScope(fps, bpm)
 
   // Render imported .mdx/.md files into React components so safe-mdx can
   // resolve `import Intro from './intro.mdx'` and render `<Intro />` via

@@ -39,6 +39,7 @@ import {
   filterImportNodesToModules,
   wrapGenerateNodes,
 } from './server-mdx.ts'
+import { parseFrontmatter, buildMdxScope } from './mdx-parse.ts'
 import { MdxClientApp } from './mdx-client.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 import {
@@ -137,6 +138,12 @@ export const app = new Spiceflow()
       GeneratedSpeech,
     }
 
+    // Compute FPS and BEAT scope variables so expressions inside <Server>
+    // blocks can reference them, matching the client-side behavior.
+    const { fps, bpm } = parseFrontmatter(ast)
+    const serverScope = buildMdxScope(fps, bpm)
+    const serverEvaluateOptions = { functions: true }
+
     const serverSlots: Record<string, ReactNode> = {}
     for (const { key, node } of serverNodes) {
       if (key in serverSlots) {
@@ -153,6 +160,8 @@ export const app = new Spiceflow()
           components={serverComponents}
           modules={eagerModules}
           baseUrl="./"
+          scope={serverScope}
+          evaluateOptions={serverEvaluateOptions}
           onError={(e) => console.warn('[egaki] <Server> slot:', e.message)}
         />
       )

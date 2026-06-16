@@ -37,6 +37,18 @@ export interface VideoFrontmatter {
   height: number
 }
 
+/** Scope variables injected into MDX expressions via safe-mdx's `scope` prop.
+ *  Both server (app.tsx) and client (mdx-client.tsx) must pass the same shape. */
+export interface MdxScope {
+  FPS: number
+  BEAT: number
+}
+
+/** Build the MDX scope from frontmatter values. */
+export function buildMdxScope(fps: number, bpm: number): MdxScope {
+  return { FPS: fps, BEAT: fps / (bpm / 60) }
+}
+
 /** Parse YAML frontmatter from mdast. Extracts fps, bpm, width, height. */
 export function parseFrontmatter(mdast: Root): VideoFrontmatter {
   const result: VideoFrontmatter = {
