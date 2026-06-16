@@ -30,7 +30,8 @@ import { Spiceflow } from 'spiceflow'
 import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
-import mdxSource, { projectRoot, entryPath } from 'virtual:egaki-mdx'
+import mdxSource, { projectRoot, entryPath, folderName } from 'virtual:egaki-mdx'
+import { Head } from 'spiceflow/react'
 import {
   findServerNodes,
   blankServerContents,
@@ -84,16 +85,34 @@ async function importServerModules(ast: any): Promise<EagerModules> {
   return modules
 }
 
+const pageTitle = `${folderName} · egaki`
+
 export const app = new Spiceflow()
   .page('/', async () => {
-    const ast = mdxParse(mdxSource)
+    let ast: ReturnType<typeof mdxParse>
+    try {
+      ast = mdxParse(mdxSource)
+    } catch (e) {
+      // MDX syntax error — pass the raw source to the client so it can
+      // show the error overlay and recover when the user fixes the syntax.
+      // The client's own try/catch + last-good cache handles the rest.
+      console.error('[egaki] MDX parse error (server):', e)
+      return <>
+        <Head><Head.Title>{pageTitle}</Head.Title></Head>
+        <MdxClientApp mdx={mdxSource} serverSlots={{}} entryPath={entryPath} />
+      </>
+    }
+
     // Auto-wrap <GeneratedImage>, <GeneratedVideo>, <GeneratedSpeech> in
     // <Server> so they render server-side without manual wrapping in MDX.
     wrapGenerateNodes(ast)
     const serverNodes = findServerNodes(ast)
 
     if (serverNodes.length === 0) {
-      return <MdxClientApp mdx={mdxSource} serverSlots={{}} entryPath={entryPath} />
+      return <>
+        <Head><Head.Title>{pageTitle}</Head.Title></Head>
+        <MdxClientApp mdx={mdxSource} serverSlots={{}} entryPath={entryPath} />
+      </>
     }
 
     const eagerModules = await importServerModules(ast)
@@ -140,5 +159,8 @@ export const app = new Spiceflow()
     }
 
     const clientMdx = blankServerContents(mdxSource, serverNodes)
-    return <MdxClientApp mdx={clientMdx} serverSlots={serverSlots} entryPath={entryPath} />
+    return <>
+      <Head><Head.Title>{pageTitle}</Head.Title></Head>
+      <MdxClientApp mdx={clientMdx} serverSlots={serverSlots} entryPath={entryPath} />
+    </>
   })

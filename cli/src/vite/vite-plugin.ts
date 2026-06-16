@@ -180,7 +180,17 @@ export function video(options: VideoPluginOptions): PluginOption[] {
         // components (GeneratedImage, GeneratedVideo) can derive the best
         // aspect ratio per-model from the catalog's supported ratios.
         const mdxContent = fs.readFileSync(entryPath, 'utf-8')
-        const fm = parseFrontmatter(mdxParse(mdxContent))
+        let fm: ReturnType<typeof parseFrontmatter>
+        try {
+          fm = parseFrontmatter(mdxParse(mdxContent))
+        } catch (e) {
+          // Syntax error in MDX — use default frontmatter so the virtual
+          // module still loads. The client handles the real parse error
+          // with its own recovery (last-good cache + error overlay).
+          console.error('[egaki] frontmatter parse error:', e)
+          fm = { fps: 30, bpm: 120, width: 1920, height: 1080 }
+        }
+        const folderName = path.basename(root)
         return [
           `import mdx from ${JSON.stringify(absEntry + '?raw')}`,
           `export default mdx`,
@@ -188,6 +198,7 @@ export function video(options: VideoPluginOptions): PluginOption[] {
           `export const entryPath = ${JSON.stringify(absEntry)}`,
           `export const compositionWidth = ${fm.width}`,
           `export const compositionHeight = ${fm.height}`,
+          `export const folderName = ${JSON.stringify(folderName)}`,
         ].join('\n')
       }
 

@@ -13,6 +13,8 @@ declare module 'virtual:egaki-mdx' {
   /** Composition dimensions from frontmatter (default 1920×1080). */
   export const compositionWidth: number
   export const compositionHeight: number
+  /** Basename of the project folder, used for the page title. */
+  export const folderName: string
 }
 
 declare module 'virtual:egaki-modules' {
