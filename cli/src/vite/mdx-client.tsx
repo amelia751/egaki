@@ -27,7 +27,7 @@ import { eagerModules as initialModules } from 'virtual:egaki-modules'
 import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter } from './mdx-parse.ts'
 import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
-import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
+import { MDX_BUILTIN_COMPONENTS, Img } from './mdx-video.tsx'
 import { MdxCodeBlockWrapper } from './code-block.tsx'
 import { egakiStore } from './store.ts'
 import { useModules, useMediaDurations } from './store-hooks.ts'
@@ -100,7 +100,7 @@ function buildVideoMdxComponents(): Record<string, any> {
       </div>
     ),
     img: ({ src, alt }: { src?: string; alt?: string }) => (
-      <img src={src} alt={alt || ''} style={{
+      <Img src={src} alt={alt || ''} style={{
         maxWidth: '80%', maxHeight: '70%', objectFit: 'contain', borderRadius: '0.5em',
       }} />
     ),

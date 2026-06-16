@@ -801,6 +801,12 @@ egaki video renders in the browser via `@remotion/web-renderer` (WebCodecs, no F
 - Do NOT import `<Audio>`, `<Video>`, or `<OffthreadVideo>` from `remotion`. Those are `Html5Audio`/`Html5Video` wrappers that throw in the web-renderer.
 - Always import `<Audio>` and `<Video>` from `@remotion/media`.
 - Do NOT use `<AnimatedEmoji>` from `@remotion/animated-emoji` (use `<Lottie>` instead).
+- **Never use raw `<img>` tags.** Always use `<Img>` from `egaki/video` (or import from
+  `./mdx-video.tsx` inside the cli package). The egaki `Img` wraps Remotion's `<Img>`,
+  which calls `delayRender()` while the image loads. A raw `<img>` will render a blank
+  frame during export because the renderer captures the frame before the image finishes
+  loading. This applies to all components, MDX element overrides, and packages like
+  `midjourney`.
 
 | Component | Import from | Web-renderer support |
 |---|---|---|
