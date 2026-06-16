@@ -73,6 +73,11 @@ const groqBase = {
   strategy: 'transcription' as const,
 }
 
+const cartesiaBase = {
+  provider: 'cartesia',
+  strategy: 'transcription' as const,
+}
+
 const commonInputFormats = ['mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'wav', 'webm', 'ogg', 'flac']
 
 // ─── catalog ─────────────────────────────────────────────────────────────────
@@ -211,6 +216,26 @@ export const TRANSCRIPTION_CATALOG: TranscriptionModelEntry[] = [
       languageHint: false,
       inputFormats: commonInputFormats,
       maxDurationSec: 7200,
+    },
+  },
+
+  // ── Cartesia ───────────────────────────────────────────────────────────
+  // Pricing: 1 credit per 2 seconds of audio on /stt batch endpoint.
+  // At Startup plan ($49/1.25M credits) ≈ $0.00002/sec.
+  {
+    id: 'ink-whisper',
+    name: 'Cartesia Ink Whisper',
+    description: 'Cartesia batch STT. Word-level timestamps, 99+ languages. Based on Whisper.',
+    ...cartesiaBase,
+    released: '2026-01',
+    cost: { type: 'per-second', perSecond: 0.00002 },
+    features: {
+      wordTimestamps: true,
+      diarization: false,
+      languageDetection: false,
+      languageHint: true,
+      inputFormats: ['mp3', 'mp4', 'm4a', 'wav', 'webm', 'ogg', 'flac'],
+      maxDurationSec: 0,
     },
   },
 ]

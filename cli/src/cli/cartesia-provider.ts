@@ -1,14 +1,16 @@
-// Custom Cartesia TTS provider for the Vercel AI SDK.
-// Wraps the Cartesia REST API POST https://api.cartesia.ai/tts/bytes.
-// There is no @ai-sdk/cartesia npm package, so this implements SpeechModelV3
-// directly against the REST API.
+// Custom Cartesia TTS and STT providers for the Vercel AI SDK.
+// Wraps the Cartesia REST API directly since there is no @ai-sdk/cartesia package.
+//
+// TTS: POST https://api.cartesia.ai/tts/bytes (Sonic models)
+// STT: POST https://api.cartesia.ai/stt (Ink models)
 //
 // OpenAPI spec: https://docs.cartesia.ai/latest.yml
 // TTS bytes endpoint: https://docs.cartesia.ai/api-reference/tts/bytes
+// STT endpoint: https://docs.cartesia.ai/api-reference/stt/transcribe
 // Models: https://docs.cartesia.ai/build-with-cartesia/tts-models/latest
 // Pricing: https://docs.cartesia.ai/pricing
 
-import type { SpeechModel } from 'ai'
+import type { SpeechModel, TranscriptionModel } from 'ai'
 
 const CARTESIA_API_BASE = 'https://api.cartesia.ai'
 const CARTESIA_API_VERSION = '2026-03-01'
@@ -139,4 +141,110 @@ export function createCartesiaSpeechModel(modelId: string): SpeechModel {
       }
     },
   }
+}
+
+// ─── Cartesia STT (Ink models) ───────────────────────────────────────────────
+
+/**
+ * Create a Cartesia transcription model that implements TranscriptionModelV3.
+ * Wraps POST https://api.cartesia.ai/stt with multipart/form-data.
+ *
+ * Model: ink-whisper (batch transcription, word-level timestamps, 99+ languages)
+ */
+export function createCartesiaTranscriptionModel(modelId: string): TranscriptionModel {
+  return {
+    specificationVersion: 'v3' as const,
+    provider: 'cartesia',
+    modelId,
+
+    async doGenerate(options: {
+      audio: Uint8Array | string
+      mediaType: string
+      providerOptions?: Record<string, Record<string, unknown>>
+      abortSignal?: AbortSignal
+      headers?: Record<string, string | undefined>
+    }) {
+      const apiKey = process.env['CARTESIA_API_KEY']
+      if (!apiKey) {
+        throw new Error(
+          'Missing CARTESIA_API_KEY. Run: egaki login --provider cartesia --key <key>',
+        )
+      }
+
+      const audioBytes = typeof options.audio === 'string'
+        ? Buffer.from(options.audio, 'base64')
+        : new Uint8Array(options.audio)
+
+      const cartesiaOpts = options.providerOptions?.['cartesia'] ?? {}
+      const language = (cartesiaOpts['language'] as string) || 'en'
+
+      const formData = new FormData()
+      const ext = mediaTypeToExtension(options.mediaType)
+      const blob = new Blob([audioBytes], { type: options.mediaType })
+      formData.append('file', new File([blob], `audio.${ext}`, { type: options.mediaType }))
+      formData.append('model', modelId)
+      formData.append('language', language)
+      formData.append('timestamp_granularities[]', 'word')
+
+      const response = await fetch(`${CARTESIA_API_BASE}/stt`, {
+        method: 'POST',
+        headers: {
+          'Cartesia-Version': CARTESIA_API_VERSION,
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: formData,
+        signal: options.abortSignal,
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '')
+        throw new Error(
+          `Cartesia STT API error ${response.status}: ${errorText || response.statusText}`,
+        )
+      }
+
+      const json = await response.json() as {
+        text: string
+        language?: string
+        duration?: number
+        words?: Array<{ word: string; start: number; end: number }>
+      }
+
+      const responseHeaders: Record<string, string> = {}
+      response.headers.forEach((v, k) => { responseHeaders[k] = v })
+
+      return {
+        text: json.text,
+        segments: json.words?.map((w) => ({
+          text: w.word,
+          startSecond: w.start,
+          endSecond: w.end,
+        })) ?? [],
+        language: json.language,
+        durationInSeconds: json.duration,
+        warnings: [],
+        response: {
+          timestamp: new Date(),
+          modelId,
+          headers: responseHeaders,
+          body: json,
+        },
+      }
+    },
+  }
+}
+
+function mediaTypeToExtension(mediaType: string): string {
+  const map: Record<string, string> = {
+    'audio/mpeg': 'mp3',
+    'audio/mp3': 'mp3',
+    'audio/wav': 'wav',
+    'audio/x-wav': 'wav',
+    'audio/ogg': 'ogg',
+    'audio/flac': 'flac',
+    'audio/webm': 'webm',
+    'audio/mp4': 'mp4',
+    'audio/m4a': 'm4a',
+  }
+  return map[mediaType] || 'mp3'
 }

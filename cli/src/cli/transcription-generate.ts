@@ -119,6 +119,12 @@ function buildProviderOptions(
     return { openai: { language } }
   }
 
+  if (provider === 'cartesia') {
+    // Cartesia passes language via providerOptions; defaults to 'en' in the provider
+    if (!language) return undefined
+    return { cartesia: { language } }
+  }
+
   if (!language) return undefined
   return { [provider]: { language } }
 }

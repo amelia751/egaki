@@ -55,6 +55,12 @@ const TRANSCRIPTION_PROVIDER_SDKS: Record<string, TranscriptionProviderSdk> = {
       return groq.transcription(id)
     },
   },
+  cartesia: {
+    transcription: async (id) => {
+      const { createCartesiaTranscriptionModel } = await import('./cartesia-provider.js')
+      return createCartesiaTranscriptionModel(id)
+    },
+  },
 }
 
 // ─── key checking ────────────────────────────────────────────────────────────
