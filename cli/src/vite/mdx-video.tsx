@@ -64,6 +64,7 @@ export function useIsExporting(): boolean {
 import {
   AbsoluteFill,
   Easing,
+  Img as RemotionImg,
   Sequence,
   interpolate,
   spring,
@@ -1300,8 +1301,10 @@ function useReportMediaDuration(props: {
 }
 
 export function Img(props: React.ImgHTMLAttributes<HTMLImageElement>) {
+  const { style, src, ...rest } = props
+  if (!src) return null
   // eslint-disable-next-line jsx-a11y/alt-text
-  return <img {...props} />
+  return <RemotionImg src={src} style={{ display: 'block', ...style }} {...rest} />
 }
 
 /** Extra gap props accepted by egaki's Audio and Video wrappers. */
