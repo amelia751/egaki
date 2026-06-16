@@ -26,6 +26,7 @@ export type TranscriptionModelId =
   | 'scribe_v1'
   | 'nova-3'
   | 'whisper-large-v3' | 'whisper-large-v3-turbo' | 'distil-whisper-large-v3-en'
+  | 'ink-whisper'
   | (string & {})
 
 // ─── public types ────────────────────────────────────────────────────────────

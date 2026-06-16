@@ -178,7 +178,7 @@ export const TRANSCRIPTION_CATALOG: TranscriptionModelEntry[] = [
     released: '2024-01',
     cost: { type: 'per-second', perSecond: 0.00000185 }, // $0.000111/min
     features: {
-      wordTimestamps: true,
+      wordTimestamps: false,
       diarization: false,
       languageDetection: true,
       languageHint: true,
@@ -194,7 +194,7 @@ export const TRANSCRIPTION_CATALOG: TranscriptionModelEntry[] = [
     released: '2024-06',
     cost: { type: 'per-second', perSecond: 0.000000667 }, // $0.00004/min
     features: {
-      wordTimestamps: true,
+      wordTimestamps: false,
       diarization: false,
       languageDetection: true,
       languageHint: true,
@@ -210,7 +210,7 @@ export const TRANSCRIPTION_CATALOG: TranscriptionModelEntry[] = [
     released: '2024-01',
     cost: { type: 'per-second', perSecond: 0.000000333 }, // $0.00002/min
     features: {
-      wordTimestamps: true,
+      wordTimestamps: false,
       diarization: false,
       languageDetection: false,
       languageHint: false,

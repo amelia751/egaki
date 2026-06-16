@@ -735,9 +735,9 @@ cli
     dedent`
       Transcribe audio to text using AI speech-to-text models.
       Supports OpenAI (whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe),
-      ElevenLabs (scribe_v1), Deepgram (nova-3), and Groq (whisper-large-v3,
-      whisper-large-v3-turbo, distil-whisper-large-v3-en).
-      Outputs JSON with text, word-level timestamps, language, and duration.
+      ElevenLabs (scribe_v1), Deepgram (nova-3), Groq (whisper-large-v3,
+      whisper-large-v3-turbo, distil-whisper-large-v3-en), and Cartesia
+      (ink-whisper). Outputs JSON with text, timestamps, language, and duration.
     `,
   )
   .option(
