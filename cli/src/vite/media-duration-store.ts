@@ -104,13 +104,15 @@ export function cacheRawDuration(src: string, seconds: number) {
 // ---------------------------------------------------------------------------
 
 /**
- * Compute effective media playback duration in seconds from Remotion trim
- * and speed props.
+ * Compute effective media playback duration in seconds from Remotion trim,
+ * speed, and gap props.
  *
  * `rawSeconds` is the full source duration (from cache or mediabunny).
  * When both trimBefore and trimAfter are set, rawSeconds is not needed.
  *
  * trimBefore/trimAfter are in FRAMES (Remotion convention).
+ * gapBefore/gapAfter are in FRAMES — empty timeline padding before/after
+ * the media plays. They add to the total effective duration.
  * playbackRate defaults to 1.
  *
  * Returns null when duration cannot be determined (missing bounds and
@@ -122,12 +124,16 @@ export function computeEffectiveDuration({
   trimBefore,
   trimAfter,
   playbackRate,
+  gapBefore,
+  gapAfter,
 }: {
   rawSeconds?: number
   fps: number
   trimBefore?: number
   trimAfter?: number
   playbackRate?: number
+  gapBefore?: number
+  gapAfter?: number
 }): number | null {
   const rate = playbackRate ?? 1
   if (rate <= 0) return null
@@ -135,9 +141,10 @@ export function computeEffectiveDuration({
   const startFrame = trimBefore ?? 0
   const endFrame = trimAfter ?? (rawSeconds != null ? Math.round(rawSeconds * fps) : null)
   if (endFrame == null) return null
-  const frames = endFrame - startFrame
-  if (frames <= 0) return null
-  return frames / fps / rate
+  const mediaFrames = endFrame - startFrame
+  if (mediaFrames <= 0) return null
+  const totalFrames = mediaFrames + (gapBefore ?? 0) + (gapAfter ?? 0)
+  return totalFrames / fps / rate
 }
 
 // ---------------------------------------------------------------------------

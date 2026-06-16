@@ -64,6 +64,7 @@ export function useIsExporting(): boolean {
 import {
   AbsoluteFill,
   Easing,
+  Sequence,
   interpolate,
   spring,
   useCurrentFrame,
@@ -1170,6 +1171,8 @@ function useReportMediaDuration(props: {
   trimBefore?: number
   trimAfter?: number
   playbackRate?: number
+  gapBefore?: number
+  gapAfter?: number
 }, skip?: boolean): number | null {
   const instanceId = useId()
   const sectionIndex = useSectionIndex()
@@ -1193,6 +1196,8 @@ function useReportMediaDuration(props: {
         trimBefore: props.trimBefore,
         trimAfter: props.trimAfter,
         playbackRate: props.playbackRate,
+        gapBefore: props.gapBefore,
+        gapAfter: props.gapAfter,
       })
       if (effective != null && effective > 0) {
         reportSectionDuration(sectionIndex, instanceId, effective)
@@ -1205,6 +1210,8 @@ function useReportMediaDuration(props: {
       trimBefore: props.trimBefore,
       trimAfter: props.trimAfter,
       playbackRate: props.playbackRate,
+      gapBefore: props.gapBefore,
+      gapAfter: props.gapAfter,
     })
     if (effectiveFromProps != null) {
       reportSectionDuration(sectionIndex, instanceId, effectiveFromProps)
@@ -1261,7 +1268,7 @@ function useReportMediaDuration(props: {
         delayHandle = null
       }
     }
-  }, [props.src, skip, sectionIndex, instanceId, fps, props.trimBefore, props.trimAfter, props.playbackRate, isExporting])
+  }, [props.src, skip, sectionIndex, instanceId, fps, props.trimBefore, props.trimAfter, props.playbackRate, props.gapBefore, props.gapAfter, isExporting])
 
   return rawDuration
 }
@@ -1271,34 +1278,53 @@ export function Img(props: React.ImgHTMLAttributes<HTMLImageElement>) {
   return <img {...props} />
 }
 
-export function Audio(props: ComponentProps<typeof MediaAudio>) {
+/** Extra gap props accepted by egaki's Audio and Video wrappers. */
+type GapProps = {
+  /** Empty frames before the media starts playing. Delays playback start
+   *  and adds to the section's auto-duration. In frames. */
+  gapBefore?: number
+  /** Empty frames after the media finishes. Adds to the section's
+   *  auto-duration. In frames. */
+  gapAfter?: number
+}
+
+export function Audio(props: ComponentProps<typeof MediaAudio> & GapProps) {
+  const { gapBefore, gapAfter, ...mediaProps } = props
   const container = useContext(LayoutContainerContext)
   useReportMediaDuration(props, container === 'ghost')
   if (container === 'ghost') return null
-  return <MediaAudio {...props} />
+  if (gapBefore) {
+    return <Sequence from={gapBefore} layout="none"><MediaAudio {...mediaProps} /></Sequence>
+  }
+  return <MediaAudio {...mediaProps} />
 }
 
-export function Video(props: ComponentProps<typeof MediaVideo>) {
+export function Video(props: ComponentProps<typeof MediaVideo> & GapProps) {
+  const { gapBefore, gapAfter, ...mediaProps } = props
   const container = useContext(LayoutContainerContext)
   const isExporting = useIsExporting()
 
+  const wrapWithGap = (el: ReactNode) =>
+    gapBefore ? <Sequence from={gapBefore} layout="none">{el}</Sequence> : el
+
   if (container === 'ghost') {
     // Render real video muted so LayoutTransition FLIP gets accurate geometry
-    return <MediaVideo {...props} muted volume={0} />
+    return wrapWithGap(<MediaVideo {...mediaProps} muted volume={0} />)
   }
 
   // During export, report duration but skip tweakpane UI
   if (isExporting) {
-    return <VideoExportDuration {...props} />
+    return wrapWithGap(<VideoExportDuration {...mediaProps} gapBefore={gapBefore} gapAfter={gapAfter} />)
   }
 
-  return <VideoWithTweakpane {...props} />
+  return wrapWithGap(<VideoWithTweakpane {...mediaProps} gapBefore={gapBefore} gapAfter={gapAfter} />)
 }
 
 /** Export mode: reports duration to section store, renders plain MediaVideo. */
-function VideoExportDuration(props: ComponentProps<typeof MediaVideo>) {
+function VideoExportDuration(props: ComponentProps<typeof MediaVideo> & GapProps) {
+  const { gapBefore, gapAfter, ...mediaProps } = props
   useReportMediaDuration(props)
-  return <MediaVideo {...props} />
+  return <MediaVideo {...mediaProps} />
 }
 
 /**
@@ -1306,14 +1332,15 @@ function VideoExportDuration(props: ComponentProps<typeof MediaVideo>) {
  * to VideoTrimControls for tweakpane trim sliders. Until duration is known,
  * renders the video without trim controls.
  */
-function VideoWithTweakpane(props: ComponentProps<typeof MediaVideo>) {
+function VideoWithTweakpane(props: ComponentProps<typeof MediaVideo> & GapProps) {
   const rawDuration = useReportMediaDuration(props)
+  const { gapBefore, gapAfter, ...mediaProps } = props
 
   if (rawDuration === null) {
-    return <MediaVideo {...props} />
+    return <MediaVideo {...mediaProps} />
   }
 
-  return <VideoTrimControls {...props} mediaDuration={rawDuration} />
+  return <VideoTrimControls {...mediaProps} mediaDuration={rawDuration} />
 }
 
 /**

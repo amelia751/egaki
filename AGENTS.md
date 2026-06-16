@@ -387,6 +387,10 @@ These are injected via safe-mdx's `scope` prop in `mdx-client.tsx`. Imported
 `.mdx` files also receive the same scope from the entry MDX's frontmatter.
 
 **Media components**: `<Video>` and `<Audio>` from `@remotion/media` are available in MDX.
+Both accept `gapBefore` and `gapAfter` props (in frames) to add empty timeline
+padding before/after the media. `gapBefore` delays playback start; both gaps are
+included in auto-duration computation. Use `FPS`/`BEAT` scope variables for
+readable values: `<Video src="/clip.mp4" gapBefore={1 * FPS} gapAfter={2 * BEAT} />`.
 
 ## Making components configurable with `useTweakpane`
 
