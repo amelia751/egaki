@@ -18,7 +18,7 @@
  * through useSyncExternalStore.
  */
 
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { createContext, useContext, useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
@@ -29,7 +29,8 @@ import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
 import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
 import { MdxCodeBlockWrapper } from './code-block.tsx'
-import { useMediaDurations, resetSectionDurations } from './media-duration-store.ts'
+import { egakiStore, useModules, useMediaDurations } from './store.ts'
+import { resetSectionDurations } from './media-duration-store.ts'
 
 // ---------------------------------------------------------------------------
 // MDX components map
@@ -132,34 +133,18 @@ const mdxComponents = buildVideoMdxComponents()
 const evaluateOptions = { functions: true }
 
 // ---------------------------------------------------------------------------
-// User modules store
-//
-// Initial value comes from the static import. When a user file changes,
-// HMR propagates through virtual:egaki-modules to the dep-accept below,
-// which receives the re-executed module with fresh imports. Component
-// .tsx edits never reach here — React Fast Refresh handles them in place.
+// User modules — initial value from static import, HMR updates via store
 // ---------------------------------------------------------------------------
 
-let currentModules: EagerModules = initialModules as EagerModules
-const moduleListeners = new Set<() => void>()
+egakiStore.setState({ modules: initialModules as EagerModules })
 
 if (import.meta.hot) {
   import.meta.hot.accept('virtual:egaki-modules', (next) => {
     if (next?.eagerModules) {
-      currentModules = next.eagerModules as EagerModules
-      for (const listener of moduleListeners) listener()
+      egakiStore.setState({ modules: next.eagerModules as EagerModules })
     }
   })
 }
-
-function subscribeModules(callback: () => void) {
-  moduleListeners.add(callback)
-  return () => {
-    moduleListeners.delete(callback)
-  }
-}
-
-const getModules = () => currentModules
 
 // ---------------------------------------------------------------------------
 // Composition building (parse → sections → JSX)
@@ -187,8 +172,70 @@ function Server(props: { 'data-markdown-line'?: number }) {
   return null
 }
 
-function buildComposition(mdxSource: string, modules: EagerModules) {
-  const ast = mdxParse(mdxSource)
+// ---------------------------------------------------------------------------
+// Parse error recovery
+//
+// On MDX syntax errors, buildComposition returns the last successful result
+// instead of crashing React. An error overlay section replaces the content
+// so the user sees what went wrong. When the syntax is fixed, the next HMR
+// cycle parses successfully and the real content reappears seamlessly.
+// ---------------------------------------------------------------------------
+
+type CompositionResult = {
+  sections: { heading: string | null; durationInFrames: number | null; transitionFrames: number; jsx: ReactNode }[]
+  preamble: ReactNode | undefined
+  frontmatter: ReturnType<typeof parseFrontmatter>
+  parseError?: string
+}
+
+let lastGoodComposition: CompositionResult | null = null
+
+function makeErrorComposition(error: Error): CompositionResult {
+  // If we have a cached good result, reuse its frontmatter and show the
+  // error as a single-section overlay so the player stays alive.
+  const frontmatter = lastGoodComposition?.frontmatter ?? { fps: 30, bpm: 120, width: 1920, height: 1080 }
+  return {
+    sections: [{
+      heading: 'Parse Error',
+      durationInFrames: frontmatter.fps * 5,
+      transitionFrames: 0,
+      jsx: (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', width: '100%', height: '100%',
+          padding: '2rem', fontFamily: 'ui-monospace, SFMono-Regular, "Cascadia Code", monospace',
+        }}>
+          <div style={{ color: '#ef4444', fontSize: 'clamp(1rem, 2vw, 1.5rem)', fontWeight: 600, marginBottom: '1rem' }}>
+            MDX Parse Error
+          </div>
+          <div style={{
+            color: '#fca5a5', fontSize: 'clamp(0.75rem, 1.5vw, 1rem)',
+            background: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem',
+            padding: '1rem 1.5rem', maxWidth: '80%', whiteSpace: 'pre-wrap',
+            lineHeight: 1.6, border: '1px solid rgba(239, 68, 68, 0.2)',
+          }}>
+            {error.message}
+          </div>
+          <div style={{ color: '#71717a', fontSize: 'clamp(0.625rem, 1vw, 0.875rem)', marginTop: '1rem' }}>
+            Fix the syntax error and save. The video will recover automatically.
+          </div>
+        </div>
+      ),
+    }],
+    preamble: lastGoodComposition?.preamble,
+    frontmatter,
+    parseError: error.message,
+  }
+}
+
+function buildComposition(mdxSource: string, modules: EagerModules): CompositionResult {
+  let ast: ReturnType<typeof mdxParse>
+  try {
+    ast = mdxParse(mdxSource)
+  } catch (e) {
+    console.warn('[egaki] MDX parse error:', (e as Error).message)
+    return makeErrorComposition(e as Error)
+  }
 
   // Compute FPS and BEAT from frontmatter early so they're available as
   // scope variables for all SafeMdxRenderer calls (including imported MDX).
@@ -211,7 +258,15 @@ function buildComposition(mdxSource: string, modules: EagerModules) {
     if (!key || !mergedModules[key]) continue
     const rawContent = mergedModules[key].default
     if (typeof rawContent !== 'string') continue
-    const importedAst = mdxParse(rawContent)
+    let importedAst
+    try {
+      importedAst = mdxParse(rawContent)
+    } catch (e) {
+      // Imported MDX has a syntax error. Skip it instead of crashing the
+      // whole composition; the main file's content still renders.
+      console.warn(`[egaki] parse error in imported MDX (${imp.source}):`, (e as Error).message)
+      continue
+    }
     const renderedJsx = (
       <SafeMdxRenderer
         markdown={rawContent}
@@ -271,7 +326,12 @@ function buildComposition(mdxSource: string, modules: EagerModules) {
     ? renderNodes(result.preamble)
     : undefined
 
-  return { sections, preamble, frontmatter: result.frontmatter }
+  const composition: CompositionResult = { sections, preamble, frontmatter: result.frontmatter }
+
+  // Cache successful result for parse error recovery
+  lastGoodComposition = composition
+
+  return composition
 }
 
 // ---------------------------------------------------------------------------
@@ -293,7 +353,7 @@ export function MdxClientApp({
   /** Absolute path of the MDX entry file, for copy prompts. */
   entryPath: string
 }) {
-  const modules = useSyncExternalStore(subscribeModules, getModules, getModules)
+  const modules = useModules()
 
   // Subscribe to media duration reports. When Audio/Video components report
   // their durations (via mediabunny metadata fetch), this re-renders and

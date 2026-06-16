@@ -19,10 +19,11 @@
  *
  * `useMediaDurations()` returns per-section maxes as
  * `Record<string, number>` (section-index-as-string → seconds) for
- * `resolveAutoDurations`. Subscribes via `useSyncExternalStore`.
+ * `resolveAutoDurations`. Subscribes via the centralized zustand store.
  */
 
-import { createContext, useContext, useSyncExternalStore } from 'react'
+import { createContext, useContext } from 'react'
+import { egakiStore, useMediaDurations } from './store.ts'
 
 // ---------------------------------------------------------------------------
 // Section index context
@@ -148,69 +149,27 @@ export function computeEffectiveDuration({
 }
 
 // ---------------------------------------------------------------------------
-// Per-instance section reports (ephemeral)
-//
-// Each Audio/Video instance reports its effective playback duration keyed
-// by (sectionIndex, instanceId). instanceId is a stable string per
-// component instance (via useId or useRef). When a component unmounts,
-// its report is cleared and the per-section max recomputes.
+// Per-instance section reports — stored in the centralized zustand store.
 // ---------------------------------------------------------------------------
 
-/** sectionIndex → Map<instanceId, effectiveSeconds> */
-const sectionReports = new Map<number, Map<string, number>>()
-
-const listeners = new Set<() => void>()
-
-function notifyListeners() {
-  for (const fn of listeners) fn()
-}
-
-/** Snapshot for useSyncExternalStore */
-let snapshot: Record<string, number> = buildSnapshot()
-
-function buildSnapshot(): Record<string, number> {
-  const obj: Record<string, number> = {}
-  for (const [idx, reports] of sectionReports) {
-    if (reports.size === 0) continue
-    let max = 0
-    for (const dur of reports.values()) {
-      if (dur > max) max = dur
-    }
-    if (max > 0) obj[String(idx)] = max
-  }
-  return obj
-}
-
-function updateSnapshot() {
-  const next = buildSnapshot()
-  const prevKeys = Object.keys(snapshot)
-  const nextKeys = Object.keys(next)
-  if (
-    prevKeys.length === nextKeys.length &&
-    nextKeys.every((k) => snapshot[k] === next[k])
-  ) {
-    return
-  }
-  snapshot = next
-  notifyListeners()
-}
+export { useMediaDurations }
 
 /**
  * Report an effective media duration for a section from a specific
  * component instance. The per-section max is derived from all active
- * reports. Called by the useReportMediaDuration hook.
+ * reports via selectMediaDurations. Called by the useReportMediaDuration hook.
  */
 export function reportSectionDuration(sectionIndex: number, instanceId: string, seconds: number) {
   if (sectionIndex < 0 || !isFinite(seconds) || seconds <= 0) return
-  let reports = sectionReports.get(sectionIndex)
-  if (!reports) {
-    reports = new Map()
-    sectionReports.set(sectionIndex, reports)
-  }
-  const prev = reports.get(instanceId)
-  if (prev === seconds) return // no change
-  reports.set(instanceId, seconds)
-  updateSnapshot()
+  egakiStore.setState((state) => {
+    const prev = state.sectionReports.get(sectionIndex)?.get(instanceId)
+    if (prev === seconds) return state
+    const newReports = new Map(state.sectionReports)
+    const sectionMap = new Map(newReports.get(sectionIndex) ?? [])
+    sectionMap.set(instanceId, seconds)
+    newReports.set(sectionIndex, sectionMap)
+    return { sectionReports: newReports }
+  })
 }
 
 /**
@@ -218,56 +177,40 @@ export function reportSectionDuration(sectionIndex: number, instanceId: string, 
  * per-section max shrinks when media elements are removed.
  */
 export function clearSectionDuration(sectionIndex: number, instanceId: string) {
-  const reports = sectionReports.get(sectionIndex)
-  if (!reports) return
-  if (!reports.has(instanceId)) return
-  reports.delete(instanceId)
-  if (reports.size === 0) sectionReports.delete(sectionIndex)
-  updateSnapshot()
-}
-
-/**
- * Hook for MdxClientApp. Returns per-section maxes as Record<string, number>
- * (section-index-as-string → seconds) compatible with resolveAutoDurations.
- * Re-renders when any section's max changes.
- */
-export function useMediaDurations(): Record<string, number> {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb)
-      return () => listeners.delete(cb)
-    },
-    () => snapshot,
-    () => snapshot,
-  )
+  egakiStore.setState((state) => {
+    const existing = state.sectionReports.get(sectionIndex)
+    if (!existing || !existing.has(instanceId)) return state
+    const newReports = new Map(state.sectionReports)
+    const sectionMap = new Map(existing)
+    sectionMap.delete(instanceId)
+    if (sectionMap.size === 0) {
+      newReports.delete(sectionIndex)
+    } else {
+      newReports.set(sectionIndex, sectionMap)
+    }
+    return { sectionReports: newReports }
+  })
 }
 
 /**
  * Reset all section duration reports. Called when the MDX composition
- * changes (HMR, MDX edit, module update) so stale reports from the
- * previous composition don't persist. Media components will re-report
- * on their next mount.
- *
- * Does NOT clear the raw src cache (localStorage). Cached raw durations
- * are keyed by src URL and remain valid across composition changes.
+ * changes (HMR, MDX edit, module update) so stale reports don't persist.
+ * Does NOT clear the raw src cache (localStorage).
  */
 export function resetSectionDurations() {
-  if (sectionReports.size === 0) return
-  sectionReports.clear()
-  updateSnapshot()
+  if (egakiStore.getState().sectionReports.size === 0) return
+  egakiStore.setState({ sectionReports: new Map() })
 }
 
 /**
- * Returns true when any section has at least one pending (unreported)
- * auto-duration. Used by the export button to block export until all
- * media durations are resolved.
- *
- * Takes the sections array from the composition and returns the count
- * of null-duration sections that have no reports yet.
+ * Returns the count of null-duration sections that have no reports yet.
+ * Used by the export button to block export until all media durations
+ * are resolved.
  */
 export function countUnresolvedSections(
   sections: { durationInFrames: number | null }[],
 ): number {
+  const { sectionReports } = egakiStore.getState()
   let count = 0
   for (let i = 0; i < sections.length; i++) {
     if (sections[i]!.durationInFrames !== null) continue

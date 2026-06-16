@@ -111,7 +111,8 @@
     "tailwindcss": "^4.3.0",
     "tweakpane": "^4.0.5",
     "yaml": "^2.9.0",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "zustand": "^5.0.14"
   },
   "peerDependencies": {
     "@vitejs/plugin-react": ">=6",

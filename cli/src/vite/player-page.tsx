@@ -24,7 +24,7 @@ import {
   useVideoConfig,
 } from 'remotion'
 import { renderInBrowser } from './render-client.ts'
-import { useGenerationStatus, type GenerationStatus } from './generated-media-client.tsx'
+import { useGenerationStatus, type GenerationStatus } from './store.ts'
 import { egakiSDK } from './sdk.ts'
 import { LayoutEditor, type SectionMeta } from './layout-editor.tsx'
 import { TweakpaneRoot } from './tweakpane-hook.tsx'
@@ -284,7 +284,7 @@ function VideoComposition({
   preamble?: ReactNode
 }) {
   return (
-    <AbsoluteFill style={{ background: '#050505' }}>
+    <AbsoluteFill style={{ background: '#050505', fontSize: 60 }}>
       {/* Preamble: MDX content before the first heading. Rendered at
           composition level so it persists across all sections. Runs in the
           background behind the Series (earlier DOM order = behind). */}
