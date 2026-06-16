@@ -27,7 +27,7 @@ import { eagerModules as initialModules } from 'virtual:egaki-modules'
 import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter } from './mdx-parse.ts'
 import { filterImportNodesToModules } from './server-mdx.ts'
 import { PlayerPage } from './player-page.tsx'
-import { MDX_BUILTIN_COMPONENTS, Img } from './mdx-video.tsx'
+import { MDX_BUILTIN_COMPONENTS, Img, ServerSlotsContext, type ServerSlots } from './mdx-video.tsx'
 import { MdxCodeBlockWrapper } from './code-block.tsx'
 import { egakiStore } from './store.ts'
 import { useModules, useMediaDurations } from './store-hooks.ts'
@@ -151,8 +151,6 @@ if (import.meta.hot) {
 // Composition building (parse → sections → JSX)
 // ---------------------------------------------------------------------------
 
-export type ServerSlots = Record<string, ReactNode>
-
 // Slots travel via React context (provided by MdxClientApp around
 // PlayerPage) rather than a safe-mdx renderNode hook: safe-mdx only calls
 // renderNode in its top-level mdast traversal, while JSX elements nested
@@ -161,7 +159,6 @@ export type ServerSlots = Record<string, ReactNode>
 // any nesting depth; it matches its slot via the data-markdown-line prop
 // that safe-mdx injects (line numbers are identical on server and client
 // because blankServerContents preserves line positions).
-const ServerSlotsContext = createContext<ServerSlots>({})
 
 function Server(props: { 'data-markdown-line'?: number }) {
   const slots = useContext(ServerSlotsContext)

@@ -13,7 +13,7 @@
 
 import './styles.css'
 import { Player, type PlayerRef } from '@remotion/player'
-import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore, useState, type ReactNode } from 'react'
+import React, { Suspense, useCallback, useContext, useEffect, useLayoutEffect, useRef, useSyncExternalStore, useState, type ReactNode } from 'react'
 import {
   AbsoluteFill,
   Freeze,
@@ -33,6 +33,7 @@ import {
   LayoutAnimationLayer,
   LayoutGhost,
   LayoutTransitionProvider,
+  ServerSlotsContext,
 } from './mdx-video.tsx'
 import { SectionIndexContext } from './media-duration-store.ts'
 import type { VideoFrontmatter } from './mdx-parse.ts'
@@ -335,14 +336,20 @@ export function PlayerPage({
   frontmatter: VideoFrontmatter
 }) {
   const { fps, width, height } = frontmatter
+  const serverSlots = useContext(ServerSlotsContext)
   // Stable component function that reads latest props from a ref.
   // Created once so its identity never changes between renders.
   // Remotion Player doesn't remount when component identity is stable.
-  const propsRef = useRef({ sections, totalDuration, preamble })
-  propsRef.current = { sections, totalDuration, preamble }
+  const propsRef = useRef({ sections, totalDuration, preamble, serverSlots })
+  propsRef.current = { sections, totalDuration, preamble, serverSlots }
 
+  // Wrap VideoComposition with ServerSlotsContext so that <Server> slots
+  // are available during SDK export/screenshot (renderStillOnWeb /
+  // renderMediaOnWeb create a fresh React tree from this component).
   const [Component] = useState(() => () => (
-    <VideoComposition {...propsRef.current} />
+    <ServerSlotsContext.Provider value={propsRef.current.serverSlots}>
+      <VideoComposition {...propsRef.current} />
+    </ServerSlotsContext.Provider>
   ))
 
   const playerRef = useRef<PlayerRef>(null)

@@ -61,6 +61,16 @@ export function useIsExporting(): boolean {
   return useContext(ExportContext)
 }
 
+// ---------------------------------------------------------------------------
+// Server slots context — carries RSC-rendered <Server> slot content so that
+// the SDK's renderStillOnWeb / renderMediaOnWeb can access them in the fresh
+// React tree. Defined here (not in mdx-client.tsx) to avoid a circular import
+// between mdx-client.tsx and player-page.tsx.
+// ---------------------------------------------------------------------------
+
+export type ServerSlots = Record<string, ReactNode>
+export const ServerSlotsContext = createContext<ServerSlots>({})
+
 import {
   AbsoluteFill,
   Easing,
