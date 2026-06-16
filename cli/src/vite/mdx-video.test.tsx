@@ -1793,6 +1793,19 @@ some text after
     expect(blanked.split('\n').length).toBe(mdx.split('\n').length)
   })
 
+  test('auto-wraps namespace imports from .server files', () => {
+    const mdx = `import * as Scenes from './scenes.server'
+
+# Scene
+<Scenes.Hero />
+`
+    const ast = mdxParse(mdx)
+    wrapGenerateNodes(ast)
+    const nodes = findServerNodes(ast)
+    expect(nodes.length).toBe(1)
+    expect(nodes[0]!.node.children[0]?.name).toBe('Scenes.Hero')
+  })
+
   test('.server.ts extension is recognized', () => {
     const mdx = `import { DataScene } from './data.server.ts'
 

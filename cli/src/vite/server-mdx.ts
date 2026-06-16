@@ -230,9 +230,11 @@ export function wrapGenerateNodes(mdast: { children?: RootContent[] }): void {
     if (!parent.children) return
     for (let i = 0; i < parent.children.length; i++) {
       const node = parent.children[i]
+      // Use root identifier for dotted names like <Scenes.Hero /> → "Scenes"
+      const jsxRootName = typeof node.name === 'string' ? node.name.split('.')[0]! : ''
       if (
         (node.type === 'mdxJsxFlowElement' || node.type === 'mdxJsxTextElement')
-        && shouldWrap(node.name)
+        && shouldWrap(jsxRootName)
       ) {
         // Wrap in a synthetic <Server> with the same position so slot
         // keying (by start line) stays identical and blankServerContents

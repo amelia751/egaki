@@ -1,6 +1,7 @@
 // Server component that uses GeneratedImage inside a TSX file.
 // The .server.tsx postfix ensures this file is never bundled to the browser.
-// Must be used inside a <Server> block in MDX so it runs in the RSC environment.
+// When imported from MDX, egaki auto-wraps it in a synthetic <Server> node
+// so it runs in the RSC environment without needing a manual <Server> block.
 // Import from 'egaki/generate-media' (the real async server implementations),
 // NOT from 'egaki/video' (which exports client stubs that return null).
 import { GeneratedImage } from 'egaki/generate-media'
