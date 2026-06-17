@@ -2007,4 +2007,48 @@ describe('findChangedSectionIndex', () => {
     const edited = '# Intro duration=3s transition=20\n\nHello'
     expect(findChangedSectionIndex(old, edited)).toBe(0)
   })
+
+  test('broken MDX returns null (does not throw)', () => {
+    const valid = '# Intro duration=3s\n\nHello world'
+    const broken = '# Intro duration=3s\n\n<Component'
+    expect(findChangedSectionIndex(valid, broken)).toBe(null)
+  })
+
+  test('both sources broken returns null', () => {
+    expect(findChangedSectionIndex('<Foo', '<Bar')).toBe(null)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Parse error recovery
+// ---------------------------------------------------------------------------
+
+describe('mdxParse error recovery', () => {
+  test('mdxParse throws on unclosed JSX tag', () => {
+    expect(() => mdxParse('<Component')).toThrow()
+  })
+
+  test('mdxParse throws on broken expression', () => {
+    expect(() => mdxParse('# Hello\n\n{broken expression')).toThrow()
+  })
+
+  test('splitIntoSections works on valid mdast from valid MDX', () => {
+    const ast = mdxParse('# Scene duration=3s\n\nHello')
+    const result = splitIntoSections(ast)
+    expect(result.sections.length).toBe(1)
+    expect(result.sections[0]!.heading).toBe('Scene')
+  })
+
+  test('parseFrontmatter returns defaults on minimal mdast', () => {
+    // Simulate what happens when parse fails and we use a fallback
+    const fm = parseFrontmatter({ type: 'root', children: [] } as any)
+    expect(fm).toMatchInlineSnapshot(`
+      {
+        "bpm": 120,
+        "fps": 30,
+        "height": 1080,
+        "width": 1920,
+      }
+    `)
+  })
 })
