@@ -1,9 +1,23 @@
 ---
 fps: 30
+width: 1080
+height: 1920
 ---
 
 import { ScrollingTranscript } from './scrolling-transcript'
+import { SECTIONS } from './data'
 
 # Transcript duration=83s
 
-<ScrollingTranscript />
+<ScrollingTranscript
+  sections={SECTIONS}
+  backgroundStyle={{ filter: 'blur(30px)', transform: 'scale(1.05)' }}
+  background={
+    <Video
+      src="https://cdn.midjourney.com/video/1f3d525a-6bba-4439-8999-59775c21818c/2.mp4"
+      muted
+      loop
+      objectFit="cover"
+    />
+  }
+/>
