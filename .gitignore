@@ -13,3 +13,5 @@ opensrc/
 # Local Jitter/egaki validation screenshots and scratch exports
 reference-frames/
 browser-new-export.mp4
+generated/
+stale
