@@ -101,6 +101,7 @@ Goodbye
           "bpm": 120,
           "fps": 30,
           "height": 1080,
+          "scale": 1,
           "width": 1920,
         },
         "sections": [
@@ -140,6 +141,7 @@ bpm: 140
         "bpm": 140,
         "fps": 60,
         "height": 1080,
+        "scale": 1,
         "width": 1920,
       }
     `)
@@ -330,19 +332,30 @@ describe('parseFrontmatter and MDX scope (FPS, BEAT)', () => {
   test('default values: 30fps, 120bpm', () => {
     const ast = mdxParse('# Hello')
     const fm = parseFrontmatter(ast)
-    expect(fm).toEqual({ fps: 30, bpm: 120, width: 1920, height: 1080 })
+    expect(fm).toEqual({ fps: 30, bpm: 120, width: 1920, height: 1080, scale: 1 })
   })
 
   test('custom frontmatter', () => {
     const ast = mdxParse(`---\nfps: 60\nbpm: 140\n---\n\n# Hello`)
     const fm = parseFrontmatter(ast)
-    expect(fm).toEqual({ fps: 60, bpm: 140, width: 1920, height: 1080 })
+    expect(fm).toEqual({ fps: 60, bpm: 140, width: 1920, height: 1080, scale: 1 })
   })
 
   test('custom width and height', () => {
     const ast = mdxParse(`---\nwidth: 1080\nheight: 1920\n---\n\n# Vertical`)
     const fm = parseFrontmatter(ast)
-    expect(fm).toEqual({ fps: 30, bpm: 120, width: 1080, height: 1920 })
+    expect(fm).toEqual({ fps: 30, bpm: 120, width: 1080, height: 1920, scale: 1 })
+  })
+
+  test('custom scale', () => {
+    const ast = mdxParse(`---\nscale: 2\n---\n\n# Hello`)
+    expect(parseFrontmatter(ast)).toEqual({ fps: 30, bpm: 120, width: 1920, height: 1080, scale: 2 })
+  })
+
+  test('invalid scale falls back to default', () => {
+    expect(parseFrontmatter(mdxParse(`---\nscale: 0\n---\n\n# Hello`)).scale).toBe(1)
+    expect(parseFrontmatter(mdxParse(`---\nscale: -1\n---\n\n# Hello`)).scale).toBe(1)
+    expect(parseFrontmatter(mdxParse(`---\nscale: "foo"\n---\n\n# Hello`)).scale).toBe(1)
   })
 
   test('aspectRatioFromDimensions: exact standard ratios', () => {
@@ -2047,6 +2060,7 @@ describe('mdxParse error recovery', () => {
         "bpm": 120,
         "fps": 30,
         "height": 1080,
+        "scale": 1,
         "width": 1920,
       }
     `)

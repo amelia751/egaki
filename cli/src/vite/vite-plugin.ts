@@ -188,7 +188,7 @@ export function video(options: VideoPluginOptions): PluginOption[] {
           // module still loads. The client handles the real parse error
           // with its own recovery (last-good cache + error overlay).
           console.error('[egaki] frontmatter parse error:', e)
-          fm = { fps: 30, bpm: 120, width: 1920, height: 1080 }
+          fm = { fps: 30, bpm: 120, width: 1920, height: 1080, scale: 1 }
         }
         const folderName = path.basename(root)
         return [

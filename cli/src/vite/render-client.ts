@@ -43,6 +43,8 @@ export async function renderInBrowser(options: {
   fps?: number
   width?: number
   height?: number
+  /** Pixel density / scale multiplier. Default 1. */
+  scale?: number
   onProgress?: (progress: number) => void
   signal?: AbortSignal
 }) {
@@ -68,6 +70,7 @@ export async function renderInBrowser(options: {
       videoCodec: 'h264',
       videoBitrate: 'high',
       allowHtmlInCanvas: true,
+      scale: options.scale,
       signal: options.signal,
       onProgress: ({ progress }) => {
         options.onProgress?.(progress)

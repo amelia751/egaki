@@ -422,7 +422,7 @@ export function PlayerPage({
   hasUnresolvedDurations?: boolean
   frontmatter: VideoFrontmatter
 }) {
-  const { fps, width, height } = frontmatter
+  const { fps, width, height, scale } = frontmatter
   const serverSlots = useContext(ServerSlotsContext)
   // Stable component function that reads latest props from a ref.
   // Created once so its identity never changes between renders.
@@ -451,11 +451,12 @@ export function PlayerPage({
       fps,
       width,
       height,
+      scale,
       sectionCount: sections.length,
       playerRef,
       playerContainerRef,
     })
-  }, [Component, totalDuration, sections.length, fps, width, height])
+  }, [Component, totalDuration, sections.length, fps, width, height, scale])
 
   // Consume pending scene seek after the RSC refetch delivers new sections.
   // The module-level pendingSceneSeek is set by import.meta.hot.on before
@@ -802,6 +803,7 @@ export function PlayerPage({
         fps,
         width,
         height,
+        scale,
         onProgress: (p) => setProgress(p),
         signal: controller.signal,
       })
@@ -822,7 +824,7 @@ export function PlayerPage({
       setRendering(false)
       abortRef.current = null
     }
-  }, [Component, totalDuration, fps, width, height])
+  }, [Component, totalDuration, fps, width, height, scale])
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort()

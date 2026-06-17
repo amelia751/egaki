@@ -35,6 +35,9 @@ export interface VideoFrontmatter {
   bpm: number
   width: number
   height: number
+  /** Pixel density / scale multiplier for rendering. Default 1.
+   *  Setting scale=2 renders at 2x resolution (e.g. 3840×2160 for a 1920×1080 comp). */
+  scale: number
 }
 
 /** Scope variables injected into MDX expressions via safe-mdx's `scope` prop.
@@ -49,13 +52,14 @@ export function buildMdxScope(fps: number, bpm: number): MdxScope {
   return { FPS: fps, BEAT: fps / (bpm / 60) }
 }
 
-/** Parse YAML frontmatter from mdast. Extracts fps, bpm, width, height. */
+/** Parse YAML frontmatter from mdast. Extracts fps, bpm, width, height, scale. */
 export function parseFrontmatter(mdast: Root): VideoFrontmatter {
   const result: VideoFrontmatter = {
     fps: DEFAULT_FPS,
     bpm: DEFAULT_BPM,
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT,
+    scale: 1,
   }
   for (const node of mdast.children) {
     if (node.type !== 'yaml') continue
@@ -73,6 +77,7 @@ export function parseFrontmatter(mdast: Root): VideoFrontmatter {
         const h = Math.round(parsed.height)
         if (h > 0) result.height = h
       }
+      if (typeof parsed.scale === 'number' && parsed.scale > 0) result.scale = parsed.scale
     }
   }
   return result

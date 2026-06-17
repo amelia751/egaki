@@ -57,6 +57,8 @@ interface CompositionConfig {
   width: number
   height: number
   sectionCount: number
+  /** Pixel density / scale multiplier from frontmatter. Default 1. */
+  scale: number
   playerRef: { current: PlayerHandle | null }
   /** The DOM element wrapping the Remotion Player (used for coordinate mapping) */
   playerContainerRef: { current: HTMLElement | null }
@@ -362,7 +364,7 @@ class EgakiSDK {
         calculateMetadata: null,
       },
       frame: options.frame ?? 0,
-      scale: options.scale,
+      scale: options.scale ?? c.scale,
       allowHtmlInCanvas: options.allowHtmlInCanvas ?? true,
     })
 
@@ -397,7 +399,7 @@ class EgakiSDK {
       sampleRate: options.sampleRate,
       muted: options.muted,
       transparent: options.transparent,
-      scale: options.scale,
+      scale: options.scale ?? c.scale,
       keyframeIntervalInSeconds: options.keyframeIntervalInSeconds,
       hardwareAcceleration: options.hardwareAcceleration,
       frameRange: options.frameRange ?? undefined,

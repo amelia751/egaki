@@ -191,7 +191,7 @@ let lastGoodComposition: CompositionResult | null = null
 function makeErrorComposition(error: Error): CompositionResult {
   // If we have a cached good result, reuse its frontmatter and show the
   // error as a single-section overlay so the player stays alive.
-  const frontmatter = lastGoodComposition?.frontmatter ?? { fps: 30, bpm: 120, width: 1920, height: 1080 }
+  const frontmatter = lastGoodComposition?.frontmatter ?? { fps: 30, bpm: 120, width: 1920, height: 1080, scale: 1 }
   return {
     sections: [{
       heading: 'Parse Error',
