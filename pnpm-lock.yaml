@@ -417,6 +417,40 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
+  cylinder-text-example:
+    dependencies:
+      '@remotion/media':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.5
+        version: 1.26.0-rsc.5(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.3.6)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
   gateway:
     dependencies:
       hono:
