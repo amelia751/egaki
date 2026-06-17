@@ -4,7 +4,7 @@
  */
 
 import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion'
-import { CodeBlock, AngledScreen, EASE } from 'egaki/video'
+import { CodeBlock, AngledScreen, EASE, Fill } from 'egaki/video'
 
 const SAMPLE_CODE = `import { createServer } from 'node:http'
 
@@ -184,17 +184,24 @@ export function ZoomedHighlight() {
 export function ZoomingCodeBlock() {
   const frame = useCurrentFrame()
 
-  const scale = interpolate(frame, [0, 45], [1, 1.35], {
+  // Fast cinematic zoom-in over 1.5s
+  const zoomIn = interpolate(frame, [0, 45], [1, 1.35], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
     easing: EASE.cinematic,
   })
 
-  // Round to 3 decimals to reduce subpixel jitter between frames
-  const s = Math.round(scale * 1000) / 1000
+  // Slow linear drift from -0.08 to 0 over the full scene so it never feels static.
+  // Ends at 0 so final scale is exactly 1.35, matching the next scene's zoom level.
+  const drift = interpolate(frame, [0, 90], [-0.08, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  })
+
+  const s = Math.round((zoomIn + drift) * 1000) / 1000
 
   return (
-    <AbsoluteFill style={{ backgroundColor: '#000' }}>
+    <Fill style={{ backgroundColor: '#000' }}>
       <div style={{
         width: '100%',
         height: '100%',
@@ -204,6 +211,44 @@ export function ZoomingCodeBlock() {
       }}>
         <CodeBlock
           theme="vercel"
+          title="server.ts"
+          width="100%"
+          height="100%"
+          showLineNumbers
+          fontSize={16}
+        >
+          {SAMPLE_CODE}
+        </CodeBlock>
+      </div>
+    </Fill>
+  )
+}
+
+export function SlowZoomCode({ theme = 'openai', originX = '50%', originY = '40%' }: {
+  theme?: string
+  originX?: string
+  originY?: string
+}) {
+  const frame = useCurrentFrame()
+
+  const scale = interpolate(frame, [0, 90], [1, 2], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+    easing: EASE.decelerate,
+  })
+  const s = Math.round(scale * 1000) / 1000
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: '#0a0a0a' }}>
+      <div style={{
+        width: '100%',
+        height: '100%',
+        transform: `scale(${s})`,
+        transformOrigin: `${originX} ${originY}`,
+        willChange: 'transform',
+      }}>
+        <CodeBlock
+          theme={theme}
           title="server.ts"
           width="100%"
           height="100%"
