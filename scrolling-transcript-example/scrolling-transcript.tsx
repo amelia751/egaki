@@ -1,38 +1,49 @@
+'use client'
+
 /**
- * Reusable teleprompter-style scrolling markdown component.
+ * Reusable teleprompter-style scrolling markdown component with optional
+ * word-level highlight sync from audio transcription.
  *
  * Renders markdown sections as a smooth-scrolling vertical feed over any
  * background. Each section scrolls at a speed derived from its word count
  * and WPM setting. Uses monotone cubic Hermite interpolation for C1
  * continuous scrolling (no velocity discontinuities at section boundaries).
+ *
+ * When `wordTimings` is provided, the component:
+ *   1. Derives scroll timing from transcription timestamps (ignoring WPM `speed`)
+ *   2. Renders words as individual <span> elements instead of SafeMdxRenderer
+ *   3. Highlights the currently-spoken word based on frame/fps timing
  */
 
 import { useCurrentFrame, useVideoConfig } from 'remotion'
 import { Fill } from 'egaki/video'
 import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse } from 'safe-mdx/parse'
-import { useRef, useLayoutEffect, useState, useMemo, type ReactNode } from 'react'
+import { useEffect, useRef, useLayoutEffect, useState, useMemo, type ReactNode } from 'react'
+import {
+  countWords,
+  extractPlainText,
+  alignWordsToSections,
+  computeTotalSeconds,
+  type ScrollSection,
+  type WordTiming,
+} from './transcript-utils'
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface ScrollSection {
-  /** Markdown string for this section */
-  markdown: string
-  /** Reading speed in words per minute; controls how long this section stays centered */
-  speed: number
-}
+// Re-export types and utilities so existing imports keep working
+export { countWords, extractPlainText, alignWordsToSections, computeTotalSeconds }
+export type { ScrollSection, WordTiming }
 
 export interface ScrollingTranscriptProps {
   /** Markdown sections with per-section scroll speed */
   sections: ScrollSection[]
-  /** Background element rendered behind the scrolling text (e.g. <Video>, <Img>, or a gradient div) */
-  background?: ReactNode
-  /** Extra styles applied to the background wrapper div (e.g. filter, transform).
-   *  Remotion's @remotion/media Video renders a <canvas> that ignores the
-   *  style prop, so visual effects like blur and scale must go here. */
-  backgroundStyle?: React.CSSProperties
+  /** Pre-computed word timings per section (from server-side transcription + alignment).
+   *  When provided, renders words as highlighted spans instead of SafeMdxRenderer,
+   *  and derives scroll timing from transcription timestamps. */
+  wordTimings?: WordTiming[][]
+  /** Async word timings promise. When provided, the component starts with WPM-based
+   *  default timing and switches to real timestamps once the promise resolves.
+   *  Use this for async TTS generation where timings arrive after initial render. */
+  wordTimingsPromise?: Promise<WordTiming[][]>
   /** Font size in pixels (default 32) */
   fontSize?: number
   /** Max content width in pixels (default 720) */
@@ -45,25 +56,17 @@ export interface ScrollingTranscriptProps {
   fadeMask?: [number, number]
   /** Override the mdx component map for custom markdown styling */
   components?: Record<string, (props: any) => ReactNode>
+  /** Style for the currently-active (spoken) word */
+  activeWordStyle?: React.CSSProperties
+  /** Style for words that have already been spoken */
+  pastWordStyle?: React.CSSProperties
+  /** Style for words that haven't been spoken yet */
+  futureWordStyle?: React.CSSProperties
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-export function countWords(text: string): number {
-  return text.replace(/[*_`#\[\]()]/g, '').split(/\s+/).filter(Boolean).length
-}
-
-/** Compute total duration in seconds for a set of sections (including padding). */
-export function computeTotalSeconds(sections: ScrollSection[], paddingSeconds = 2): number {
-  let total = paddingSeconds
-  for (const s of sections) {
-    total += (countWords(s.markdown) / s.speed) * 60
-  }
-  total += paddingSeconds
-  return Math.ceil(total)
-}
 
 /**
  * Monotone cubic Hermite interpolation (Fritsch-Carlson).
@@ -115,6 +118,8 @@ function smoothInterpolate(input: number, inputRange: number[], outputRange: num
     (t3 - t2) * dx * tangents[i + 1]
   )
 }
+
+
 
 // ---------------------------------------------------------------------------
 // Default markdown component overrides (holocron-inspired)
@@ -175,19 +180,39 @@ const defaultMdxComponents: Record<string, (props: any) => ReactNode> = {
 
 export function ScrollingTranscript({
   sections,
-  background,
+  wordTimings,
+  wordTimingsPromise,
   fontSize = 32,
   maxWidth = 720,
   sectionGap = 56,
   paddingSeconds = 2,
   fadeMask: fadeMaskRange = [20, 80],
   components: componentOverrides,
-  backgroundStyle,
+  activeWordStyle,
+  pastWordStyle,
+  futureWordStyle,
 }: ScrollingTranscriptProps) {
   const frame = useCurrentFrame()
   const { fps, height } = useVideoConfig()
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([])
   const [centers, setCenters] = useState<number[]>([])
+  const currentSecond = frame / fps
+
+  // Async word timings: start with sync wordTimings (or undefined),
+  // switch to resolved promise value when it arrives.
+  // RSC flight thenables may not have .catch(), so use .then(onFulfilled, onRejected).
+  const [asyncTimings, setAsyncTimings] = useState<WordTiming[][] | undefined>(undefined)
+  useEffect(() => {
+    if (!wordTimingsPromise || wordTimings) return
+    let cancelled = false
+    wordTimingsPromise.then(
+      (t) => { if (!cancelled) setAsyncTimings(t) },
+      (err) => console.error('[egaki] wordTimingsPromise failed:', err),
+    )
+    return () => { cancelled = true }
+  }, [wordTimingsPromise, wordTimings])
+
+  const resolvedTimings = wordTimings ?? asyncTimings
 
   const mdxComponents = useMemo(
     () => (componentOverrides ? { ...defaultMdxComponents, ...componentOverrides } : defaultMdxComponents),
@@ -199,8 +224,26 @@ export function ScrollingTranscript({
     [sections],
   )
 
+  // When word timings are available (sync or async-resolved), derive scroll
+  // timing from transcription timestamps. Otherwise fall back to WPM-based.
   const timings = useMemo(() => {
     const paddingFrames = paddingSeconds * fps
+
+    if (resolvedTimings?.length) {
+      return sections.map((_section, i) => {
+        const sectionWords = resolvedTimings[i]
+        if (!sectionWords?.length) {
+          return { start: paddingFrames, duration: fps }
+        }
+        const startSec = sectionWords[0].startSecond
+        const endSec = sectionWords[sectionWords.length - 1].endSecond
+        const start = Math.round(startSec * fps) + paddingFrames
+        const duration = Math.round((endSec - startSec) * fps)
+        return { start, duration: Math.max(duration, 1) }
+      })
+    }
+
+    // Fallback: WPM-based timing
     let currentFrame = paddingFrames
     return sections.map((section) => {
       const words = countWords(section.markdown)
@@ -209,7 +252,7 @@ export function ScrollingTranscript({
       currentFrame += durationFrames
       return { start, duration: durationFrames }
     })
-  }, [sections, fps, paddingSeconds])
+  }, [sections, fps, paddingSeconds, resolvedTimings])
 
   useLayoutEffect(() => {
     setCenters(
@@ -229,21 +272,23 @@ export function ScrollingTranscript({
 
   const mask = `linear-gradient(to bottom, transparent 0%, black ${fadeMaskRange[0]}%, black ${fadeMaskRange[1]}%, transparent 100%)`
 
+  // Merge word highlight styles with defaults
+  const activeStyle: React.CSSProperties = {
+    color: '#ffffff',
+    textShadow: '0 0 20px rgba(255, 255, 255, 0.6), 0 0 40px rgba(255, 255, 255, 0.3)',
+    ...activeWordStyle,
+  }
+  const pastStyle: React.CSSProperties = {
+    color: 'rgba(255, 255, 255, 0.85)',
+    ...pastWordStyle,
+  }
+  const futureStyle: React.CSSProperties = {
+    color: 'rgba(255, 255, 255, 0.35)',
+    ...futureWordStyle,
+  }
+
   return (
     <Fill>
-      {/* Background wrapper: forces any child (including Remotion's
-          @remotion/media <canvas>) to fill the full composition.
-          Remotion's Video with objectFit renders a bare <canvas> that
-          ignores the style prop, so visual effects like blur and scale
-          must go on this wrapper via backgroundStyle. */}
-      <style>{`
-        .__scroll-bg > * { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; }
-        .__scroll-bg canvas { object-fit: cover; }
-      `}</style>
-      <div className="__scroll-bg" style={{ position: 'absolute', inset: 0, overflow: 'hidden', ...backgroundStyle }}>
-        {background}
-      </div>
-
       <div style={{
         position: 'absolute', inset: 0,
         maskImage: mask, WebkitMaskImage: mask,
@@ -258,26 +303,50 @@ export function ScrollingTranscript({
           alignItems: 'center',
           willChange: 'transform',
         }}>
-          {sections.map((section, i) => (
-            <div
-              key={i}
-              ref={(el) => { sectionRefs.current[i] = el }}
-              style={{
-                width: maxWidth,
-                fontSize,
-                fontFamily: FONT_SANS,
-                color: '#ffffff',
-                marginBottom: sectionGap,
-              }}
-            >
-              <SafeMdxRenderer
-                markdown={section.markdown}
-                mdast={parsedAsts[i]}
-                components={mdxComponents}
-                onError={(e) => console.warn('[scroll]', e.message)}
-              />
-            </div>
-          ))}
+          {sections.map((section, i) => {
+            const sectionWords = resolvedTimings?.[i]
+            return (
+              <div
+                key={i}
+                ref={(el) => { sectionRefs.current[i] = el }}
+                style={{
+                  width: maxWidth,
+                  fontSize,
+                  fontFamily: FONT_SANS,
+                  color: '#ffffff',
+                  marginBottom: sectionGap,
+                }}
+              >
+                {sectionWords ? (
+                  // Word-level highlighted rendering
+                  <p style={{
+                    margin: 0, marginBottom: '1.2em', lineHeight: 1.6,
+                    fontWeight: 475,
+                  }}>
+                    {sectionWords.map((wt, wi) => {
+                      const isActive = currentSecond >= wt.startSecond && currentSecond < wt.endSecond
+                      const isPast = currentSecond >= wt.endSecond
+                      const style = isActive ? activeStyle : isPast ? pastStyle : futureStyle
+
+                      return (
+                        <span key={wi} style={style}>
+                          {wi > 0 ? ' ' : ''}{wt.word}
+                        </span>
+                      )
+                    })}
+                  </p>
+                ) : (
+                  // Fallback: full markdown rendering via SafeMdxRenderer
+                  <SafeMdxRenderer
+                    markdown={section.markdown}
+                    mdast={parsedAsts[i]}
+                    components={mdxComponents}
+                    onError={(e) => console.warn('[scroll]', e.message)}
+                  />
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     </Fill>
