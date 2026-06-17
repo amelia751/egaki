@@ -19,6 +19,7 @@ import {
   selectMediaDurations,
   selectGenerationStatus,
   type GenerationStatus,
+  type GenerationError,
 } from './store.ts'
 
 // Same as safe-mdx's EagerModules
@@ -47,7 +48,8 @@ function shallowEqualRecord(a: Record<string, number>, b: Record<string, number>
 function shallowEqualStatus(a: GenerationStatus | null, b: GenerationStatus | null): boolean {
   if (a === b) return true
   if (a === null || b === null) return false
-  return a.images === b.images && a.videos === b.videos && a.speeches === b.speeches && a.total === b.total
+  if (a.total !== b.total) return false
+  return shallowEqualRecord(a.counts, b.counts)
 }
 
 // Media durations
@@ -65,7 +67,7 @@ const getMediaDurationsServer = () => cachedMediaDurations
 
 // Generation status
 const subscribeGenerationStatus = (callback: () => void) =>
-  egakiStore.subscribe((state) => state.activeGenerations, callback)
+  egakiStore.subscribe((state) => state.serverGenerationStatus, callback)
 let cachedGenerationStatus: GenerationStatus | null = null
 const getGenerationStatus = () => {
   const next = selectGenerationStatus(egakiStore.getState())
@@ -75,6 +77,12 @@ const getGenerationStatus = () => {
   return cachedGenerationStatus
 }
 const getGenerationStatusServer = () => null
+
+// Generation errors
+const subscribeGenerationErrors = (callback: () => void) =>
+  egakiStore.subscribe((state) => state.serverGenerationErrors, callback)
+const getGenerationErrors = () => egakiStore.getState().serverGenerationErrors
+const getGenerationErrorsServer = (): GenerationError[] => []
 
 // Modules
 const subscribeModules = (callback: () => void) =>
@@ -95,9 +103,14 @@ export function useGenerationStatus(): GenerationStatus | null {
   return useSyncExternalStore(subscribeGenerationStatus, getGenerationStatus, getGenerationStatusServer)
 }
 
+/** Hook: recent generation errors (auto-cleared after 8s). */
+export function useGenerationErrors(): GenerationError[] {
+  return useSyncExternalStore(subscribeGenerationErrors, getGenerationErrors, getGenerationErrorsServer)
+}
+
 /** Hook: user modules from virtual:egaki-modules. */
 export function useModules(): EagerModules {
   return useSyncExternalStore(subscribeModules, getModules, getModules)
 }
 
-export type { GenerationStatus }
+export type { GenerationStatus, GenerationError }

@@ -5,20 +5,17 @@
  * filesystem access, API calls). They are auto-wrapped in <Server> by
  * wrapGenerateNodes() in server-mdx.ts, so users write them bare in MDX.
  *
- * Each component:
- *   1. Builds a stable cache key from generation params (sorted JSON)
- *   2. Checks public/generated/{type}/ for an existing file with that hash
- *   3. If cached, returns the client wrapper with the resolved URL immediately
- *   4. If not cached, starts generation and returns immediately with a promise
- *      that the client wrapper awaits via React 19 use()
- *   5. On regeneration (seed change), moves old files to stale/ subfolder
+ * Each component delegates to the cached generate functions from egaki/generate
+ * (which handle caching, deduplication, stale management, and progress tracking
+ * via cachedGenerate) and passes the resolved URL to the client wrapper component.
  *
- * Generation props are type-safe, reusing the same option types from
- * egaki/generate. Passthrough props (style, className, trim, etc.) are
- * forwarded to the client wrapper which renders the actual media component.
+ * The server components add a thin layer on top for:
+ * - Composition-aware defaults (aspect ratio from dimensions)
+ * - Asset path resolution (string paths → Uint8Array)
+ * - Fallback lookup for RSC streaming (show stale while generating)
+ * - RSC flight streaming (pass promise to client wrapper)
  */
 
-import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { ComponentProps } from 'react'
@@ -34,16 +31,35 @@ import {
   GeneratedSpeechClient,
 } from './generated-media-client.tsx'
 import type { Img, Audio, Video } from './mdx-video.tsx'
+import { setProjectRoot } from '../cli/cache-utils.js'
+import { getCacheInfo } from '../cli/cached-generate.js'
 
-// projectRoot and composition dimensions are provided by the virtual
-// module at Vite runtime. Using dynamic import so tests that import
-// the caching utilities don't fail trying to resolve it statically.
-let _projectRoot: string | undefined
-async function getProjectRoot(): Promise<string> {
-  if (_projectRoot) return _projectRoot
+// Re-export progress tracking from the centralized module
+export {
+  getGenerationProgress,
+  onProgressChange,
+  type GenerationProgressEvent,
+  type GenerationProgressSummary,
+  type GenerationProgressEntry,
+  type GenerationError,
+  type GenerationEntry,
+} from '../cli/cached-generate.js'
+
+// Re-export caching utilities so existing imports from 'egaki/generate-media' still work
+export { stableJsonKey, hashKey, promptPrefix, findCachedFile, findFallbackFile } from '../cli/cache-utils.js'
+
+// ---------------------------------------------------------------------------
+// Project root and composition dimensions from Vite virtual module.
+// setProjectRoot() is called here so the cached generate functions
+// in egaki/generate know where public/generated/ is.
+// ---------------------------------------------------------------------------
+
+let _initialized = false
+async function ensureInit() {
+  if (_initialized) return
   const mod = await import('virtual:egaki-mdx')
-  _projectRoot = mod.projectRoot
-  return _projectRoot!
+  setProjectRoot(mod.projectRoot)
+  _initialized = true
 }
 
 async function getCompositionDimensions(): Promise<{ width: number; height: number }> {
@@ -70,13 +86,14 @@ function getModelAspectRatios(modelId: string, type: 'image' | 'video'): string[
  *  `/photo.png` → `{projectRoot}/public/photo.png` if the file exists.
  *  Relative paths resolve against projectRoot.
  *  Absolute paths and URLs pass through unchanged. */
-async function resolveAssetPath(p: string): Promise<string> {
+export async function resolveAssetPath(p: string): Promise<string> {
+  await ensureInit()
+  const { getProjectRoot } = await import('../cli/cache-utils.js')
+  const root = getProjectRoot()
   if (p.startsWith('http://') || p.startsWith('https://')) return p
-  const root = await getProjectRoot()
   if (p.startsWith('/')) {
     const publicDir = path.join(root, 'public')
     const publicPath = path.resolve(publicDir, '.' + p)
-    // Guard against path traversal (e.g. `/../secret.txt`)
     if (publicPath.startsWith(publicDir + path.sep) && fs.existsSync(publicPath)) {
       return publicPath
     }
@@ -85,9 +102,8 @@ async function resolveAssetPath(p: string): Promise<string> {
   return path.resolve(root, p)
 }
 
-/** Resolve a path and read it as bytes. Works with public paths (`/img.png`),
- *  relative paths, absolute paths, and URLs (http/https). */
-async function readAssetBytes(p: string): Promise<Uint8Array> {
+/** Resolve a path and read it as bytes. */
+export async function readAssetBytes(p: string): Promise<Uint8Array> {
   const resolved = await resolveAssetPath(p)
   if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
     const res = await fetch(resolved)
@@ -98,169 +114,20 @@ async function readAssetBytes(p: string): Promise<Uint8Array> {
 }
 
 // ---------------------------------------------------------------------------
-// Caching utilities
-// ---------------------------------------------------------------------------
-
-/** Deterministic JSON from a value: keys sorted recursively, undefined
- *  values stripped. Safe for nested objects and arrays. */
-export function stableJsonKey(value: unknown): string {
-  return JSON.stringify(sortValue(value))
-}
-
-function sortValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortValue)
-  if (!value || typeof value !== 'object') return value
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v !== undefined)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([k, v]) => [k, sortValue(v)]),
-  )
-}
-
-/** First 8 hex chars of sha256. */
-export function hashKey(input: string | Uint8Array): string {
-  return createHash('sha256').update(input).digest('hex').slice(0, 8)
-}
-
-/** First ~40 chars of text, kebab-cased, filesystem-safe. */
-export function promptPrefix(text: string): string {
-  const slug = text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .slice(0, 40)
-    .replace(/-$/, '')
-  return slug || 'generated'
-}
-
-function extensionFromMediaType(mediaType: string): string {
-  const map: Record<string, string> = {
-    'image/png': '.png',
-    'image/jpeg': '.jpg',
-    'image/webp': '.webp',
-    'video/mp4': '.mp4',
-    'video/webm': '.webm',
-    'audio/mpeg': '.mp3',
-    'audio/wav': '.wav',
-    'audio/opus': '.opus',
-    'audio/ogg': '.ogg',
-    'audio/aac': '.aac',
-    'audio/flac': '.flac',
-  }
-  return map[mediaType] || '.bin'
-}
-
-type MediaType = 'image' | 'video' | 'audio'
-
-async function generatedDir(type: MediaType): Promise<string> {
-  const root = await getProjectRoot()
-  const dir = path.join(root, 'public', 'generated', type)
-  fs.mkdirSync(dir, { recursive: true })
-  return dir
-}
-
-/** Find an existing cached file by hash in the generated directory.
- *  Also checks the stale/ subfolder — if found there, restores it to the
- *  main directory via renameSync. This self-corrects cases where a file
- *  was moved to stale by a sibling component's generation but is still
- *  needed by this component. Returns the filename or undefined. */
-export function findCachedFile(dir: string, hash: string): string | undefined {
-  try {
-    const found = fs.readdirSync(dir).find((f) => f.includes(hash))
-    if (found) return found
-  } catch { /* empty */ }
-  try {
-    const staleDir = path.join(dir, 'stale')
-    const inStale = fs.readdirSync(staleDir).find((f) => f.includes(hash))
-    if (inStale) {
-      fs.renameSync(path.join(staleDir, inStale), path.join(dir, inStale))
-      console.log(`[egaki] restored from stale: ${inStale}`)
-      return inStale
-    }
-  } catch { /* empty */ }
-  return undefined
-}
-
-/** Find a previous generation with the same prompt prefix that can serve
- *  as fallback while a new generation is in progress. Looks for files
- *  matching the prefix but with a different hash (different seed/params).
- *  Also searches the stale/ subfolder since previous generations may have
- *  been moved there. Returns `{ filename, inStale }` or undefined. */
-export function findFallbackFile(dir: string, prefix: string, currentHash: string): { filename: string; inStale: boolean } | undefined {
-  const match = (f: string) => f.startsWith(prefix + '-') && !f.includes(currentHash)
-  try {
-    const inDir = fs.readdirSync(dir).find(match)
-    if (inDir) return { filename: inDir, inStale: false }
-  } catch { /* empty */ }
-  try {
-    const staleDir = path.join(dir, 'stale')
-    const inStale = fs.readdirSync(staleDir).find(match)
-    if (inStale) return { filename: inStale, inStale: true }
-  } catch { /* empty */ }
-  return undefined
-}
-
-// ---------------------------------------------------------------------------
-// Generation queue: one promise per cache key, deduplicates concurrent calls.
-// Stored on globalThis so in-flight promises survive Vite HMR module reloads.
-// Without this, a module reload would drop the reference to a pending promise,
-// causing the next render to start a duplicate generation.
-// ---------------------------------------------------------------------------
-
-const generationQueue: Map<string, Promise<string>> =
-  (globalThis as any).__egakiGenerationQueue ??= new Map<string, Promise<string>>()
-
-// ---------------------------------------------------------------------------
-// Stale file cleanup — when a new generation completes, move the specific
-// fallback file (the previous generation this component was showing) to
-// stale/. Each generation only moves its own predecessor, so concurrent
-// components with the same prompt but different seeds never interfere.
-// ---------------------------------------------------------------------------
-
-/** Move a specific file into the stale/ subfolder of its directory.
- *  No-op if the file is already in stale/ or doesn't exist. */
-function moveFileToStale(dir: string, fallback: { filename: string; inStale: boolean }) {
-  if (fallback.inStale) return
-  const src = path.join(dir, fallback.filename)
-  const staleDir = path.join(dir, 'stale')
-  try {
-    if (!fs.existsSync(src)) return
-    fs.mkdirSync(staleDir, { recursive: true })
-    fs.renameSync(src, path.join(staleDir, fallback.filename))
-    console.log(`[egaki] moved stale: ${fallback.filename} → stale/`)
-  } catch { /* race with another rename, safe to ignore */ }
-}
-
-/** Format key params for logging, omitting undefined values and the _type field. */
-function formatKeyParams(params: Record<string, unknown>): string {
-  const entries = Object.entries(params)
-    .filter(([k, v]) => v !== undefined && k !== '_type')
-    .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
-  return entries.join(', ')
-}
-
-// ---------------------------------------------------------------------------
 // GeneratedImage
 // ---------------------------------------------------------------------------
 
-// Omit binary props (replaced with string paths) and `count` (always 1 per component).
 type GeneratedImageGenProps = Omit<GenerateImageOptions, 'count' | 'inputImages' | 'maskImage'> & {
-  /** Input image paths for image-to-image. Accepts public paths (`/photo.png`),
-   *  relative paths, absolute paths, or URLs. Read as bytes before generation. */
   inputImages?: string[]
-  /** Mask image path for inpainting. Same resolution rules as inputImages. */
   maskImage?: string
 }
 
 export type GeneratedImageProps = GeneratedImageGenProps & Omit<ComponentProps<typeof Img>, 'src'>
 
 export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: maskImagePath, ...props }: GeneratedImageProps) {
-  // Split generation params from passthrough (component) props
+  await ensureInit()
   const { prompt, model, seed, aspectRatio: aspectRatioProp, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, ...passthrough } = props
-  // Default to the best matching aspect ratio for the composition
-  // dimensions, constrained to the model's supported ratios.
+
   const { width, height } = await getCompositionDimensions()
   const allowedRatios = getModelAspectRatios(model ?? DEFAULT_MODEL, 'image')
   const aspectRatio = aspectRatioProp ?? (
@@ -268,131 +135,62 @@ export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: 
   )
   const inputImages = inputImagePaths ? await Promise.all(inputImagePaths.map(readAssetBytes)) : undefined
   const maskImage = maskImagePath ? await readAssetBytes(maskImagePath) : undefined
-  const genParams: GenerateImageOptions = { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, inputImages, maskImage }
-  // Cache key uses content hashes of binary data instead of raw bytes to
-  // avoid multi-megabyte JSON strings in the generation queue map keys.
-  const keyParams = {
-    _type: 'image' as const, prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize,
-    inputImages: inputImages?.map((b) => hashKey(b)),
-    maskImage: maskImage ? hashKey(maskImage) : undefined,
-  }
-  const key = stableJsonKey(keyParams)
-  const hash = hashKey(key)
-  const dir = await generatedDir('image')
-  const prefix = promptPrefix(prompt)
 
-  // Check cache (restores from stale/ if found there)
-  const cached = findCachedFile(dir, hash)
-  if (cached) {
-    return <GeneratedImageClient srcPromise={Promise.resolve(`/generated/image/${cached}`)} {...passthrough} />
+  const genParams = { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, inputImages, maskImage }
+
+  // Sync cache check + fallback lookup for RSC streaming
+  const cacheInfo = getCacheInfo('image', genParams, prompt)
+  if (cacheInfo.cached) {
+    return <GeneratedImageClient srcPromise={Promise.resolve(`/generated/image/${cacheInfo.cached}`)} {...passthrough} />
   }
 
-  // Find a previous generation with same prompt to show while generating
-  const fallback = findFallbackFile(dir, prefix, hash)
-  const fallbackSrc = fallback
-    ? `/generated/image/${fallback.inStale ? 'stale/' : ''}${fallback.filename}`
-    : undefined
+  // Start generation — cachedGenerate handles dedup, progress, and stale management
+  const { generateImage } = await import('../cli/generate.js')
+  const srcPromise = generateImage(genParams)
+    .then((result) => {
+      if (result instanceof Error) throw result
+      return result.src
+    })
 
-  // Deduplicate concurrent generations
-  let srcPromise = generationQueue.get(key)
-  if (!srcPromise) {
-    srcPromise = (async () => {
-      try {
-        console.log(`[egaki] generating image: ${prefix}-${hash} (${formatKeyParams(keyParams)})`)
-        const { generateImage } = await import('../cli/generate.js')
-        const result = await generateImage(genParams)
-        if (result instanceof Error) {
-          console.error(`[egaki] image generation failed:`, result.message)
-          throw result
-        }
-        const file = result.images[0]
-        if (!file) throw new Error('No image generated')
-        const ext = extensionFromMediaType(file.mediaType)
-        const filename = `${prefix}-${hash}${ext}`
-        fs.writeFileSync(path.join(dir, filename), file.uint8Array)
-        console.log(`[egaki] generated image: ${filename}`)
-        if (fallback) moveFileToStale(dir, fallback)
-        return `/generated/image/${filename}`
-      } finally {
-        generationQueue.delete(key)
-      }
-    })()
-    generationQueue.set(key, srcPromise)
-  }
-
-  return <GeneratedImageClient srcPromise={srcPromise} fallbackSrc={fallbackSrc} {...passthrough} />
+  return <GeneratedImageClient srcPromise={srcPromise} fallbackSrc={cacheInfo.fallbackSrc} {...passthrough} />
 }
 
 // ---------------------------------------------------------------------------
 // GeneratedVideo
 // ---------------------------------------------------------------------------
 
-// Omit binary props (replaced with string path) and `count` (always 1 per component).
 type GeneratedVideoGenProps = Omit<GenerateVideoOptions, 'count' | 'inputImage'> & {
-  /** Input image path for image-to-video. Accepts public paths (`/photo.png`),
-   *  relative paths, absolute paths, or URLs. Read as bytes before generation. */
   inputImage?: string
 }
 
 export type GeneratedVideoProps = GeneratedVideoGenProps & Omit<ComponentProps<typeof Video>, 'src'>
 
 export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: GeneratedVideoProps) {
+  await ensureInit()
   const { prompt, model, seed, aspectRatio: aspectRatioProp, resolution, duration, fps, negativePrompt, mode, videoUrl, referenceImages, ...passthrough } = props
+
   const inputImage = inputImagePath ? await readAssetBytes(inputImagePath) : undefined
-  // Default to the best matching aspect ratio for the composition
-  // dimensions, constrained to the model's supported ratios.
   const { width, height } = await getCompositionDimensions()
   const allowedRatios = getModelAspectRatios(model ?? DEFAULT_VIDEO_MODEL, 'video')
   const aspectRatio = aspectRatioProp ?? (
     allowedRatios?.length ? aspectRatioFromDimensions(width, height, allowedRatios) : undefined
   )
-  const genParams: GenerateVideoOptions = { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, inputImage, mode, videoUrl, referenceImages }
-  const keyParams = {
-    _type: 'video' as const, prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, mode, videoUrl, referenceImages,
-    inputImage: inputImage ? hashKey(inputImage) : undefined,
-  }
-  const key = stableJsonKey(keyParams)
-  const hash = hashKey(key)
-  const dir = await generatedDir('video')
-  const prefix = promptPrefix(prompt)
 
-  const cached = findCachedFile(dir, hash)
-  if (cached) {
-    return <GeneratedVideoClient srcPromise={Promise.resolve(`/generated/video/${cached}`)} {...passthrough} />
+  const genParams = { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, inputImage, mode, videoUrl, referenceImages }
+
+  const cacheInfo = getCacheInfo('video', genParams, prompt)
+  if (cacheInfo.cached) {
+    return <GeneratedVideoClient srcPromise={Promise.resolve(`/generated/video/${cacheInfo.cached}`)} {...passthrough} />
   }
 
-  const fallback = findFallbackFile(dir, prefix, hash)
-  const fallbackSrc = fallback
-    ? `/generated/video/${fallback.inStale ? 'stale/' : ''}${fallback.filename}`
-    : undefined
+  const { generateVideo } = await import('../cli/generate.js')
+  const srcPromise = generateVideo(genParams)
+    .then((result) => {
+      if (result instanceof Error) throw result
+      return result.src
+    })
 
-  let srcPromise = generationQueue.get(key)
-  if (!srcPromise) {
-    srcPromise = (async () => {
-      try {
-        console.log(`[egaki] generating video: ${prefix}-${hash} (${formatKeyParams(keyParams)})`)
-        const { generateVideo } = await import('../cli/generate.js')
-        const result = await generateVideo(genParams)
-        if (result instanceof Error) {
-          console.error(`[egaki] video generation failed:`, result.message)
-          throw result
-        }
-        const file = result.videos[0]
-        if (!file) throw new Error('No video generated')
-        const ext = extensionFromMediaType(file.mediaType)
-        const filename = `${prefix}-${hash}${ext}`
-        fs.writeFileSync(path.join(dir, filename), file.uint8Array)
-        console.log(`[egaki] generated video: ${filename}`)
-        if (fallback) moveFileToStale(dir, fallback)
-        return `/generated/video/${filename}`
-      } finally {
-        generationQueue.delete(key)
-      }
-    })()
-    generationQueue.set(key, srcPromise)
-  }
-
-  return <GeneratedVideoClient srcPromise={srcPromise} fallbackSrc={fallbackSrc} {...passthrough} />
+  return <GeneratedVideoClient srcPromise={srcPromise} fallbackSrc={cacheInfo.fallbackSrc} {...passthrough} />
 }
 
 // ---------------------------------------------------------------------------
@@ -400,57 +198,30 @@ export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: G
 // ---------------------------------------------------------------------------
 
 type GeneratedSpeechGenProps = GenerateSpeechOptions & {
-  /** Optional. Change to trigger regeneration. */
   seed?: number
 }
 
 export type GeneratedSpeechProps = GeneratedSpeechGenProps & Omit<ComponentProps<typeof Audio>, 'src'>
 
 export async function GeneratedSpeech(props: GeneratedSpeechProps) {
+  await ensureInit()
   const { text, model, voice, outputFormat, instructions, speed, language, seed, ...passthrough } = props
+
   const genParams = { text, model, voice, outputFormat, instructions, speed, language, seed }
-  const keyParams = { _type: 'audio' as const, ...genParams }
-  const key = stableJsonKey(keyParams)
-  const hash = hashKey(key)
-  const dir = await generatedDir('audio')
-  const prefix = promptPrefix(text)
 
-  const cached = findCachedFile(dir, hash)
-  if (cached) {
-    return <GeneratedSpeechClient srcPromise={Promise.resolve(`/generated/audio/${cached}`)} {...passthrough} />
+  const cacheInfo = getCacheInfo('audio', genParams, text)
+  if (cacheInfo.cached) {
+    return <GeneratedSpeechClient srcPromise={Promise.resolve(`/generated/audio/${cacheInfo.cached}`)} {...passthrough} />
   }
 
-  const fallback = findFallbackFile(dir, prefix, hash)
-  const fallbackSrc = fallback
-    ? `/generated/audio/${fallback.inStale ? 'stale/' : ''}${fallback.filename}`
-    : undefined
+  const { generateSpeech } = await import('../cli/speech-generate.js')
+  const srcPromise = generateSpeech(genParams)
+    .then((result) => {
+      if (result instanceof Error) throw result
+      return result.src
+    })
 
-  let srcPromise = generationQueue.get(key)
-  if (!srcPromise) {
-    srcPromise = (async () => {
-      try {
-        console.log(`[egaki] generating audio: ${prefix}-${hash} (${formatKeyParams(keyParams)})`)
-        const { generateSpeech } = await import('../cli/speech-generate.js')
-        const result = await generateSpeech({ text, model, voice, outputFormat, instructions, speed, language })
-        if (result instanceof Error) {
-          console.error(`[egaki] audio generation failed:`, result.message)
-          throw result
-        }
-        const file = result.audio
-        const ext = extensionFromMediaType(file.mediaType)
-        const filename = `${prefix}-${hash}${ext}`
-        fs.writeFileSync(path.join(dir, filename), file.uint8Array)
-        console.log(`[egaki] generated audio: ${filename}`)
-        if (fallback) moveFileToStale(dir, fallback)
-        return `/generated/audio/${filename}`
-      } finally {
-        generationQueue.delete(key)
-      }
-    })()
-    generationQueue.set(key, srcPromise)
-  }
-
-  return <GeneratedSpeechClient srcPromise={srcPromise} fallbackSrc={fallbackSrc} {...passthrough} />
+  return <GeneratedSpeechClient srcPromise={srcPromise} fallbackSrc={cacheInfo.fallbackSrc} {...passthrough} />
 }
 
 // ---------------------------------------------------------------------------
@@ -467,3 +238,5 @@ interface TextToSpeechProps {
 export async function TextToSpeech({ text, voice = 'alloy' }: TextToSpeechProps) {
   return GeneratedSpeech({ text, voice })
 }
+
+

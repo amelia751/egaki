@@ -1,13 +1,19 @@
 // Programmatic API for egaki image and video generation.
 // Returns Error | Result (errore style) instead of process.exit/console.error.
-// The CLI (cli.ts) is a thin wrapper around these functions that handles
-// file I/O, stdout piping, interactive pickers, and formatted console output.
+//
+// Two variants for each function:
+//   - `generateImage(opts)` — cached, writes to public/generated/, returns { src: string }
+//   - `generateImageUncached(opts)` — raw, returns bytes in GenerateImageResult
+//
+// The CLI uses *Uncached variants. The cached variants are for the Vite MDX
+// video framework and .server.tsx components.
 //
 // Usage:
-//   import { generateImage, generateVideo, generateSpeech } from 'egaki/generate'
-//   const result = await generateImage({ prompt: 'a sunset', model: 'imagen-4.0-generate-001' })
-//   if (result instanceof Error) { /* handle */ }
-//   result.images[0].uint8Array // raw bytes
+//   import { generateImage, generateImageUncached } from 'egaki/generate'
+//   const cached = await generateImage({ prompt: 'a sunset' })
+//   if (!(cached instanceof Error)) cached.src // '/generated/image/sunset-a1b2c3d4.png'
+//   const raw = await generateImageUncached({ prompt: 'a sunset' })
+//   if (!(raw instanceof Error)) raw.images[0].uint8Array // raw bytes
 import {
   generateImage as aiGenerateImage,
   generateText,
@@ -405,7 +411,7 @@ function toError(err: unknown): Error {
  * to use (image API, text model, or ChatGPT Responses API) based on model ID.
  * Shares credentials and subscription with the CLI.
  */
-export async function generateImage(opts: GenerateImageOptions): Promise<Error | GenerateImageResult> {
+export async function generateImageUncached(opts: GenerateImageOptions): Promise<Error | GenerateImageResult> {
   injectCredentialsToEnv()
 
   const model = opts.model ?? DEFAULT_MODEL
@@ -466,7 +472,7 @@ export async function generateImage(opts: GenerateImageOptions): Promise<Error |
  * Generate videos from a text prompt (or image+text for i2v models).
  * Shares credentials and subscription with the CLI.
  */
-export async function generateVideo(opts: GenerateVideoOptions): Promise<Error | GenerateVideoResult> {
+export async function generateVideoUncached(opts: GenerateVideoOptions): Promise<Error | GenerateVideoResult> {
   injectCredentialsToEnv()
 
   const model = opts.model ?? DEFAULT_VIDEO_MODEL
@@ -829,10 +835,59 @@ async function generateWithResponsesApi(opts: {
   }
 }
 
+// ─── cached result types ─────────────────────────────────────────────────────
+
+export interface CachedGenerateResult {
+  /** Public URL path (e.g. `/generated/image/sunset-a1b2c3d4.png`) */
+  src: string
+}
+
+// ─── cached generateImage ───────────────────────────────────────────────────
+
+import { cachedGenerate } from './cached-generate.js'
+import { extensionFromMediaType } from './cache-utils.js'
+
+export const generateImage = cachedGenerate<GenerateImageOptions & { seed?: number }, GeneratedFile, CachedGenerateResult>({
+  namespace: 'image',
+  prefixFrom: (p) => p.prompt,
+  modelFrom: (p) => p.model,
+  generate: async (params) => {
+    const result = await generateImageUncached(params)
+    if (result instanceof Error) throw result
+    const file = result.images[0]
+    if (!file) throw new Error('No image generated')
+    return file
+  },
+  serialize: (file) => ({
+    bytes: file.uint8Array,
+    extension: extensionFromMediaType(file.mediaType),
+  }),
+})
+
+// ─── cached generateVideo ───────────────────────────────────────────────────
+
+export const generateVideo = cachedGenerate<GenerateVideoOptions & { seed?: number }, GeneratedFile, CachedGenerateResult>({
+  namespace: 'video',
+  prefixFrom: (p) => p.prompt,
+  modelFrom: (p) => p.model,
+  generate: async (params) => {
+    const result = await generateVideoUncached(params)
+    if (result instanceof Error) throw result
+    const file = result.videos[0]
+    if (!file) throw new Error('No video generated')
+    return file
+  },
+  serialize: (file) => ({
+    bytes: file.uint8Array,
+    extension: extensionFromMediaType(file.mediaType),
+  }),
+})
+
 // ─── re-export speech generation ─────────────────────────────────────────────
 
 export {
   generateSpeech,
+  generateSpeechUncached,
   calculateSpeechCost,
   type GenerateSpeechOptions,
   type GenerateSpeechResult,
@@ -842,7 +897,12 @@ export {
 
 export {
   transcribeAudio,
+  transcribeAudioUncached,
   calculateTranscriptionCost,
+  segmentsToWordTimestamps,
+  wordTimestampsToCaptions,
   type TranscribeOptions,
   type TranscribeResult,
+  type WordTimestamp,
+  type TranscriptionSegment,
 } from './transcription-generate.js'

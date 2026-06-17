@@ -6,8 +6,8 @@
  * 1. **modules** — eagerly-imported user .tsx/.ts modules, updated via HMR
  * 2. **sectionReports** — per-section effective media durations reported by
  *    Audio/Video components (ephemeral, not persisted)
- * 3. **activeGenerations** — tracks in-flight AI generation promises for the
- *    toolbar status indicator
+ * 3. **serverGenerationStatus** — server-reported generation progress from
+ *    the /api/generation-progress SSE stream, for the toolbar status indicator
  *
  * React hooks live in store-hooks.ts ('use client') to keep this file
  * importable from any environment (RSC, SSR, client) without pulling in React.
@@ -23,13 +23,31 @@ import { subscribeWithSelector } from 'zustand/middleware'
 /** Same as safe-mdx's EagerModules: Record<string, Record<string, any>> */
 type EagerModules = Record<string, Record<string, any>>
 
-export type GeneratingMediaType = 'image' | 'video' | 'speech'
-
 export interface GenerationStatus {
-  images: number
-  videos: number
-  speeches: number
+  /** Count of active generations per namespace (e.g. { image: 2, video: 1 }) */
+  counts: Record<string, number>
   total: number
+}
+
+/** Individual generation entry from the server progress stream. */
+export interface GenerationProgressEntry {
+  key: string
+  namespace: string
+  label: string
+  model?: string
+  startedAt: number
+  elapsedMs: number
+  params: Record<string, unknown>
+}
+
+/** A generation that failed, reported via the progress stream. */
+export interface GenerationError {
+  key: string
+  namespace: string
+  label: string
+  model?: string
+  error: string
+  durationMs: number
 }
 
 export interface EgakiClientState {
@@ -43,8 +61,15 @@ export interface EgakiClientState {
    */
   sectionReports: Map<number, Map<string, number>>
 
-  /** Active AI generation registrations: unique ID → media type. */
-  activeGenerations: Map<string, GeneratingMediaType>
+  /** Server-reported generation progress from /api/generation-progress SSE stream. */
+  serverGenerationStatus: GenerationStatus | null
+
+  /** Detailed generation entries from the server progress stream. */
+  serverGenerationEntries: GenerationProgressEntry[]
+
+  /** Recent generation errors from the server progress stream.
+   *  Errors auto-clear after ERROR_DISPLAY_DURATION_MS. */
+  serverGenerationErrors: GenerationError[]
 }
 
 // ---------------------------------------------------------------------------
@@ -55,7 +80,9 @@ export const egakiStore = createStore<EgakiClientState>()(
   subscribeWithSelector(() => ({
     modules: {} as EagerModules,
     sectionReports: new Map(),
-    activeGenerations: new Map(),
+    serverGenerationStatus: null as GenerationStatus | null,
+    serverGenerationEntries: [] as GenerationProgressEntry[],
+    serverGenerationErrors: [] as GenerationError[],
   })),
 )
 
@@ -80,16 +107,9 @@ export function selectMediaDurations(state: EgakiClientState): Record<string, nu
   return obj
 }
 
-/** Derive generation counts, or null when nothing is generating. */
+/** Generation status from the server progress stream, or null when idle. */
 export function selectGenerationStatus(state: EgakiClientState): GenerationStatus | null {
-  if (state.activeGenerations.size === 0) return null
-  let images = 0, videos = 0, speeches = 0
-  for (const type of state.activeGenerations.values()) {
-    if (type === 'image') images++
-    else if (type === 'video') videos++
-    else speeches++
-  }
-  return { images, videos, speeches, total: images + videos + speeches }
+  return state.serverGenerationStatus
 }
 
 

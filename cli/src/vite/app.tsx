@@ -47,6 +47,11 @@ import {
   GeneratedVideo,
   GeneratedSpeech,
 } from './server-components.tsx'
+import {
+  getGenerationProgress,
+  onProgressChange,
+  type GenerationProgressEvent,
+} from '../cli/cached-generate.js'
 
 /** Dynamically import the modules referenced inside <Server> blocks.
  *  No static module map and no manual file probing: vite's RSC module
@@ -89,6 +94,31 @@ async function importServerModules(ast: any): Promise<EagerModules> {
 const pageTitle = `${folderName} · egaki`
 
 export const app = new Spiceflow()
+  .get('/api/generation-progress', async function* (): AsyncGenerator<GenerationProgressEvent> {
+    // Yield current state immediately (includes any drained errors).
+    // Return early if there are no active generations — subscribing when
+    // total is 0 would block forever since no progress change will fire.
+    const initial = getGenerationProgress()
+    yield initial
+    if (initial.summary.total === 0) return
+
+    // Subscribe to changes and yield updates until all done.
+    // Uses a promise chain: each listener notification resolves the
+    // current pending promise, and a new one is created for the next.
+    let resolve: (() => void) | null = null
+    const unsubscribe = onProgressChange(() => resolve?.())
+
+    try {
+      while (true) {
+        await new Promise<void>((r) => { resolve = r })
+        const progress = getGenerationProgress()
+        yield progress
+        if (progress.done) return
+      }
+    } finally {
+      unsubscribe()
+    }
+  })
   .page('/', async () => {
     let ast: ReturnType<typeof mdxParse>
     try {

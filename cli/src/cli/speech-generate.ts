@@ -1,13 +1,16 @@
 // Programmatic API for egaki speech generation.
 // Returns Error | Result (errore style) instead of process.exit/console.error.
-// The CLI (cli.ts) is a thin wrapper around this function that handles
-// file I/O, stdout piping, interactive pickers, and formatted console output.
+//
+// Two variants:
+//   - `generateSpeech(opts)` — cached, writes to public/generated/audio/, returns { src }
+//   - `generateSpeechUncached(opts)` — raw, returns bytes in GenerateSpeechResult
 //
 // Usage:
-//   import { generateSpeech } from 'egaki/generate'
-//   const result = await generateSpeech({ text: 'Hello world', model: 'tts-1' })
-//   if (result instanceof Error) { /* handle */ }
-//   result.audio.uint8Array // raw audio bytes
+//   import { generateSpeech, generateSpeechUncached } from 'egaki/generate'
+//   const cached = await generateSpeech({ text: 'Hello world' })
+//   if (!(cached instanceof Error)) cached.src // '/generated/audio/hello-world-a1b2c3d4.mp3'
+//   const raw = await generateSpeechUncached({ text: 'Hello world' })
+//   if (!(raw instanceof Error)) raw.audio.uint8Array // raw bytes
 import {
   experimental_generateSpeech as aiGenerateSpeech,
 } from 'ai'
@@ -135,7 +138,7 @@ function inferMediaTypeFromBytes(audio: Uint8Array, requestedFormat?: string): s
  * Generate speech audio from text. Auto-detects which provider to use
  * based on model ID. Shares credentials and subscription with the CLI.
  */
-export async function generateSpeech(opts: GenerateSpeechOptions): Promise<Error | GenerateSpeechResult> {
+export async function generateSpeechUncached(opts: GenerateSpeechOptions): Promise<Error | GenerateSpeechResult> {
   injectCredentialsToEnv()
 
   const model = opts.model ?? DEFAULT_SPEECH_MODEL
@@ -172,3 +175,24 @@ export async function generateSpeech(opts: GenerateSpeechOptions): Promise<Error
     warnings: result.warnings,
   }
 }
+
+// ─── cached generateSpeech ──────────────────────────────────────────────────
+
+import { cachedGenerate } from './cached-generate.js'
+import { extensionFromMediaType } from './cache-utils.js'
+import type { CachedGenerateResult } from './generate.js'
+
+export const generateSpeech = cachedGenerate<GenerateSpeechOptions & { seed?: number }, GeneratedFile, CachedGenerateResult>({
+  namespace: 'audio',
+  prefixFrom: (p) => p.text,
+  modelFrom: (p) => p.model,
+  generate: async (params) => {
+    const result = await generateSpeechUncached(params)
+    if (result instanceof Error) throw result
+    return result.audio
+  },
+  serialize: (audio) => ({
+    bytes: audio.uint8Array,
+    extension: extensionFromMediaType(audio.mediaType),
+  }),
+})

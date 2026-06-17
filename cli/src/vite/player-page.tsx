@@ -24,7 +24,10 @@ import {
   useVideoConfig,
 } from 'remotion'
 import { renderInBrowser } from './render-client.ts'
-import { useGenerationStatus, type GenerationStatus } from './store-hooks.ts'
+import { createSpiceflowFetch } from 'spiceflow/client'
+import type { app } from './app.tsx'
+import { egakiStore } from './store.ts'
+import { useGenerationStatus, useGenerationErrors, type GenerationStatus } from './store-hooks.ts'
 import { egakiSDK } from './sdk.ts'
 import { LayoutEditor, type SectionMeta } from './layout-editor.tsx'
 import { TweakpaneRoot } from './tweakpane-hook.tsx'
@@ -52,9 +55,79 @@ let cancelPreviousAutoPlay: (() => void) | null = null
  *  when rapid successive HMR edits arrive before the first rAF fires. */
 let sceneSeekVersion = 0
 
+// ---------------------------------------------------------------------------
+// Generation progress client — fetches /api/generation-progress on page
+// load and on every rsc:update using the typed Spiceflow fetch client.
+// The route is an async generator that yields progress events as SSE;
+// createSpiceflowFetch returns an AsyncGenerator we consume with for-await.
+// Max one connection at a time; new rsc:update aborts the previous one.
+// ---------------------------------------------------------------------------
+
+let progressAbortController: AbortController | null = null
+
+function connectToProgress() {
+  if (typeof window === 'undefined') return
+  progressAbortController?.abort()
+  const controller = new AbortController()
+  progressAbortController = controller
+
+  // Lazy-init: createSpiceflowFetch needs window.location.origin which
+  // is only available in the browser, not during SSR.
+  const safeFetch = createSpiceflowFetch<typeof app>(window.location.origin)
+
+  ;(async () => {
+    const result = await safeFetch('/api/generation-progress', {
+      signal: controller.signal,
+    })
+    if (result instanceof Error) return
+
+    // result is an AsyncGenerator<GenerationProgressEvent> from the streaming route
+    try {
+      for await (const event of result) {
+        // Log generation errors to the console and show them in the toolbar
+        if (event.errors?.length) {
+          for (const err of event.errors) {
+            console.error(`[egaki] ${err.namespace} generation failed (${Math.round(err.durationMs / 1000)}s): ${err.error}`)
+          }
+          // Append new errors and auto-clear them after 8 seconds
+          const currentErrors = egakiStore.getState().serverGenerationErrors
+          const newErrors = [...currentErrors, ...event.errors]
+          egakiStore.setState({ serverGenerationErrors: newErrors })
+          const errorKeys = new Set(event.errors.map((e) => e.key))
+          setTimeout(() => {
+            egakiStore.setState({
+              serverGenerationErrors: egakiStore.getState().serverGenerationErrors.filter((e) => !errorKeys.has(e.key)),
+            })
+          }, 8000)
+        }
+        const summary = event.summary
+        egakiStore.setState({
+          serverGenerationStatus: summary.total > 0 ? summary : null,
+          serverGenerationEntries: event.generations,
+        })
+        if (event.done) break
+      }
+    } catch {
+      // Aborted or network error — non-fatal
+    }
+    // Stream ended (all generations complete or no generations)
+    egakiStore.setState({ serverGenerationStatus: null, serverGenerationEntries: [] })
+  })()
+}
+
+// Connect on initial page load (guarded for SSR)
+if (typeof window !== 'undefined') connectToProgress()
+
 if (import.meta.hot) {
   import.meta.hot.on('egaki:scene-changed', (data: { sectionIndex: number }) => {
     pendingSceneSeek = data.sectionIndex
+  })
+  // Reconnect on rsc:update — new generations may have started from
+  // MDX edits that trigger server-side rendering of <Server> blocks.
+  import.meta.hot.on('rsc:update', () => {
+    // Small delay to let the server start processing before we connect,
+    // so the first SSE event already includes the new generations.
+    setTimeout(connectToProgress, 100)
   })
 }
 
@@ -124,9 +197,12 @@ function SpinnerIcon() {
 
 function formatGenerationStatus(status: GenerationStatus): string {
   const parts: string[] = []
-  if (status.images > 0) parts.push(`${status.images} image${status.images > 1 ? 's' : ''}`)
-  if (status.videos > 0) parts.push(`${status.videos} video${status.videos > 1 ? 's' : ''}`)
-  if (status.speeches > 0) parts.push(`${status.speeches} speech${status.speeches > 1 ? 'es' : ''}`)
+  for (const [namespace, count] of Object.entries(status.counts)) {
+    if (count <= 0) continue
+    // Pluralize: add 's' for most, 'es' for speech
+    const plural = count > 1 ? (namespace === 'speech' ? 'es' : 's') : ''
+    parts.push(`${count} ${namespace}${plural}`)
+  }
   return `Generating ${parts.join(', ')}`
 }
 
@@ -449,6 +525,7 @@ export function PlayerPage({
   const mounted = useSyncExternalStore(subscribeNoop, getClientMounted, getServerMounted)
 
   const generationStatus = useGenerationStatus()
+  const generationErrors = useGenerationErrors()
 
   const [editing, setEditing] = useState(false)
   const [resetKey, setResetKey] = useState(0)
@@ -920,6 +997,19 @@ export function PlayerPage({
             <div className='flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] font-medium text-amber-400/90'>
               <SpinnerIcon />
               <span>{formatGenerationStatus(generationStatus)}</span>
+            </div>
+          </>
+        )}
+
+        {generationErrors.length > 0 && (
+          <>
+            <ToolbarSeparator />
+            <div className='flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] font-medium text-red-400/90'>
+              <span style={{ fontSize: 14, lineHeight: 1 }}>✕</span>
+              <span>{generationErrors.length === 1
+                ? `${generationErrors[0]!.namespace} failed: ${generationErrors[0]!.error.slice(0, 60)}`
+                : `${generationErrors.length} generations failed`
+              }</span>
             </div>
           </>
         )}

@@ -19,7 +19,9 @@ beforeEach(() => {
   egakiStore.setState({
     modules: {},
     sectionReports: new Map(),
-    activeGenerations: new Map(),
+    serverGenerationStatus: null,
+    serverGenerationEntries: [],
+    serverGenerationErrors: [],
   })
 })
 
@@ -133,77 +135,68 @@ describe('sectionReports', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Generation tracker
+// Generation status (server-driven)
 // ---------------------------------------------------------------------------
 
-describe('activeGenerations', () => {
-  test('setState tracks a generation', () => {
-    egakiStore.setState((s) => {
-      const next = new Map(s.activeGenerations)
-      next.set('id-1', 'image')
-      return { activeGenerations: next }
+describe('serverGenerationStatus', () => {
+  test('setState tracks server generation status', () => {
+    egakiStore.setState({
+      serverGenerationStatus: { counts: { image: 1 }, total: 1 },
     })
     const status = selectGenerationStatus(egakiStore.getState())
     expect(status).toMatchInlineSnapshot(`
       {
-        "images": 1,
-        "speeches": 0,
+        "counts": {
+          "image": 1,
+        },
         "total": 1,
-        "videos": 0,
       }
     `)
   })
 
   test('multiple generation types counted separately', () => {
     egakiStore.setState({
-      activeGenerations: new Map([
-        ['a', 'image'],
-        ['b', 'image'],
-        ['c', 'video'],
-        ['d', 'speech'],
-      ]),
+      serverGenerationStatus: { counts: { image: 2, video: 1, audio: 1 }, total: 4 },
     })
     const status = selectGenerationStatus(egakiStore.getState())
     expect(status).toMatchInlineSnapshot(`
       {
-        "images": 2,
-        "speeches": 1,
+        "counts": {
+          "audio": 1,
+          "image": 2,
+          "video": 1,
+        },
         "total": 4,
-        "videos": 1,
       }
     `)
   })
 
-  test('removing a generation updates counts', () => {
+  test('setting status to null clears generation tracking', () => {
     egakiStore.setState({
-      activeGenerations: new Map([
-        ['a', 'image'],
-        ['b', 'video'],
-      ]),
+      serverGenerationStatus: { counts: { image: 1 }, total: 1 },
     })
-    egakiStore.setState((s) => {
-      const next = new Map(s.activeGenerations)
-      next.delete('a')
-      return { activeGenerations: next }
-    })
+    egakiStore.setState({ serverGenerationStatus: null })
     const status = selectGenerationStatus(egakiStore.getState())
-    expect(status).toMatchInlineSnapshot(`
-      {
-        "images": 0,
-        "speeches": 0,
-        "total": 1,
-        "videos": 1,
-      }
-    `)
+    expect(status).toBeNull()
   })
 
   test('returns null when no generations active', () => {
     expect(selectGenerationStatus(egakiStore.getState())).toBeNull()
   })
 
-  test('returns null after all generations removed', () => {
-    egakiStore.setState({ activeGenerations: new Map([['a', 'image']]) })
-    egakiStore.setState({ activeGenerations: new Map() })
-    expect(selectGenerationStatus(egakiStore.getState())).toBeNull()
+  test('tracks any namespace', () => {
+    egakiStore.setState({
+      serverGenerationStatus: { counts: { audio: 1, transcription: 2 }, total: 3 },
+    })
+    const status = selectGenerationStatus(egakiStore.getState())
+    expect(status).toMatchInlineSnapshot(`
+      {
+        "counts": {
+          "audio": 1,
+          "transcription": 2,
+        },
+        "total": 3,
+      }
+    `)
   })
 })

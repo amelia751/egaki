@@ -27,6 +27,10 @@
       "types": "./src/vite/server-components.tsx",
       "default": "./src/vite/server-components.tsx"
     },
+    "./cached-generate": {
+      "types": "./src/cli/cached-generate.ts",
+      "default": "./src/cli/cached-generate.ts"
+    },
     "./vite": {
       "types": "./src/vite/vite-plugin.ts",
       "default": "./src/vite/vite-plugin.ts"
