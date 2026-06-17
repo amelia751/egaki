@@ -741,13 +741,16 @@ export function PlayerPage({
   }, [])
 
   return (
-    <div className='flex flex-col items-center justify-center min-h-screen bg-black'>
+    <div className='flex flex-col items-center justify-center min-h-screen bg-black'
+      style={{ paddingBottom: 96, paddingTop: 24 }}>
       <TweakpaneRoot playerRef={playerRef} fps={fps} sections={sections} entryPath={entryPath} />
       {/* Player — fills page width, but capped so the 16:9 height never
-          exceeds the viewport height (max-width = 100vh × aspect ratio). */}
+          exceeds the viewport height minus toolbar space (bottom-6 padding +
+          toolbar height ≈ 96px). The same 96px is applied as padding-bottom
+          on the outer container so the player centers in the remaining space. */}
       <div
         ref={playerContainerRef}
-        style={{ maxWidth: `calc(100vh * ${width / height})` }}
+        style={{ maxWidth: `calc((100vh - 120px) * ${width / height})` }}
         className='w-full overflow-hidden'
       >
         {mounted ? (
