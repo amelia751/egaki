@@ -306,8 +306,8 @@ importers:
         specifier: 4.0.475
         version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       safe-mdx:
-        specifier: ^1.11.2
-        version: 1.11.2(react@19.2.7)
+        specifier: ^1.11.3
+        version: 1.11.3(react@19.2.7)
       shiki:
         specifier: ^4.2.0
         version: 4.2.0
@@ -711,8 +711,8 @@ importers:
         specifier: 4.0.475
         version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       safe-mdx:
-        specifier: ^1.11.2
-        version: 1.11.2(react@19.2.7)
+        specifier: ^1.11.3
+        version: 1.11.3(react@19.2.7)
       spiceflow:
         specifier: 1.26.0-rsc.5
         version: 1.26.0-rsc.5(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.3.6)
@@ -3193,8 +3193,8 @@ packages:
   safe-buffer@5.2.1:
     resolution: {integrity: sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==}
 
-  safe-mdx@1.11.2:
-    resolution: {integrity: sha512-EltsOx5glElIIDRdpeM5p2QsKsMsJ9aUs9zyiSKuAUBjZQIAe2byOEIMtyqzWY+ey4npAcs8VRndkd8bG44QwA==}
+  safe-mdx@1.11.3:
+    resolution: {integrity: sha512-J4NbTtY0aMT2y29RIOhCxBE0Rdl/Zq4DihyvzCtRV55LTgx387d3aPa13b2KqEQWIvGaDGd727lXGWE8y1fneg==}
     peerDependencies:
       react: '*'
 
@@ -6321,7 +6321,7 @@ snapshots:
 
   safe-buffer@5.2.1: {}
 
-  safe-mdx@1.11.2(react@19.2.7):
+  safe-mdx@1.11.3(react@19.2.7):
     dependencies:
       '@babel/parser': 7.29.7
       '@babel/types': 7.29.7
