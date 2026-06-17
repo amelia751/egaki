@@ -15,7 +15,7 @@
  *   3. Highlights the currently-spoken word based on frame/fps timing
  */
 
-import { useCurrentFrame, useVideoConfig } from 'remotion'
+import { useCurrentFrame, useVideoConfig, interpolate } from 'remotion'
 import { Fill } from 'egaki/video'
 import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse } from 'safe-mdx/parse'
@@ -196,6 +196,7 @@ export function ScrollingTranscript({
   const { fps, height } = useVideoConfig()
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([])
   const [centers, setCenters] = useState<number[]>([])
+
   const currentSecond = frame / fps
 
   // Async word timings: start with sync wordTimings (or undefined),
@@ -256,36 +257,54 @@ export function ScrollingTranscript({
 
   useLayoutEffect(() => {
     setCenters(
-      sectionRefs.current.map((el) => {
-        if (!el) return 0
-        return el.offsetTop + el.offsetHeight / 2
-      }),
+      sectionRefs.current.map((el) => (el ? el.offsetTop + el.offsetHeight / 2 : 0)),
     )
   }, [sections, fontSize, maxWidth])
 
+  // Precompute the scroll curve keyframes (stable across frames)
+  const scrollCurve = useMemo(() => {
+    if (centers.length < 2) return undefined
+    return {
+      inputRange: timings.map((t) => t.start),
+      outputRange: centers.map((c) => c - height / 2),
+    }
+  }, [centers, timings, height])
+
   const scrollY = useMemo(() => {
-    if (centers.length < 2) return 0
-    const inputRange = timings.map((t) => t.start)
-    const outputRange = centers.map((c) => c - height / 2)
-    return smoothInterpolate(frame, inputRange, outputRange)
-  }, [frame, centers, timings, height])
+    if (!scrollCurve) return 0
+    const raw = smoothInterpolate(frame, scrollCurve.inputRange, scrollCurve.outputRange)
+    return Math.round(raw * 1000) / 1000
+  }, [frame, scrollCurve])
 
-  const mask = `linear-gradient(to bottom, transparent 0%, black ${fadeMaskRange[0]}%, black ${fadeMaskRange[1]}%, transparent 100%)`
+  const mask = useMemo(
+    () => `linear-gradient(to bottom, transparent 0%, black ${fadeMaskRange[0]}%, black ${fadeMaskRange[1]}%, transparent 100%)`,
+    [fadeMaskRange[0], fadeMaskRange[1]],
+  )
 
-  // Merge word highlight styles with defaults
-  const activeStyle: React.CSSProperties = {
+  // Memoize word highlight styles so React sees the same object reference
+  // across frames where props haven't changed. Without this, every span
+  // gets a new style object every frame, forcing DOM style recalc.
+  // All words get identical padding so toggling the active background
+  // never causes layout shifts. Only the background color changes.
+  const wordBase: React.CSSProperties = {
+    // Horizontal padding extends the background pill, negative margin
+    // cancels it out so word spacing stays at the natural 0.25ch.
+    padding: '0.05em 0.15em',
+    margin: '0 -0.15em',
+    borderRadius: '0.25rem',
+  }
+  const activeStyle = useMemo<React.CSSProperties>(() => ({
+    ...wordBase,
     color: '#ffffff',
-    textShadow: '0 0 20px rgba(255, 255, 255, 0.6), 0 0 40px rgba(255, 255, 255, 0.3)',
+    background: 'rgba(255, 255, 255, 0.15)',
     ...activeWordStyle,
-  }
-  const pastStyle: React.CSSProperties = {
+  }), [activeWordStyle])
+  const inactiveStyle = useMemo<React.CSSProperties>(() => ({
+    ...wordBase,
     color: 'rgba(255, 255, 255, 0.85)',
+    background: 'transparent',
     ...pastWordStyle,
-  }
-  const futureStyle: React.CSSProperties = {
-    color: 'rgba(255, 255, 255, 0.35)',
-    ...futureWordStyle,
-  }
+  }), [pastWordStyle])
 
   return (
     <Fill>
@@ -302,9 +321,25 @@ export function ScrollingTranscript({
           flexDirection: 'column',
           alignItems: 'center',
           willChange: 'transform',
+          // contain: layout + style tells the browser that children's layout
+          // changes cannot affect ancestors, skipping expensive recalc passes.
+          // 'size' is omitted because the container's height depends on its
+          // children (variable section count).
+          contain: 'layout style',
         }}>
           {sections.map((section, i) => {
             const sectionWords = resolvedTimings?.[i]
+            // Derive opacity from scroll distance to this section's center.
+            // This keeps opacity perfectly synchronized with the transform
+            // instead of relying on a discrete activeSectionIndex that can
+            // be out of phase with the scroll position.
+            const distFromCenter = Math.abs((centers[i] ?? 0) - height / 2 - scrollY)
+            const sectionOpacity = interpolate(
+              distFromCenter,
+              [0, 220, 700],
+              [1, 0.4, 0.15],
+              { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+            )
             return (
               <div
                 key={i}
@@ -315,6 +350,13 @@ export function ScrollingTranscript({
                   fontFamily: FONT_SANS,
                   color: '#ffffff',
                   marginBottom: sectionGap,
+                  opacity: sectionOpacity,
+                  // Promote each section to its own compositor layer so
+                  // opacity changes don't force text re-rasterization of
+                  // siblings. The GPU composites the cached bitmap at the
+                  // new opacity instead.
+                  willChange: 'opacity',
+                  contain: 'layout style paint',
                 }}
               >
                 {sectionWords ? (
@@ -324,13 +366,16 @@ export function ScrollingTranscript({
                     fontWeight: 475,
                   }}>
                     {sectionWords.map((wt, wi) => {
-                      const isActive = currentSecond >= wt.startSecond && currentSecond < wt.endSecond
-                      const isPast = currentSecond >= wt.endSecond
-                      const style = isActive ? activeStyle : isPast ? pastStyle : futureStyle
+                      // A word is active if we're within its timestamp range,
+                      // OR if we're past its end but before the next word starts
+                      // (fills gaps between timestamps so the highlight persists).
+                      const nextStart = sectionWords[wi + 1]?.startSecond ?? Infinity
+                      const isActive = currentSecond >= wt.startSecond && currentSecond < nextStart
+                      const style = isActive ? activeStyle : inactiveStyle
 
                       return (
-                        <span key={wi} style={style}>
-                          {wi > 0 ? ' ' : ''}{wt.word}
+                        <span key={wi}>
+                          {wi > 0 ? ' ' : ''}<span style={style}>{wt.word}</span>
                         </span>
                       )
                     })}
@@ -347,6 +392,7 @@ export function ScrollingTranscript({
               </div>
             )
           })}
+
         </div>
       </div>
     </Fill>
