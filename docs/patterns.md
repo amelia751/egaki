@@ -118,6 +118,38 @@ Combine multiple axes for richer movement: zoom in slowly while rotating slightl
 or translate left while tilting on X. The compound motion feels more natural than any
 single axis alone.
 
+### Layering drift with entrance animations
+
+When a scene has an entrance animation (zoom-in, slide-in, etc.), add the drift as an
+**additive layer** that runs over the full scene duration. The entrance handles the first
+burst of motion; the drift keeps things alive after the entrance settles.
+
+Interpolate the drift from a **negative offset to 0** so the final value is predictable.
+This way the element's end position is its natural layout position, and the next scene
+can match it exactly.
+
+```tsx
+// Fast cinematic zoom-in over first 1.5s
+const zoomIn = interpolate(frame, [0, 45], [1, 1.35], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.cinematic,
+})
+
+// Slow linear drift over the full 3s scene
+// Starts at -0.08, ends at 0 — final scale is exactly 1.35
+const drift = interpolate(frame, [0, 90], [-0.08, 0], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+
+const s = Math.round((zoomIn + drift) * 1000) / 1000
+```
+
+The same pattern works for translate: add a small `[-20, 0]` linear translation on top
+of a slide-in entrance. The scene feels alive throughout without changing the final
+resting position.
+
 **References:**
 - [Dime Labs cybertruck with constant camera drift](https://x.com/Dime_Labs/status/1988627564231893223)
 - [Hukam Design product video with ambient motion](https://x.com/hukamdesign/status/2065470376059244579)
@@ -268,3 +300,147 @@ The delay is predictable and frame-exact. No need to calculate durations relativ
 scene length; you just say "start this animation N frames earlier/later than default."
 
 **Reference:** [Sidorenko on cutting animations mid-motion](https://x.com/asidorenko_/status/2064729741119132119)
+
+## Z-rotation as a cross-scene transition
+
+The outgoing scene starts a `rotate()` (Z-axis) toward the end, and the incoming scene
+picks up from that angle and rotates back to 0°. The flat spin bridges the cut; the
+viewer reads one continuous rotation even though the content swaps underneath.
+
+Small angles work best. The outgoing scene rotates from 0° to around 3-5° over its last
+~20 frames; the incoming scene starts at that angle and eases back to 0° over its first
+~20 frames. Anything past 8° starts looking like a UI glitch rather than a transition.
+Combine with a slight scale bump (1.0 to 1.05 and back) so the rotation feels like the
+frame is physically tilting rather than just spinning.
+
+**Reference:** [Michael Nowak dashboard presentation with rotation transitions](https://x.com/mnowakdesign/status/2066489960413462778)
+
+## Zoom-in / zoom-out cross-scene transition
+
+The outgoing scene **zooms in** (scale increases past 1.0) with an ease-out curve, so it
+decelerates into the cut. The incoming scene starts **zoomed in** (scale > 1.0) and
+**zooms back out** to its resting scale (1.0), also with ease-out. Both halves decelerate,
+which makes each side feel like it's settling into place rather than snapping.
+
+The zoom-in on exit draws the viewer's eye toward the center of the frame; the zoom-out
+on entry pulls back to reveal the new content. The shared direction (into the screen, then
+back out) creates a **punch-in / pull-back** rhythm that reads as one continuous camera
+move bridging two scenes.
+
+The ease-out on both sides is key. Ease-in would accelerate into the cut, which feels
+like a collision. Ease-out decelerates, so the outgoing scene gently stretches into the
+cut and the incoming scene gently expands out of it. The transition point is the moment
+of maximum zoom, which is also the moment of lowest velocity, making the hard cut nearly
+invisible.
+
+Scale values around **1.0 to 1.3** for the outgoing scene and **1.3 to 1.0** for the
+incoming scene are a good starting point. Larger values (up to 1.5) feel more dramatic;
+smaller values (1.1) are subtle. Use a heading `transition` overlap so both scenes are
+visible during the zoom crossover.
+
+**Implementation approach:** use `interpolate()` with `EASE.smooth` or `EASE.decelerate`
+on each side. The outgoing scene interpolates `scale` from `1.0` to `1.3` over its last
+~20 frames. The incoming scene interpolates `scale` from `1.3` to `1.0` over its first
+~20 frames. Both use `extrapolateLeft: 'clamp'` and `extrapolateRight: 'clamp'`. Add
+`willChange: 'transform'` to avoid subpixel jitter on text.
+
+**Reference:** [Michael Nowak dashboard presentation with zoom transitions](https://x.com/mnowakdesign/status/2066489960413462778)
+
+## Expanding clip-mask scene transition
+
+The next scene is revealed through a **clip-path** shape that starts small and scales up
+until it covers the entire frame. The outgoing scene stays visible behind the mask; the
+incoming scene is clipped to the expanding shape. As the shape grows, more of the new
+scene is revealed, creating a smooth wipe that radiates outward from a focal point.
+
+The shape can be a **circle** (`clip-path: circle()`), a **rounded rectangle**
+(`clip-path: inset() round ...`), or an **ellipse**. Circle works best for organic,
+center-focused reveals. Inset with border-radius creates a device-shaped reveal (like a
+phone screen expanding to fill the frame, as in the reference video). The shape starts
+at a small percentage of the frame and interpolates to cover 100%.
+
+```
+  Scene A (outgoing, full frame)
+  ┌──────────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                      │
+  │                           ┌─────────────────────┐                                    │
+  │                           │                     │                                    │
+  │                           │    Scene B visible  │  ◄── clip-path boundary             │
+  │                           │    through mask     │      (animating outward)            │
+  │                           │                     │                                    │
+  │                           └─────────────────────┘                                    │
+  │                                                                                      │
+  └──────────────────────────────────────────────────────────────────────────────────────┘
+
+  Frame 0:   clip-path covers ~5% of frame (small shape in center)
+  Frame 30:  clip-path covers ~50% of frame
+  Frame 60:  clip-path covers 100% of frame (Scene B fully visible)
+```
+
+### Circle reveal
+
+Animate `clip-path: circle()` from a small radius to one large enough to cover the
+corners. A radius of `0%` is fully clipped; `75%` guarantees full coverage on a 16:9
+frame (the diagonal from center to corner).
+
+```tsx
+const progress = interpolate(frame, [0, transitionDuration], [0, 1], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.smooth,
+})
+const radius = progress * 75 // percent, 75% covers corners of 16:9
+
+<div style={{
+  clipPath: `circle(${radius}% at 50% 50%)`,
+  position: 'absolute',
+  inset: 0,
+}}>
+  {/* incoming scene content */}
+</div>
+```
+
+### Rounded-rect reveal (device shape)
+
+This variant starts as a small rounded rectangle (mimicking a phone or app screen) and
+expands to fill the frame. The border-radius shrinks to 0 as the shape grows, so the
+reveal starts with visible rounded corners and ends as a sharp full-frame rectangle.
+
+```tsx
+const progress = interpolate(frame, [0, transitionDuration], [0, 1], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.smooth,
+})
+
+// inset shrinks from 40% (small window) to 0% (full frame)
+const inset = (1 - progress) * 40
+// border-radius shrinks from 24px to 0 as it expands
+const radius = Math.round((1 - progress) * 24)
+
+<div style={{
+  clipPath: `inset(${inset}% round ${radius}px)`,
+  position: 'absolute',
+  inset: 0,
+}}>
+  {/* incoming scene content */}
+</div>
+```
+
+### Tips
+
+- **Easing matters.** `EASE.smooth` or `EASE.decelerate` gives a satisfying settle as the
+  mask reaches full size. Linear easing feels mechanical. A slight overshoot
+  (`overshoot(25)`) can add a subtle bounce at the end.
+- **Focal point.** The `at X% Y%` in `circle()` or the asymmetric inset values control
+  where the reveal originates. Center (50% 50%) is the default; offset it to match the
+  subject's position for a more directed reveal.
+- **Layer order.** The outgoing scene renders behind (earlier in DOM); the incoming scene
+  renders on top with the animated clip-path. During the transition overlap (heading
+  `transition` prop), both scenes are mounted. The clip-path on the incoming scene
+  progressively covers the outgoing one.
+- **Combine with scale.** The incoming scene can start slightly zoomed in (scale 1.05) and
+  ease back to 1.0 as the mask expands. This adds depth, making the reveal feel like the
+  new scene is pushing toward the viewer through the opening.
+
+**Reference:** [Motionlogs Studio expanding clip-mask transition](https://x.com/Motionlogstudio/status/2064070112626540789)
