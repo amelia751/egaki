@@ -84,19 +84,28 @@ function connectToProgress() {
     // result is an AsyncGenerator<GenerationProgressEvent> from the streaming route
     try {
       for await (const event of result) {
+        // Guard: if a newer connection replaced us, stop writing state
+        if (progressAbortController !== controller) return
+
         // Log generation errors to the console and show them in the toolbar
         if (event.errors?.length) {
           for (const err of event.errors) {
             console.error(`[egaki] ${err.namespace} generation failed (${Math.round(err.durationMs / 1000)}s): ${err.error}`)
           }
-          // Append new errors and auto-clear them after 8 seconds
+          // Append new errors with unique IDs and auto-clear them after 8 seconds
+          const errorIds = new Set<string>()
+          const tagged = event.errors.map((e) => {
+            const id = `${e.key}:${Date.now()}:${Math.random()}`
+            errorIds.add(id)
+            return { ...e, _id: id }
+          })
           const currentErrors = egakiStore.getState().serverGenerationErrors
-          const newErrors = [...currentErrors, ...event.errors]
-          egakiStore.setState({ serverGenerationErrors: newErrors })
-          const errorKeys = new Set(event.errors.map((e) => e.key))
+          egakiStore.setState({ serverGenerationErrors: [...currentErrors, ...tagged] })
           setTimeout(() => {
             egakiStore.setState({
-              serverGenerationErrors: egakiStore.getState().serverGenerationErrors.filter((e) => !errorKeys.has(e.key)),
+              serverGenerationErrors: egakiStore.getState().serverGenerationErrors.filter(
+                (e) => !errorIds.has((e as any)._id),
+              ),
             })
           }, 8000)
         }
@@ -110,8 +119,10 @@ function connectToProgress() {
     } catch {
       // Aborted or network error — non-fatal
     }
-    // Stream ended (all generations complete or no generations)
-    egakiStore.setState({ serverGenerationStatus: null, serverGenerationEntries: [] })
+    // Guard: only clear state if we're still the active connection
+    if (progressAbortController === controller) {
+      egakiStore.setState({ serverGenerationStatus: null, serverGenerationEntries: [] })
+    }
   })()
 }
 

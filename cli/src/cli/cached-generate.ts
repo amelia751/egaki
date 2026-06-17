@@ -228,12 +228,18 @@ export function getCacheInfo(
   return { hash, prefix, dir, key, cached, fallback, fallbackSrc }
 }
 
+export type CachedGenerateFn<TParams, TResult> = {
+  (params: TParams): Promise<Error | TResult>
+  /** Sync cache check using the same config as the cached function. */
+  getCacheInfo(params: TParams): CacheInfo
+}
+
 export function cachedGenerate<TParams, TGenerated, TResult = { src: string }>(
   config: CachedGenerateConfig<TParams, TGenerated, TResult>,
-): (params: TParams) => Promise<Error | TResult> {
+): CachedGenerateFn<TParams, TResult> {
   const { namespace, prefixFrom, cacheKey, generate, serialize, deserialize, modelFrom } = config
 
-  return function cachedFn(params: TParams): Promise<Error | TResult> {
+  function cachedFn(params: TParams): Promise<Error | TResult> {
     const rawKeyParams = cacheKey ? cacheKey(params) : (params as Record<string, unknown>)
     const keyParams = autoCacheKey(rawKeyParams)
     const key = stableJsonKey(keyParams)
@@ -317,4 +323,11 @@ export function cachedGenerate<TParams, TGenerated, TResult = { src: string }>(
     generationQueue.set(queueKey, promise)
     return promise
   }
+
+  cachedFn.getCacheInfo = function (params: TParams): CacheInfo {
+    const rawKeyParams = cacheKey ? cacheKey(params) : (params as Record<string, unknown>)
+    return getCacheInfo(namespace, rawKeyParams, prefixFrom(params))
+  }
+
+  return cachedFn
 }

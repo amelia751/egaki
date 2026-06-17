@@ -32,7 +32,6 @@ import {
 } from './generated-media-client.tsx'
 import type { Img, Audio, Video } from './mdx-video.tsx'
 import { setProjectRoot } from '../cli/cache-utils.js'
-import { getCacheInfo } from '../cli/cached-generate.js'
 
 // Re-export progress tracking from the centralized module
 export {
@@ -138,14 +137,14 @@ export async function GeneratedImage({ inputImages: inputImagePaths, maskImage: 
 
   const genParams = { prompt, model, seed, aspectRatio, quality, resolution, outputFormat, negativePrompt, allowPeople, imageSize, inputImages, maskImage }
 
-  // Sync cache check + fallback lookup for RSC streaming
-  const cacheInfo = getCacheInfo('image', genParams, prompt)
+  // Sync cache check + fallback lookup for RSC streaming.
+  // Uses the wrapper's getCacheInfo() so the same cacheKey config is applied.
+  const { generateImage } = await import('../cli/generate.js')
+  const cacheInfo = generateImage.getCacheInfo(genParams)
   if (cacheInfo.cached) {
     return <GeneratedImageClient srcPromise={Promise.resolve(`/generated/image/${cacheInfo.cached}`)} {...passthrough} />
   }
 
-  // Start generation — cachedGenerate handles dedup, progress, and stale management
-  const { generateImage } = await import('../cli/generate.js')
   const srcPromise = generateImage(genParams)
     .then((result) => {
       if (result instanceof Error) throw result
@@ -178,12 +177,12 @@ export async function GeneratedVideo({ inputImage: inputImagePath, ...props }: G
 
   const genParams = { prompt, model, seed, aspectRatio, resolution, duration, fps, negativePrompt, inputImage, mode, videoUrl, referenceImages }
 
-  const cacheInfo = getCacheInfo('video', genParams, prompt)
+  const { generateVideo } = await import('../cli/generate.js')
+  const cacheInfo = generateVideo.getCacheInfo(genParams)
   if (cacheInfo.cached) {
     return <GeneratedVideoClient srcPromise={Promise.resolve(`/generated/video/${cacheInfo.cached}`)} {...passthrough} />
   }
 
-  const { generateVideo } = await import('../cli/generate.js')
   const srcPromise = generateVideo(genParams)
     .then((result) => {
       if (result instanceof Error) throw result
@@ -209,12 +208,12 @@ export async function GeneratedSpeech(props: GeneratedSpeechProps) {
 
   const genParams = { text, model, voice, outputFormat, instructions, speed, language, seed }
 
-  const cacheInfo = getCacheInfo('audio', genParams, text)
+  const { generateSpeech } = await import('../cli/speech-generate.js')
+  const cacheInfo = generateSpeech.getCacheInfo(genParams)
   if (cacheInfo.cached) {
     return <GeneratedSpeechClient srcPromise={Promise.resolve(`/generated/audio/${cacheInfo.cached}`)} {...passthrough} />
   }
 
-  const { generateSpeech } = await import('../cli/speech-generate.js')
   const srcPromise = generateSpeech(genParams)
     .then((result) => {
       if (result instanceof Error) throw result

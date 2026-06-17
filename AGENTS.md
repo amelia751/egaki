@@ -383,6 +383,13 @@ Conventions and rules:
 
 **`<Fill>`** (`mdx-video.tsx`): a full-frame layer like Remotion's `AbsoluteFill` but with better defaults for video content. Children **stretch horizontally** to fill the frame and **center vertically**. Available in MDX without imports (part of `MDX_BUILTIN_COMPONENTS`). Also exported from `egaki/video`. Accepts the same `style` and HTML attributes as a `div`; pass `style` to override alignment when needed. Prefer `<Fill>` over raw `<AbsoluteFill>` in egaki components and MDX files. The scene content wrapper in `player-page.tsx` uses `<Fill>` internally.
 
+## `resolveAssetPath` — server-side file resolution
+
+`resolveAssetPath(path)` resolves a file path in server components so that
+public-dir paths like `/image.png` map to `{projectRoot}/public/image.png`.
+URLs and absolute paths pass through unchanged; relative paths resolve against
+`projectRoot`. Import from `egaki/generate-media`.
+
 ## Generated media in TSX server components
 
 `GeneratedImage`, `GeneratedVideo`, and `GeneratedSpeech` can be used inside
@@ -747,7 +754,7 @@ bpm: 120
 ---
 
 <Audio src="/soundtrack.mp3" />
-<Video src="/ambient-bg.mp4" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+<Video src="/ambient-bg.mp4" objectFit="cover" />
 
 # First Section duration=5s
 
@@ -854,6 +861,13 @@ how media is resized to fit its container. Use `objectFit="cover"` to fill the
 frame edge to edge, cropping excess content. This is a component prop, not a CSS
 style; the component applies it to its internal canvas element.
 
+The egaki `Video` wrapper (in `mdx-video.tsx`) defaults to `width: 100%` and
+`height: 100%` on the canvas, so the video always fills its container. This is
+necessary because safe-mdx drops the `style` prop from components passed as
+expression props (e.g. `background={<Video style={{...}} />}`), making explicit
+user styles unreliable in MDX. The default can be overridden with an explicit
+`style` prop when used from TSX.
+
 ```tsx
 import { Video, Img, Fill } from 'egaki/video'
 
@@ -864,7 +878,6 @@ import { Video, Img, Fill } from 'egaki/video'
     muted
     loop
     objectFit="cover"
-    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
   />
 </Fill>
 
@@ -925,6 +938,25 @@ const s = Math.round(scale * 1000) / 1000
 scale animations. Integer snapping causes visible stutter because the element jumps
 by full pixels each frame instead of gliding smoothly.
 
+**Never** use `extrapolateLeft: 'clamp'` or `extrapolateRight: 'clamp'` on slow,
+continuous animations like scrolling, panning, or ambient drift. Remotion's
+`interpolate()` defaults to `'extend'` for both sides, which continues the slope
+of the first/last segment beyond the input range. Clamping freezes the output at
+the boundary value, creating visible "stuck" frames where nothing moves. Only use
+`clamp` for bounded animations where the value must not exceed the output range
+(opacity 0-1, scale that shouldn't overshoot, progress bars).
+
+```tsx
+// Smooth continuous scroll: extend (default) keeps moving at edges
+const scrollY = interpolate(frame, [60, 300, 600], [0, 500, 1200])
+
+// Bounded opacity: clamp prevents going below 0 or above 1
+const opacity = interpolate(frame, [0, 30], [0, 1], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+```
+
 ## Zoom/scale effect at a specific point
 
 Animate `transform: scale()` with `transformOrigin` set to the focal point. This is
@@ -971,35 +1003,6 @@ const scale = spring({ frame, fps, config: springFromDuration(0.6, 0.3) })
 ```
 
 Always apply `willChange: 'transform'` and round to 3 decimal places (see next section).
-
-## Preventing subpixel jitter in animations
-
-Animating `transform: scale()` or `translateX/Y()` with fractional values causes
-**subpixel stuttering** — text re-rasterizes at slightly different subpixel positions
-each frame. Monospace text and thin lines (gridlines, borders) are especially sensitive.
-
-Two rules to prevent it:
-
-1. **Add `willChange: 'transform'`** on the animated element. This promotes the layer
-   to its own compositor surface so the browser rasterizes once and transforms the
-   bitmap instead of re-laying-out text every frame.
-2. **Round interpolated values** to 3 decimal places to reduce uniquely-valued frames:
-   `Math.round(value * 1000) / 1000`.
-
-```tsx
-const scale = interpolate(frame, [0, 90], [1, 1.35], {
-  extrapolateLeft: 'clamp',
-  extrapolateRight: 'clamp',
-  easing: EASE.cinematic,
-})
-const s = Math.round(scale * 1000) / 1000
-
-<div style={{
-  transform: `scale(${s})`,
-  transformOrigin: '60% 45%',
-  willChange: 'transform',
-}}>
-```
 
 ## Predictable end position for entrance animations
 
@@ -1260,10 +1263,60 @@ All option types are re-exported from `@remotion/web-renderer`. See Remotion doc
 
 - **[Lottie to Remotion conversion](docs/lottie-to-remotion.md)**: how to read a Lottie JSON file and reproduce its animations using Remotion's `interpolate()` and `Easing.bezier()`. Covers the full keyframe/easing model, field mapping, overshoot, hold keyframes, per-segment easing, and a conversion algorithm.
 
+## `cachedGenerate` — persisted memoization for expensive async functions
+
+`cachedGenerate()` is a higher-order function that wraps any async function with
+filesystem caching, deduplication, stale management, and progress tracking. All
+built-in generate functions (`generateImage`, `generateVideo`, `generateSpeech`,
+`transcribeAudio`) are defined with it. User code in `.server.tsx` files can use
+it too via `import { cachedGenerate } from 'egaki/cached-generate'`.
+
+```ts
+import { cachedGenerate } from 'egaki/cached-generate'
+
+const cachedExplore = cachedGenerate({
+  namespace: 'explore',
+  prefixFrom: (p) => p.query,
+  generate: async (params) => fetchExploreApi(params.query),
+  serialize: (result) => ({ json: result, extension: '.json' }),
+  deserialize: ({ filePath }) => JSON.parse(fs.readFileSync(filePath, 'utf-8')),
+})
+```
+
+**Features:**
+- **Auto cache key**: params object is the cache key. `Uint8Array` values are
+  recursively hashed to 8-char hex. `undefined` values are stripped.
+- **Namespace isolation**: files go to `public/generated/{namespace}/`, dedup
+  queue keys are prefixed with namespace.
+- **Dedup**: concurrent calls with the same key return the same promise.
+- **Stale management**: old files with same prefix but different hash move to `stale/`.
+- **Progress tracking**: automatic, keyed by namespace. Drives the player toolbar.
+- **Error handling**: errors are not cached; failed calls retry on next invocation.
+  Errors from serialize/write failures are also caught and reported.
+
+**Config options:**
+- `namespace` (required) — filesystem path and progress key
+- `prefixFrom(params)` (required) — human-readable filename prefix
+- `generate(params)` (required) — the actual work; throw on error
+- `serialize(result, params)` (required) — `{ bytes, extension }` or `{ json, extension: '.json' }`
+- `cacheKey(params)` (optional) — extract cache-relevant subset, e.g. exclude display-only fields
+- `deserialize({ urlPath, filePath })` (optional) — defaults to `{ src: urlPath }`
+- `modelFrom(params)` (optional) — model ID for progress display
+
+**The returned function has a `.getCacheInfo(params)` method** for sync cache
+checks in RSC streaming patterns (check cache, find fallback, then start async
+generation). Server components use this for the fallback preview pattern.
+
+**Params must be JSON-serializable** (after Uint8Array hashing). `Date`, `Map`,
+`Set`, and other non-plain objects are not supported in cache keys; they serialize
+to `{}`. Pass primitive representations instead (ISO strings, arrays, plain objects).
+
 ## Key files
 
 | File | Role |
 |---|---|
+| `cli/src/cli/cached-generate.ts` | `cachedGenerate()` HOF, progress registry, `getCacheInfo()` |
+| `cli/src/cli/cache-utils.ts` | Deterministic keys, file lookup, stale management, dedup queue |
 | `cli/src/vite/vite-plugin.ts` | Vite plugin entry, virtual modules, HMR |
 | `cli/src/vite/app.tsx` | Spiceflow RSC server: MDX string + `<Server>` slot rendering |
 | `cli/src/vite/mdx-client.tsx` | Client MDX app: parsing, sections, safe-mdx rendering |

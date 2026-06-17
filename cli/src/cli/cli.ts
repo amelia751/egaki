@@ -50,17 +50,18 @@ import {
   showUsage,
 } from './subscription.js'
 import {
-  generateImage,
-  generateVideo,
+  generateImageUncached as generateImage,
+  generateVideoUncached as generateVideo,
   calculateCost,
   ValidationError,
   type GeneratedFile,
 } from './generate.js'
 import {
-  generateSpeech,
+  generateSpeechUncached as generateSpeech,
 } from './speech-generate.js'
 import {
-  transcribeAudio,
+  transcribeAudioUncached as transcribeAudio,
+  segmentsToWordTimestamps,
 } from './transcription-generate.js'
 import {
   SPEECH_CATALOG,
@@ -826,6 +827,7 @@ cli
     const output = {
       text: result.text,
       segments: result.segments,
+      wordTimestamps: segmentsToWordTimestamps(result.segments),
       language: result.language,
       durationInSeconds: result.durationInSeconds,
       model: result.model,
