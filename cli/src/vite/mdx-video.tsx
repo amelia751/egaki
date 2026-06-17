@@ -1092,6 +1092,8 @@ function extractBezier(
 // ---------------------------------------------------------------------------
 
 import {
+  Suspense,
+  use,
   useEffect,
   useId,
   useLayoutEffect,
@@ -1311,9 +1313,51 @@ function useReportMediaDuration(props: {
   return rawDuration
 }
 
-export function Img(props: React.ImgHTMLAttributes<HTMLImageElement>) {
+// ---------------------------------------------------------------------------
+// ExportDelayFallback — Suspense fallback that blocks Remotion frame capture
+// during export when a promise src is still pending. In the interactive Player,
+// renders nothing (no blocking needed).
+// ---------------------------------------------------------------------------
+
+function ExportDelayFallback() {
+  const isExporting = useIsExporting()
+  const { delayRender, continueRender } = useDelayRender()
+
+  useLayoutEffect(() => {
+    if (!isExporting) return
+    const handle = delayRender('Waiting for async media src')
+    return () => continueRender(handle)
+  }, [isExporting, delayRender, continueRender])
+
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Promise-aware media components — Audio, Video, Img all accept
+// src: string | Promise<string>. When a promise is passed, the component
+// wraps internally in Suspense + use() to resolve it. During export,
+// delayRender blocks frame capture until the promise resolves.
+// ---------------------------------------------------------------------------
+
+type ImgProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
+  src?: string | Promise<string>
+}
+
+function ResolvedImg({ srcPromise, ...rest }: { srcPromise: Promise<string> } & Omit<ImgProps, 'src'>) {
+  const src = use(srcPromise)
+  return <Img src={src} {...rest} />
+}
+
+export function Img(props: ImgProps) {
   const { style, src, ...rest } = props
   if (!src) return null
+  if (src instanceof Promise) {
+    return (
+      <Suspense fallback={<ExportDelayFallback />}>
+        <ResolvedImg srcPromise={src} style={style} {...rest} />
+      </Suspense>
+    )
+  }
   // eslint-disable-next-line jsx-a11y/alt-text
   return <RemotionImg src={src} style={{ display: 'block', ...style }} {...rest} />
 }
@@ -1328,36 +1372,89 @@ type GapProps = {
   gapAfter?: number
 }
 
-export function Audio(props: ComponentProps<typeof MediaAudio> & GapProps) {
-  const { gapBefore, gapAfter, ...mediaProps } = props
-  const container = useContext(LayoutContainerContext)
-  useReportMediaDuration(props, container === 'ghost')
-  if (container === 'ghost') return null
-  if (gapBefore) {
-    return <Sequence from={gapBefore} layout="none"><MediaAudio {...mediaProps} /></Sequence>
-  }
-  return <MediaAudio {...mediaProps} />
+type AudioProps = Omit<ComponentProps<typeof MediaAudio>, 'src'> & GapProps & {
+  src?: string | Promise<string>
 }
 
-export function Video(props: ComponentProps<typeof MediaVideo> & GapProps) {
-  const { gapBefore, gapAfter, ...mediaProps } = props
+function ResolvedAudio({ srcPromise, ...rest }: { srcPromise: Promise<string> } & Omit<AudioProps, 'src'>) {
+  const src = use(srcPromise)
+  return <Audio src={src} {...rest} />
+}
+
+export function Audio(props: AudioProps) {
+  const { gapBefore, gapAfter, src, ...mediaProps } = props
+  const container = useContext(LayoutContainerContext)
+  // Skip duration reporting when src is a promise (not yet resolved)
+  useReportMediaDuration(
+    { ...props, src: typeof src === 'string' ? src : undefined },
+    container === 'ghost' || src instanceof Promise,
+  )
+  if (container === 'ghost') return null
+
+  if (src instanceof Promise) {
+    return (
+      <Suspense fallback={<ExportDelayFallback />}>
+        <ResolvedAudio srcPromise={src} gapBefore={gapBefore} gapAfter={gapAfter} {...mediaProps} />
+      </Suspense>
+    )
+  }
+
+  if (gapBefore) {
+    return <Sequence from={gapBefore} layout="none"><MediaAudio src={src} {...mediaProps} /></Sequence>
+  }
+  return <MediaAudio src={src} {...mediaProps} />
+}
+
+type VideoProps = Omit<ComponentProps<typeof MediaVideo>, 'src'> & GapProps & {
+  src?: string | Promise<string>
+}
+
+function ResolvedVideo({ srcPromise, ...rest }: { srcPromise: Promise<string> } & Omit<VideoProps, 'src'>) {
+  const src = use(srcPromise)
+  return <Video src={src} {...rest} />
+}
+
+export function Video(props: VideoProps) {
+  const { gapBefore, gapAfter, src, ...mediaProps } = props
   const container = useContext(LayoutContainerContext)
   const isExporting = useIsExporting()
+
+  // Promise src: wrap in Suspense, resolve, then re-render with string src
+  if (src instanceof Promise) {
+    return (
+      <Suspense fallback={<ExportDelayFallback />}>
+        <ResolvedVideo srcPromise={src} gapBefore={gapBefore} gapAfter={gapAfter} {...mediaProps} />
+      </Suspense>
+    )
+  }
+
+  // Default to filling the container. Remotion's canvas renders at the
+  // video's native resolution without explicit width/height, which causes
+  // the video to appear tiny in flex layouts. safe-mdx also drops the
+  // style prop when a component is passed as an expression prop (e.g.
+  // background={<Video style={{...}} />}), so explicit user styles are
+  // unreliable in MDX. Defaulting to 100% matches how users expect a
+  // video to behave in a layout system. An explicit style prop overrides.
+  const filledProps = {
+    ...mediaProps,
+    src,
+    style: { width: '100%', height: '100%', ...mediaProps.style },
+  }
 
   const wrapWithGap = (el: ReactNode) =>
     gapBefore ? <Sequence from={gapBefore} layout="none">{el}</Sequence> : el
 
   if (container === 'ghost') {
     // Render real video muted so LayoutTransition FLIP gets accurate geometry
-    return wrapWithGap(<MediaVideo {...mediaProps} muted volume={0} />)
+    return wrapWithGap(<MediaVideo {...filledProps} muted volume={0} />)
   }
 
   // During export, report duration but skip tweakpane UI
   if (isExporting) {
-    return wrapWithGap(<VideoExportDuration {...mediaProps} gapBefore={gapBefore} gapAfter={gapAfter} />)
+    return wrapWithGap(<VideoExportDuration {...filledProps} gapBefore={gapBefore} gapAfter={gapAfter} />)
   }
 
-  return wrapWithGap(<VideoWithTweakpane {...mediaProps} gapBefore={gapBefore} gapAfter={gapAfter} />)
+  return wrapWithGap(<VideoWithTweakpane {...filledProps} gapBefore={gapBefore} gapAfter={gapAfter} />)
 }
 
 /** Export mode: reports duration to section store, renders plain MediaVideo. */
