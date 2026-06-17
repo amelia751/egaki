@@ -48,6 +48,7 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "ShimmerSweep",
         "SlideIn",
         "SlideOut",
+        "SlotText",
         "SpringPopIn",
         "StaggeredFadeUp",
         "TerminalSimulator",

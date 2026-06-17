@@ -1,9 +1,6 @@
 /**
- * Text slides for the cut-in-motion example.
- *
- * TextSlide is just styled text, no positioning or background.
- * Bg is a separate full-frame background color layer.
- * The SlideIn/SlideOut wrappers only move the text, not the background.
+ * Simple components for the slot-text example.
+ * SlotText itself is a built-in egaki component (no import needed in MDX).
  */
 
 'use client'

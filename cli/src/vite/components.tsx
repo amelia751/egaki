@@ -13,6 +13,7 @@
 import type { ReactNode } from 'react'
 import {
   AbsoluteFill,
+  Easing,
   Sequence,
   interpolate,
   spring,
@@ -1182,6 +1183,191 @@ export function AnimatedChart({
           </div>
         )}
       </div>
+    </AbsoluteFill>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SlotText — Remotion-native recreation of github.com/Danilaa1/slot-text
+//
+// Each character sits in its own clipped cell and rolls in/out vertically
+// with per-character stagger. Uses the same cubic-bezier(0.34, 1.56, 0.64, 1)
+// easing as the original — a single clean overshoot, not a ringing spring.
+//
+// Props match the original slot-text API:
+// - direction: "up" | "down" (roll direction, default "down")
+// - stagger: ms between characters (default 45)
+// - duration: per-character animation time in ms (default 300)
+// - exitOffset: delay before incoming glyph chases the outgoing one (default 50ms)
+// - bounce: per-character personality/wobble 0-1 (default 0.6)
+// - color: chromatic tint string or (index, total) => string
+// ---------------------------------------------------------------------------
+
+// The original slot-text easing: a single overshoot then settle.
+// cubic-bezier(0.34, 1.56, 0.64, 1)
+const slotTextEasing = Easing.bezier(0.34, 1.56, 0.64, 1)
+
+/**
+ * Deterministic per-character jitter in [-1, 1]. Gives each glyph its own
+ * speed and tilt so the line doesn't land as a rigid block. Ported from
+ * slot-text's wobble function.
+ */
+function slotWobble(i: number, salt: number) {
+  const n = Math.sin((i + 1) * 12.9898 + salt * 78.233) * 43758.5453
+  return (n - Math.floor(n)) * 2 - 1
+}
+
+function SlotCharCell({
+  char,
+  index,
+  total,
+  direction,
+  staggerFrames,
+  durationFrames,
+  exitOffsetFrames,
+  bounce,
+  color,
+  font,
+  size,
+  fontWeight,
+  baseColor,
+}: {
+  char: string
+  index: number
+  total: number
+  direction: 'up' | 'down'
+  staggerFrames: number
+  durationFrames: number
+  exitOffsetFrames: number
+  bounce: number
+  color?: string | ((index: number, total: number) => string)
+  font: string
+  size: number
+  fontWeight: number
+  baseColor: string
+}) {
+  const frame = useCurrentFrame()
+
+  // Per-character personality: vary duration and stagger slightly so
+  // the line doesn't land as one rigid block. Tilt is kept small (2deg max)
+  // so rotated corners never swing into neighboring cells.
+  const d = Math.round(durationFrames * (1 + bounce * 0.45 * slotWobble(index, 1)))
+  const staggerDelay = Math.round(index * staggerFrames * (1 + bounce * 0.25 * slotWobble(index, 2)))
+  const tiltDeg = bounce * 2 * slotWobble(index, 3)
+  const H = size * 1.3
+  const inStart = direction === 'down' ? -H : H
+  const localFrame = frame - staggerDelay - exitOffsetFrames
+
+  // Use the same cubic-bezier as the original slot-text CSS transition.
+  // Clamp progress to [0, 1] input range; the easing output overshoots
+  // past 1 naturally (y1=1.56) giving the characteristic single-overshoot settle.
+  const t = d <= 0 ? 1 : Math.max(0, Math.min(1, localFrame / d))
+  const enterProgress = localFrame <= 0 ? 0 : slotTextEasing(t)
+
+  const y = inStart * (1 - enterProgress)
+  const rot = tiltDeg * (1 - enterProgress)
+  const tint = typeof color === 'function' ? color(index, total) : color
+  const done = localFrame >= d
+  const charColor = tint ? (done ? baseColor : tint) : baseColor
+  const displayChar = char === ' ' ? '\u00A0' : char
+
+  return (
+    <span style={{
+      position: 'relative',
+      display: 'inline-flex',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      overflowX: 'visible',
+      overflowY: 'clip',
+      lineHeight: 1.3,
+      verticalAlign: 'bottom',
+      flex: 'none',
+    }}>
+      <span style={{ visibility: 'hidden', whiteSpace: 'pre', fontFamily: font, fontSize: size, fontWeight }}>
+        {displayChar}
+      </span>
+      <span style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        whiteSpace: 'pre',
+        willChange: 'transform',
+        transform: `translateY(${Math.round(y * 100) / 100}px) rotate(${Math.round(rot * 100) / 100}deg)`,
+        transformOrigin: '50% 50%',
+        color: charColor,
+        fontFamily: font,
+        fontSize: size,
+        fontWeight,
+      }}>
+        {displayChar}
+      </span>
+    </span>
+  )
+}
+
+export function SlotText({
+  text,
+  direction = 'down',
+  stagger = 45,
+  duration = 300,
+  exitOffset = 50,
+  bounce = 0.6,
+  color,
+  font = 'Inter, system-ui, sans-serif',
+  size = 72,
+  fontWeight = 800,
+  baseColor = '#ffffff',
+  letterSpacing = -2,
+}: {
+  text: string
+  direction?: 'up' | 'down'
+  /** Per-character stagger in ms (default 45). */
+  stagger?: number
+  /** Slide duration per character in ms (default 300). */
+  duration?: number
+  /** Delay before the incoming glyph chases the outgoing one, in ms (default 50). */
+  exitOffset?: number
+  /** Per-letter personality: 0 = every glyph lands identically, 1 = lots of individual
+   *  variation in speed and a little tilt-wobble as each settles. Default 0.6. */
+  bounce?: number
+  /** Chromatic flash: a CSS color string or (index, total) => string. */
+  color?: string | ((index: number, total: number) => string)
+  font?: string
+  size?: number
+  fontWeight?: number
+  baseColor?: string
+  letterSpacing?: number
+}) {
+  const { fps } = useVideoConfig()
+  const staggerFrames = (stagger / 1000) * fps
+  const durationFrames = (duration / 1000) * fps
+  const exitOffsetFrames = (exitOffset / 1000) * fps
+  const chars = Array.from(text)
+
+  return (
+    <AbsoluteFill style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ display: 'inline-flex', whiteSpace: 'pre', letterSpacing, lineHeight: 1.1 }}>
+        {chars.map((char, i) => (
+          <SlotCharCell
+            key={`${i}-${char}`}
+            char={char}
+            index={i}
+            total={chars.length}
+            direction={direction}
+            staggerFrames={staggerFrames}
+            durationFrames={durationFrames}
+            exitOffsetFrames={exitOffsetFrames}
+            bounce={bounce}
+            color={color}
+            font={font}
+            size={size}
+            fontWeight={fontWeight}
+            baseColor={baseColor}
+          />
+        ))}
+      </span>
     </AbsoluteFill>
   )
 }

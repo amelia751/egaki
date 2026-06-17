@@ -34,6 +34,7 @@ import {
   SpringPopIn,
   AnimatedChart,
   FeaturePill,
+  SlotText,
 } from './components.tsx'
 import { AngledScreen } from './angled-screen.tsx'
 import { CodeBlock, CODE_THEMES } from './code-block.tsx'
@@ -1694,6 +1695,7 @@ export const MDX_BUILTIN_COMPONENTS = {
   BlurIn,
   BlurOut,
   Animate,
+  SlotText,
   GeneratedImage,
   GeneratedVideo,
   GeneratedSpeech,
