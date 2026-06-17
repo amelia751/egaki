@@ -41,7 +41,7 @@ import {
 } from './server-mdx.ts'
 import { parseFrontmatter, buildMdxScope } from './mdx-parse.ts'
 import { MdxClientApp } from './mdx-client.tsx'
-import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
+import * as mdxVideoExports from './mdx-video.tsx'
 import {
   GeneratedImage,
   GeneratedVideo,
@@ -152,12 +152,18 @@ export const app = new Spiceflow()
       Object.keys(eagerModules),
     )
 
-    // Override client stubs with real server components for generated
-    // media. The client stubs in MDX_BUILTIN_COMPONENTS return null;
-    // the server versions call egaki's generation APIs and return
-    // client wrappers with streaming promises.
-    const serverComponents = {
-      ...MDX_BUILTIN_COMPONENTS,
+    // Build the server components map from the mdx-video namespace import.
+    // mdx-video.tsx has 'use client', so each named export in the namespace
+    // is an individual client reference. Spreading the namespace gives
+    // { Fill: clientRef, Video: clientRef, ... } — proper references that
+    // SafeMdxRenderer can render. (Spreading MDX_BUILTIN_COMPONENTS directly
+    // would give {} because it's a single client reference to a const object,
+    // and spreading a function produces an empty object.)
+    const serverComponents: Record<string, any> = {
+      ...(mdxVideoExports as any),
+      // Override client stubs with real server components for generated
+      // media. The stubs return null; the server versions call egaki's
+      // generation APIs and return client wrappers with streaming promises.
       GeneratedImage,
       GeneratedVideo,
       GeneratedSpeech,
