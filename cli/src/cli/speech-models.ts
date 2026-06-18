@@ -1,14 +1,12 @@
 // Speech model registry for egaki.
-// Maps speech model IDs to their provider and SDK factory. Follows the same
-// pattern as models.ts for image/video: PROVIDER_SDKS descriptor map with
-// lazy imports, auth source detection, and gateway fallback.
+// Maps speech model IDs to their provider and SpeechProvider factory.
 //
 // Provider resolution priority (same as image/video):
-//   1. Direct provider key → direct SDK
+//   1. Direct provider key → direct provider implementation
 //   2. Egaki API key → route through egaki gateway (future)
 //   3. No key → error with subscription recommendation
-import type { SpeechModel } from 'ai'
 import pc from 'picocolors'
+import type { SpeechProvider } from './speech-generate.js'
 import {
   PROVIDERS,
   injectCredentialsToEnv,
@@ -22,33 +20,24 @@ import {
 
 export { type SpeechModelEntry }
 
-export const SPEECH_MODELS = SPEECH_CATALOG.map((m) => m.id) as [string, ...string[]]
 export const DEFAULT_SPEECH_MODEL = 'tts-1'
 
-// ─── provider SDK descriptor map ─────────────────────────────────────────────
+// ─── provider factory map ────────────────────────────────────────────────────
 
-type SpeechProviderSdk = {
-  speech: (modelId: string) => Promise<Error | SpeechModel>
-}
+type SpeechProviderFactory = () => Promise<SpeechProvider>
 
-const SPEECH_PROVIDER_SDKS: Record<string, SpeechProviderSdk> = {
-  openai: {
-    speech: async (id) => {
-      const { openai } = await import('@ai-sdk/openai')
-      return openai.speech(id)
-    },
+const SPEECH_PROVIDER_FACTORIES: Record<string, SpeechProviderFactory> = {
+  openai: async () => {
+    const { createOpenAISpeechProvider } = await import('./openai-speech-provider.js')
+    return createOpenAISpeechProvider()
   },
-  elevenlabs: {
-    speech: async (id) => {
-      const { elevenlabs } = await import('@ai-sdk/elevenlabs')
-      return elevenlabs.speech(id)
-    },
+  elevenlabs: async () => {
+    const { createElevenLabsSpeechProvider } = await import('./elevenlabs-speech-provider.js')
+    return createElevenLabsSpeechProvider()
   },
-  cartesia: {
-    speech: async (id) => {
-      const { createCartesiaSpeechModel } = await import('./cartesia-provider.js')
-      return createCartesiaSpeechModel(id)
-    },
+  cartesia: async () => {
+    const { createCartesiaSpeechProvider } = await import('./cartesia-provider.js')
+    return createCartesiaSpeechProvider()
   },
 }
 
@@ -120,24 +109,38 @@ export function ensureSpeechProviderKey(providerName: string): Error | undefined
   )
 }
 
+// ─── provider cache ──────────────────────────────────────────────────────────
+
+/** Global cache of provider instances, keyed by provider name. */
+const providerCache: Map<string, Promise<SpeechProvider>> =
+  (globalThis as any).__egakiSpeechProviderCache ??= new Map()
+
 // ─── public factory ──────────────────────────────────────────────────────────
 
-export async function createSpeechModel(modelId: string): Promise<Error | SpeechModel> {
+export function getSpeechProvider(providerName: string): Error | SpeechProvider {
   injectCredentialsToEnv()
 
-  const config = getSpeechModelConfig(modelId)
-  if (config instanceof Error) return config
-
-  const keyError = ensureSpeechProviderKey(config.provider)
+  const keyError = ensureSpeechProviderKey(providerName)
   if (keyError) return keyError
 
-  const authSource = resolveAuthSource(config.provider)
+  const authSource = resolveAuthSource(providerName)
   logAuthSource(authSource)
 
-  const factory = SPEECH_PROVIDER_SDKS[config.provider]
+  const factory = SPEECH_PROVIDER_FACTORIES[providerName]
   if (!factory) {
-    return new Error(`Speech generation is not supported for provider: ${config.provider}`)
+    return new Error(`Speech generation is not supported for provider: ${providerName}`)
   }
 
-  return factory.speech(modelId)
+  // Return a lazy provider: the factory is async but we want getSpeechProvider
+  // to be sync for ergonomic use in generateSpeechUncached. The provider promise
+  // is cached globally per provider name so the factory runs once across all calls.
+  return {
+    async generate(options) {
+      const cached = providerCache.get(providerName)
+      if (cached) return (await cached).generate(options)
+      const promise = factory()
+      providerCache.set(providerName, promise)
+      return (await promise).generate(options)
+    },
+  }
 }

@@ -5,22 +5,52 @@
 //   - `generateSpeech(opts)` — cached, writes to public/generated/audio/, returns { src }
 //   - `generateSpeechUncached(opts)` — raw, returns bytes in GenerateSpeechResult
 //
+// Uses our own SpeechProvider interface instead of the Vercel AI SDK's
+// experimental_generateSpeech. This lets providers return word-level timestamps
+// alongside audio (ElevenLabs /with-timestamps, Cartesia /tts/sse).
+//
 // Usage:
 //   import { generateSpeech, generateSpeechUncached } from 'egaki/generate'
 //   const cached = await generateSpeech({ text: 'Hello world' })
 //   if (!(cached instanceof Error)) cached.src // '/generated/audio/hello-world-a1b2c3d4.mp3'
 //   const raw = await generateSpeechUncached({ text: 'Hello world' })
 //   if (!(raw instanceof Error)) raw.audio.uint8Array // raw bytes
-import {
-  experimental_generateSpeech as aiGenerateSpeech,
-} from 'ai'
+//   if (raw.timestamps) raw.timestamps[0] // { word: 'Hello', startSecond: 0, endSecond: 0.4 }
 import { injectCredentialsToEnv } from './credentials.js'
 import {
   getSpeechModelConfig,
-  createSpeechModel,
+  getSpeechProvider,
   DEFAULT_SPEECH_MODEL,
 } from './speech-models.js'
 import type { GeneratedFile } from './generate.js'
+import type { WordTimestamp } from './transcription-generate.js'
+
+export type { WordTimestamp }
+
+// ─── SpeechProvider interface ────────────────────────────────────────────────
+// Each provider implements this to generate audio + optional word timestamps.
+
+export interface SpeechProviderResult {
+  audio: Uint8Array
+  mediaType: string
+  /** Word-level timestamps, if the provider supports them. */
+  timestamps?: WordTimestamp[]
+}
+
+export interface SpeechProviderOptions {
+  text: string
+  modelId: string
+  voice?: string
+  outputFormat?: string
+  instructions?: string
+  speed?: number
+  language?: string
+  abortSignal?: AbortSignal
+}
+
+export interface SpeechProvider {
+  generate(options: SpeechProviderOptions): Promise<SpeechProviderResult>
+}
 
 // ─── autocomplete-friendly union types ───────────────────────────────────────
 
@@ -71,13 +101,16 @@ export interface GenerateSpeechOptions {
   speed?: number
   /** ISO 639-1 language code (e.g. "en", "es", "fr"). */
   language?: string
+  /** Abort signal for cancelling the request. */
+  abortSignal?: AbortSignal
 }
 
 export interface GenerateSpeechResult {
   audio: GeneratedFile
   model: string
   cost: number | null
-  warnings?: unknown[]
+  /** Word-level timestamps, if the provider supports them (ElevenLabs, Cartesia). */
+  timestamps?: WordTimestamp[]
 }
 
 // ─── cost calculation ────────────────────────────────────────────────────────
@@ -137,6 +170,7 @@ function inferMediaTypeFromBytes(audio: Uint8Array, requestedFormat?: string): s
 /**
  * Generate speech audio from text. Auto-detects which provider to use
  * based on model ID. Shares credentials and subscription with the CLI.
+ * Returns word-level timestamps when the provider supports them.
  */
 export async function generateSpeechUncached(opts: GenerateSpeechOptions): Promise<Error | GenerateSpeechResult> {
   injectCredentialsToEnv()
@@ -145,54 +179,97 @@ export async function generateSpeechUncached(opts: GenerateSpeechOptions): Promi
   const config = getSpeechModelConfig(model)
   if (config instanceof Error) return config
 
-  const speechModel = await createSpeechModel(model)
-  if (speechModel instanceof Error) return speechModel
+  const provider = getSpeechProvider(config.provider)
+  if (provider instanceof Error) return provider
 
-  let result
+  let result: SpeechProviderResult
   try {
-    result = await aiGenerateSpeech({
-      model: speechModel,
+    result = await provider.generate({
       text: opts.text,
-      ...(opts.voice ? { voice: opts.voice } : {}),
-      ...(opts.outputFormat ? { outputFormat: opts.outputFormat } : {}),
-      ...(opts.instructions ? { instructions: opts.instructions } : {}),
-      ...(opts.speed != null ? { speed: opts.speed } : {}),
-      ...(opts.language ? { language: opts.language } : {}),
+      modelId: model,
+      voice: opts.voice,
+      outputFormat: opts.outputFormat,
+      instructions: opts.instructions,
+      speed: opts.speed,
+      language: opts.language,
+      abortSignal: opts.abortSignal,
     })
   } catch (err) {
     return err instanceof Error ? err : new Error(String(err))
   }
 
-  const audioBytes = result.audio.uint8Array
-  const mediaType = result.audio.mediaType || inferMediaTypeFromBytes(audioBytes, opts.outputFormat)
-
+  const mediaType = result.mediaType || inferMediaTypeFromBytes(result.audio, opts.outputFormat)
   const cost = calculateSpeechCost(config.cost, opts.text.length)
 
   return {
-    audio: { uint8Array: audioBytes, mediaType },
+    audio: { uint8Array: result.audio, mediaType },
     model,
     cost,
-    warnings: result.warnings,
+    timestamps: result.timestamps,
   }
 }
 
 // ─── cached generateSpeech ──────────────────────────────────────────────────
+// Writes audio to public/generated/audio/ and a sidecar .timestamps.json
+// next to it when the provider returns word timestamps. On cache hit,
+// the sidecar is read back to populate the result.
+//
+// Uses cachedGenerate with postWrite to write the timestamps sidecar after
+// the audio file, and deserialize to read it back on cache hit.
 
+import fs from 'node:fs'
+import path from 'node:path'
 import { cachedGenerate } from './cached-generate.js'
 import { extensionFromMediaType } from './cache-utils.js'
-import type { CachedGenerateResult } from './generate.js'
 
-export const generateSpeech = cachedGenerate<GenerateSpeechOptions & { seed?: number }, GeneratedFile, CachedGenerateResult>({
+/** Compute the sidecar timestamps path for an audio file.
+ *  Stored in a `timestamps/` subdirectory to avoid cache key collision:
+ *  findCachedFile() matches any filename containing the hash, so a sidecar
+ *  like `foo-hash.mp3.timestamps.json` in the same directory would be
+ *  mistakenly returned as the "cached audio" file. */
+function timestampsPathFor(filePath: string): string {
+  return path.join(path.dirname(filePath), 'timestamps', path.basename(filePath) + '.json')
+}
+
+export interface CachedSpeechResult {
+  src: string
+  timestamps?: WordTimestamp[]
+}
+
+/** Internal result carrying both audio bytes and optional timestamps. */
+interface SpeechGenerateOutput {
+  audio: GeneratedFile
+  timestamps?: WordTimestamp[]
+}
+
+export const generateSpeech = cachedGenerate<GenerateSpeechOptions & { seed?: number }, SpeechGenerateOutput, CachedSpeechResult>({
   namespace: 'audio',
   prefixFrom: (p) => p.text,
   modelFrom: (p) => p.model,
   generate: async (params) => {
     const result = await generateSpeechUncached(params)
     if (result instanceof Error) throw result
-    return result.audio
+    return { audio: result.audio, timestamps: result.timestamps }
   },
-  serialize: (audio) => ({
-    bytes: audio.uint8Array,
-    extension: extensionFromMediaType(audio.mediaType),
+  serialize: (output) => ({
+    bytes: output.audio.uint8Array,
+    extension: extensionFromMediaType(output.audio.mediaType),
   }),
+  postWrite: (filePath, output) => {
+    if (output.timestamps?.length) {
+      const tsPath = timestampsPathFor(filePath)
+      fs.mkdirSync(path.dirname(tsPath), { recursive: true })
+      fs.writeFileSync(tsPath, JSON.stringify(output.timestamps, null, 2))
+    }
+  },
+  deserialize: ({ urlPath, filePath }) => {
+    const tsPath = timestampsPathFor(filePath)
+    let timestamps: WordTimestamp[] | undefined
+    try {
+      if (fs.existsSync(tsPath)) {
+        timestamps = JSON.parse(fs.readFileSync(tsPath, 'utf-8'))
+      }
+    } catch { /* non-fatal: timestamps are optional */ }
+    return { src: urlPath, timestamps }
+  },
 })

@@ -617,8 +617,8 @@ cli
     '-o, --output [path]',
     z
       .string()
-      .default('egaki-output.mp3')
-      .describe('Output file path for the generated audio'),
+      .default('egaki-output')
+      .describe('Output file path (extension added from audio format if omitted)'),
   )
   .option(
     '--voice [voice]',
@@ -688,7 +688,7 @@ cli
     }
 
     const model = options.model ?? await resolveSpeechModel()
-    const outputPath = options.output ?? 'egaki-output.mp3'
+    const outputPath = options.output ?? 'egaki-output'
 
     if (!options.stdout) {
       console.error(pc.dim(`Model: ${model}`))
@@ -723,7 +723,7 @@ cli
         file: finalPath,
         cost: result.cost,
         textLength: inputText.length,
-        warnings: result.warnings,
+        timestamps: result.timestamps ? result.timestamps.length : 0,
       }, null, 2))
     }
   })

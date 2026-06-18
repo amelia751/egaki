@@ -38,6 +38,10 @@ export interface GenerationEntry {
   model?: string
   startedAt: number
   params: Record<string, unknown>
+  /** URL path to the in-progress file. Set by onPartial writes during streaming
+   *  generation (e.g. accumulated audio written every ~2s). Cleared when
+   *  generation completes. Flows through the progress SSE to the client. */
+  partialSrc?: string
 }
 
 const generationRegistry: Map<string, GenerationEntry> =
@@ -190,6 +194,11 @@ export interface CachedGenerateConfig<TParams, TGenerated, TResult> {
 
   /** Model ID key in params, used for progress tracking display. */
   modelFrom?: (params: TParams) => string | undefined
+
+  /** Called after the main file is written to disk. Use this to write
+   *  sidecar files (e.g. timestamps JSON alongside audio).
+   *  Receives the generated result so it can extract extra data to persist. */
+  postWrite?: (filePath: string, result: TGenerated, params: TParams) => void
 }
 
 /** Result of getCacheInfo — used by server components for sync cache checks
@@ -237,7 +246,7 @@ export type CachedGenerateFn<TParams, TResult> = {
 export function cachedGenerate<TParams, TGenerated, TResult = { src: string }>(
   config: CachedGenerateConfig<TParams, TGenerated, TResult>,
 ): CachedGenerateFn<TParams, TResult> {
-  const { namespace, prefixFrom, cacheKey, generate, serialize, deserialize, modelFrom } = config
+  const { namespace, prefixFrom, cacheKey, generate, serialize, deserialize, modelFrom, postWrite } = config
 
   function cachedFn(params: TParams): Promise<Error | TResult> {
     const rawKeyParams = cacheKey ? cacheKey(params) : (params as Record<string, unknown>)
@@ -300,6 +309,12 @@ export function cachedGenerate<TParams, TGenerated, TResult = { src: string }>(
           fs.writeFileSync(filePath, serialized.bytes)
         } else {
           fs.writeFileSync(filePath, JSON.stringify(serialized.json, null, 2))
+        }
+
+        if (postWrite) {
+          try { postWrite(filePath, result, params) } catch (e) {
+            console.error(`[egaki] postWrite error for ${namespace}:`, e)
+          }
         }
 
         console.log(`[egaki] generated ${namespace}: ${filename}`)

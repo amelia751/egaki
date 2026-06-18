@@ -891,6 +891,10 @@ export {
   calculateSpeechCost,
   type GenerateSpeechOptions,
   type GenerateSpeechResult,
+  type CachedSpeechResult,
+  type SpeechProvider,
+  type SpeechProviderOptions,
+  type SpeechProviderResult,
 } from './speech-generate.js'
 
 // ─── re-export transcription ─────────────────────────────────────────────────
