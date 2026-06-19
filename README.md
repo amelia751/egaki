@@ -136,7 +136,7 @@ egaki image "a fox wearing armor in a misty forest" -m grok-imagine-image -o fox
 
 # High quality + 2K resolution
 egaki image "product photo of a ceramic vase on linen" \
-  -m grok-imagine-image-pro \
+  -m grok-imagine-image-quality \
   --quality high \
   --resolution 2k \
   -o vase.png

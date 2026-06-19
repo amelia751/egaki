@@ -1130,7 +1130,7 @@ const FEATURED_IMAGE_MODELS = [
   'flux-pro-1.1-ultra',
   'recraft-v4',
   'dall-e-3',
-  'grok-imagine-image-pro',
+  'grok-imagine-image-quality',
 ]
 
 /**

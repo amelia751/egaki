@@ -748,11 +748,11 @@ export const CATALOG: ModelEntry[] = [
     },
   },
   {
-    id: 'grok-imagine-image-pro',
-    name: 'Grok Imagine Image Pro',
-    released: '2026-03',
+    id: 'grok-imagine-image-quality',
+    name: 'Grok Imagine Image Quality',
+    released: '2026-04',
     ...xaiImage,
-    cost: { type: 'per-image', perImage: 0.07 },
+    cost: { type: 'per-image', perImage: 0.05 },
     features: {
       editing: true,
       inpainting: false,
@@ -1603,8 +1603,8 @@ export const VIDEO_CATALOG: VideoModelEntry[] = [
     providerOptions: xaiVideoProviderOptions,
   },
   {
-    id: 'grok-imagine-video-1.5-preview',
-    name: 'Grok Imagine Video 1.5 Preview',
+    id: 'grok-imagine-video-1.5',
+    name: 'Grok Imagine Video 1.5',
     provider: 'xai',
     strategy: 'video',
     released: '2026-05',

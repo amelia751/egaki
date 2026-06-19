@@ -58,7 +58,7 @@ export type ImageModelId =
   | 'flux-2-pro' | 'flux-2-max' | 'flux-2-flex' | 'flux-2-klein-9b' | 'flux-2-klein-4b'
   | 'recraft-v2' | 'recraft-v3' | 'recraft-v4' | 'recraft-v4-pro' | 'recraft-v4.1' | 'recraft-v4.1-pro' | 'recraft-v4.1-utility' | 'recraft-v4.1-utility-pro'
   | 'seedream-5.0-lite' | 'seedream-4.5' | 'seedream-4.0'
-  | 'grok-imagine-image' | 'grok-imagine-image-pro'
+  | 'grok-imagine-image' | 'grok-imagine-image-quality'
   | 'dall-e-2' | 'dall-e-3' | 'gpt-image-1' | 'gpt-image-1-mini' | 'gpt-image-1.5' | 'gpt-image-2' | 'chatgpt-image-latest'
   | (string & {})
 
@@ -66,7 +66,7 @@ export type ImageModelId =
 export type VideoModelId =
   | 'veo-3.1-generate-001' | 'veo-3.1-fast-generate-001' | 'veo-3.0-generate-001' | 'veo-3.0-fast-generate-001'
   | 'vertex/veo-3.1-generate-001' | 'vertex/veo-3.1-fast-generate-001'
-  | 'grok-imagine-video' | 'grok-imagine-video-1.5-preview'
+  | 'grok-imagine-video' | 'grok-imagine-video-1.5'
   | 'kling-v3.0-t2v' | 'kling-v3.0-i2v' | 'kling-v3.0-motion-control' | 'kling-v2.6-t2v' | 'kling-v2.6-i2v' | 'kling-v2.6-motion-control'
   | 'kling-v2.5-turbo-t2v' | 'kling-v2.5-turbo-i2v'
   | 'wan-v2.6-t2v' | 'wan-v2.6-i2v' | 'wan-v2.6-i2v-flash' | 'wan-v2.6-r2v' | 'wan-v2.6-r2v-flash' | 'wan-v2.5-t2v-preview'
