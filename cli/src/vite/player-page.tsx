@@ -270,8 +270,6 @@ function SuspenseFallback() {
 interface SectionProps {
   heading: string | null
   durationInFrames: number
-  /** Transition overlap with the NEXT section, in frames. 0 = hard cut. */
-  transitionFrames: number
   jsx: ReactNode
 }
 

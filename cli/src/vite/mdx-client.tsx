@@ -180,7 +180,7 @@ function Server(props: { 'data-markdown-line'?: number }) {
 // ---------------------------------------------------------------------------
 
 type CompositionResult = {
-  sections: { heading: string | null; durationInFrames: number | null; transitionFrames: number; jsx: ReactNode }[]
+  sections: { heading: string | null; durationInFrames: number | null; jsx: ReactNode }[]
   preamble: ReactNode | undefined
   frontmatter: ReturnType<typeof parseFrontmatter>
   parseError?: string
@@ -196,7 +196,6 @@ function makeErrorComposition(error: Error): CompositionResult {
     sections: [{
       heading: 'Parse Error',
       durationInFrames: frontmatter.fps * 5,
-      transitionFrames: 0,
       jsx: (
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -311,7 +310,6 @@ function buildComposition(mdxSource: string, modules: EagerModules): Composition
   const sections = result.sections.map((section) => ({
     heading: section.heading,
     durationInFrames: section.durationInFrames,
-    transitionFrames: section.transitionFrames,
     jsx: renderNodes(section.nodes),
   }))
 

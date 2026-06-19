@@ -74,7 +74,7 @@ function summarize(mdx: string) {
     sections: sections.map((s) => ({
       heading: s.heading,
       durationInFrames: s.durationInFrames,
-      transitionFrames: s.transitionFrames,
+
       nodes: s.nodes.length,
     })),
   }
@@ -109,19 +109,16 @@ Goodbye
             "durationInFrames": null,
             "heading": "Intro",
             "nodes": 1,
-            "transitionFrames": 0,
           },
           {
             "durationInFrames": null,
             "heading": "Middle",
             "nodes": 1,
-            "transitionFrames": 0,
           },
           {
             "durationInFrames": null,
             "heading": "End",
             "nodes": 1,
-            "transitionFrames": 0,
           },
         ],
       }
@@ -268,50 +265,6 @@ Content
     // Import should not create an implicit section before the heading
     expect(result.sections).toHaveLength(1)
     expect(result.sections[0]!.heading).toBe('Scene')
-  })
-
-  test('transition in heading (frames)', () => {
-    const result = summarize(`
-# Scene 1 duration=5s transition=20
-
-Content
-
-# Scene 2 duration=3s
-
-More content
-    `)
-    expect(result.sections[0]!.heading).toBe('Scene 1')
-    expect(result.sections[0]!.durationInFrames).toBe(150) // 5s * 30fps
-    expect(result.sections[0]!.transitionFrames).toBe(20)
-    expect(result.sections[1]!.transitionFrames).toBe(0)
-  })
-
-  test('transition in heading (seconds)', () => {
-    const result = summarize(`
-# Intro duration=3s transition=0.5s
-
-Content
-
-# Outro duration=3s
-
-More
-    `)
-    expect(result.sections[0]!.transitionFrames).toBe(15) // 0.5s * 30fps
-  })
-
-  test('calculateTotalDuration subtracts transition overlaps', () => {
-    const { sections, frontmatter } = split(`
-# A duration=100 transition=20
-
-x
-
-# B duration=200
-
-y
-    `)
-    const resolved = resolveAutoDurations(sections, frontmatter.fps, frontmatter.bpm)
-    // 100 + 200 - 20 = 280
-    expect(calculateTotalDuration(resolved)).toBe(280)
   })
 
   test('content before first heading goes to preamble', () => {

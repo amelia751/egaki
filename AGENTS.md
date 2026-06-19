@@ -287,9 +287,9 @@ npx opensrc <owner>/<repo>      # GitHub repo (e.g., npx opensrc vercel/ai)
 
 MDX-to-video framework built on Remotion and Spiceflow. Write MDX with headings as section boundaries; each heading becomes a timed Remotion `Series.Sequence`. Frontmatter sets global `fps` and `bpm`.
 
-### Heading duration and transition units
+### Heading duration units
 
-`duration` and `transition` props on headings accept a number with an optional unit suffix:
+`duration` props on headings accept a number with an optional unit suffix:
 
 | Unit | Example | Meaning |
 |---|---|---|
@@ -308,9 +308,9 @@ bpm: 120
 
 # Verse duration=8beats
 
-# Bridge duration=90frames transition=15f
+# Bridge duration=90frames
 
-# Outro duration=2s transition=0.5s
+# Outro duration=2s
 ```
 
 ## How it works

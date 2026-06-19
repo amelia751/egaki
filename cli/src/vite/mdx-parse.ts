@@ -142,13 +142,11 @@ export function aspectRatioFromDimensions(width: number, height: number, allowed
 // Duration parsing from heading text
 // ---------------------------------------------------------------------------
 
-const HEADING_PROP_RE = /\s+(duration|transition)=(\d+(?:\.\d+)?)(s|fps|frames?|f|beats?)?/gi
+const HEADING_PROP_RE = /\s+(duration)=(\d+(?:\.\d+)?)(s|fps|frames?|f|beats?)?/gi
 
 interface ParsedHeading {
   label: string
   durationInFrames: number | null
-  /** Transition overlap with the NEXT section, in frames. 0 = hard cut. */
-  transitionFrames: number | null
 }
 
 function parseHeadingProps(
@@ -158,7 +156,6 @@ function parseHeadingProps(
 ): ParsedHeading {
   let label = rawText
   let durationInFrames: number | null = null
-  let transitionFrames: number | null = null
   const framesPerBeat = fps / (bpm / 60)
 
   // Strip all key=value props from the heading text
@@ -177,13 +174,11 @@ function parseHeadingProps(
 
     if (key.toLowerCase() === 'duration') {
       durationInFrames = frames
-    } else if (key.toLowerCase() === 'transition') {
-      transitionFrames = frames
     }
     return ''
   }).trim()
 
-  return { label: label || 'Untitled', durationInFrames, transitionFrames }
+  return { label: label || 'Untitled', durationInFrames }
 }
 
 // ---------------------------------------------------------------------------
@@ -195,8 +190,6 @@ export interface MdxSection {
   nodes: RootContent[]
   /** Duration in frames. `null` means "auto-infer from media content". */
   durationInFrames: number | null
-  /** Transition overlap with the NEXT section, in frames. 0 = hard cut. */
-  transitionFrames: number
 }
 
 export interface SplitResult {
@@ -249,7 +242,6 @@ export function splitIntoSections(mdast: Root): SplitResult {
         heading: parsed.label,
         nodes: [],
         durationInFrames: parsed.durationInFrames ?? null,
-        transitionFrames: parsed.transitionFrames ?? 0,
       }
       sections.push(current)
       continue
@@ -268,17 +260,12 @@ export function splitIntoSections(mdast: Root): SplitResult {
   return { sections, frontmatter, imports, preamble }
 }
 
-/** Calculate total composition duration, subtracting transition overlaps.
+/** Calculate total composition duration.
  *  All sections must have resolved (non-null) durations. */
-export function calculateTotalDuration(sections: { durationInFrames: number; transitionFrames: number }[]): number {
+export function calculateTotalDuration(sections: { durationInFrames: number }[]): number {
   let total = 0
   for (const s of sections) {
     total += s.durationInFrames
-  }
-  // Each section's transitionFrames creates an overlap with the next section,
-  // reducing total duration by that amount.
-  for (const s of sections) {
-    total -= s.transitionFrames
   }
   return total
 }
@@ -305,7 +292,7 @@ export type ResolvedMdxSection = MdxSection & { durationInFrames: number }
  * Sections with explicit durations are returned unchanged.
  * Generic so extra fields (like `jsx`) are preserved in the return type.
  */
-export function resolveAutoDurations<T extends { durationInFrames: number | null; transitionFrames: number }>(
+export function resolveAutoDurations<T extends { durationInFrames: number | null }>(
   sections: T[],
   fps: number,
   bpm: number,
