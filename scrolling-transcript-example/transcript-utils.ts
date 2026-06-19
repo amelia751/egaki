@@ -24,6 +24,18 @@ export interface WordTiming {
 }
 
 // ---------------------------------------------------------------------------
+// Types for rich word extraction
+// ---------------------------------------------------------------------------
+
+/** A word with its inline formatting context from the markdown AST. */
+export interface RichWord {
+  word: string
+  bold: boolean
+  italic: boolean
+  code: boolean
+}
+
+// ---------------------------------------------------------------------------
 // Text extraction
 // ---------------------------------------------------------------------------
 
@@ -44,6 +56,37 @@ export function extractPlainText(markdown: string): string {
   }
   walk(ast)
   return texts.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+/** Extract words from markdown preserving inline formatting context.
+ *  Returns the same words as extractPlainText (same order, same count),
+ *  but each word carries bold/italic/code flags from the AST. */
+export function extractRichWords(markdown: string): RichWord[] {
+  const ast = mdxParse(markdown)
+  const result: RichWord[] = []
+
+  function walk(node: any, bold: boolean, italic: boolean, code: boolean) {
+    if (node.type === 'text') {
+      const words = node.value.split(/\s+/).filter(Boolean)
+      for (const w of words) {
+        result.push({ word: w, bold, italic, code })
+      }
+    } else if (node.type === 'inlineCode') {
+      const words = node.value.split(/\s+/).filter(Boolean)
+      for (const w of words) {
+        result.push({ word: w, bold, italic, code: true })
+      }
+    } else if (node.children) {
+      const isBold = bold || node.type === 'strong'
+      const isItalic = italic || node.type === 'emphasis'
+      for (const child of node.children) {
+        walk(child, isBold, isItalic, code)
+      }
+    }
+  }
+
+  walk(ast, false, false, false)
+  return result
 }
 
 /** Compute total duration in seconds for a set of sections (including padding). */

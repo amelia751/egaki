@@ -6,6 +6,7 @@ bpm: 120
 import {
   TextReveal,
   TypewriterLine,
+  TextRoll,
   FloatingCards,
   ArchitectureDiagram,
   MetricCounters,
@@ -26,15 +27,26 @@ import {
 
 <TextReveal text="Motion + Egaki" color="#e2e8f0" />
 
-# Typewriter duration=4s
+# TextRoll duration=4s
 
 <Background>
 <MeshGradientBg colors={['#0a0a1a', '#111128', '#0d0d20', '#0a0a18']} speed={0.1} />
 </Background>
 
-<FadeIn duration={10}>
-  <TypewriterLine words={['const', 'video', '=', 'await', 'render()']} />
-</FadeIn>
+<TextRoll
+  style={{
+    fontSize: 72,
+    fontWeight: 800,
+    color: '#a5b4fc',
+    letterSpacing: '-0.03em',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+    textAlign: 'center',
+    display: 'block',
+  }}
+  duration={0.6}
+  getEnterDelay={(i) => i * 0.06}
+  getExitDelay={(i) => i * 0.06 + 0.3}
+>Frame by Frame</TextRoll>
 
 # Cards duration=4s
 

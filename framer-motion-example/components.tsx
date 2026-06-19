@@ -7,7 +7,7 @@
  * drawing, text reveal, and combined effects.
  */
 
-import { motion, stagger } from 'motion/react'
+import { motion, stagger, Transition, Target, VariantLabels, TargetAndTransition } from 'motion/react'
 
 // ---------------------------------------------------------------------------
 // 1. Text reveal — characters stagger in from below with spring physics
@@ -740,5 +740,107 @@ export function NotificationStack() {
         </motion.div>
       ))}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 13. Text roll — characters rotate on X axis with staggered enter/exit
+// ---------------------------------------------------------------------------
+
+export type TextRollProps = {
+  children: string
+  duration?: number
+  getEnterDelay?: (index: number) => number
+  getExitDelay?: (index: number) => number
+  style?: React.CSSProperties
+  transition?: Transition
+  variants?: {
+    enter: {
+      initial: Target | VariantLabels | boolean
+      animate: TargetAndTransition | VariantLabels
+    }
+    exit: {
+      initial: Target | VariantLabels | boolean
+      animate: TargetAndTransition | VariantLabels
+    }
+  }
+}
+
+export function TextRoll({
+  children,
+  duration = 0.5,
+  getEnterDelay = (i) => i * 0.1,
+  getExitDelay = (i) => i * 0.1 + 0.2,
+  style,
+  transition = { ease: 'easeIn' },
+  variants,
+}: TextRollProps) {
+  const defaultVariants = {
+    enter: {
+      initial: { rotateX: 0 },
+      animate: { rotateX: 90 },
+    },
+    exit: {
+      initial: { rotateX: 90 },
+      animate: { rotateX: 0 },
+    },
+  } as const
+
+  const letters = children.split('')
+
+  return (
+    <span style={style}>
+      {letters.map((letter, i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          style={{
+            position: 'relative',
+            display: 'inline-block',
+            perspective: 10000,
+            transformStyle: 'preserve-3d',
+            width: 'auto',
+          }}
+        >
+          <motion.span
+            style={{
+              position: 'absolute',
+              display: 'inline-block',
+              backfaceVisibility: 'hidden',
+              transformOrigin: '50% 25%',
+            }}
+            initial={variants?.enter?.initial ?? defaultVariants.enter.initial}
+            animate={variants?.enter?.animate ?? defaultVariants.enter.animate}
+            transition={{
+              ...transition,
+              duration,
+              delay: getEnterDelay(i),
+            }}
+          >
+            {letter === ' ' ? '\u00A0' : letter}
+          </motion.span>
+          <motion.span
+            style={{
+              position: 'absolute',
+              display: 'inline-block',
+              backfaceVisibility: 'hidden',
+              transformOrigin: '50% 100%',
+            }}
+            initial={variants?.exit?.initial ?? defaultVariants.exit.initial}
+            animate={variants?.exit?.animate ?? defaultVariants.exit.animate}
+            transition={{
+              ...transition,
+              duration,
+              delay: getExitDelay(i),
+            }}
+          >
+            {letter === ' ' ? '\u00A0' : letter}
+          </motion.span>
+          <span style={{ visibility: 'hidden' }}>
+            {letter === ' ' ? '\u00A0' : letter}
+          </span>
+        </span>
+      ))}
+    </span>
   )
 }

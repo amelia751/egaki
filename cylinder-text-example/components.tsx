@@ -103,14 +103,14 @@ export function CylinderText() {
   const { fps, durationInFrames } = useVideoConfig()
 
   const tp = useTweakpane('CylinderText', {
-    radius: { value: 420, min: 200, max: 800, step: 10 },
+    radius: { value: 350, min: 200, max: 800, step: 10 },
     fontSize: { value: 72, min: 24, max: 150, step: 1 },
     rotationSpeed: { value: 30, min: -90, max: 90, step: 1 },
-    aberrationStrength: { value: 8, min: 0, max: 30, step: 0.5 },
-    edgeBlur: { value: 40, min: 0, max: 80, step: 1 },
+    aberrationStrength: { value: 2.5, min: 0, max: 30, step: 0.5 },
+    edgeBlur: { value: 3, min: 0, max: 80, step: 1 },
     // % from top/bottom where blur/aberration starts. A small clear zone
     // means most of the frame is blurred; only a narrow center strip is sharp.
-    clearZone: { value: 35, min: 15, max: 48, step: 1 },
+    clearZone: { value: 26, min: 15, max: 48, step: 1 },
   })
 
   // Slow continuous rotation over the full scene duration

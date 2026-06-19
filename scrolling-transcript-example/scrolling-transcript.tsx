@@ -23,15 +23,17 @@ import { useEffect, useRef, useLayoutEffect, useState, useMemo, type ReactNode }
 import {
   countWords,
   extractPlainText,
+  extractRichWords,
   alignWordsToSections,
   computeTotalSeconds,
   type ScrollSection,
   type WordTiming,
+  type RichWord,
 } from './transcript-utils'
 
 // Re-export types and utilities so existing imports keep working
-export { countWords, extractPlainText, alignWordsToSections, computeTotalSeconds }
-export type { ScrollSection, WordTiming }
+export { countWords, extractPlainText, extractRichWords, alignWordsToSections, computeTotalSeconds }
+export type { ScrollSection, WordTiming, RichWord }
 
 export interface ScrollingTranscriptProps {
   /** Markdown sections with per-section scroll speed */
@@ -225,6 +227,13 @@ export function ScrollingTranscript({
     [sections],
   )
 
+  // Pre-extract rich words (with formatting flags) for each section.
+  // Same word count and order as extractPlainText, so indices match word timings.
+  const richWordsPerSection = useMemo(
+    () => sections.map((s) => extractRichWords(s.markdown)),
+    [sections],
+  )
+
   // When word timings are available (sync or async-resolved), derive scroll
   // timing from transcription timestamps. Otherwise fall back to WPM-based.
   const timings = useMemo(() => {
@@ -360,10 +369,10 @@ export function ScrollingTranscript({
                 }}
               >
                 {sectionWords ? (
-                  // Word-level highlighted rendering
+                  // Word-level highlighted rendering with markdown formatting
                   <p style={{
                     margin: 0, marginBottom: '1.2em', lineHeight: 1.6,
-                    fontWeight: 475,
+                    fontWeight: 475, color: 'rgba(255, 255, 255, 0.85)',
                   }}>
                     {sectionWords.map((wt, wi) => {
                       // A word is active if we're within its timestamp range,
@@ -372,10 +381,27 @@ export function ScrollingTranscript({
                       const nextStart = sectionWords[wi + 1]?.startSecond ?? Infinity
                       const isActive = currentSecond >= wt.startSecond && currentSecond < nextStart
                       const style = isActive ? activeStyle : inactiveStyle
+                      const rich = richWordsPerSection[i]?.[wi]
+
+                      // Wrap word text in formatting elements from the AST
+                      let content: ReactNode = wt.word
+                      if (rich?.code) {
+                        content = <code style={{
+                          fontFamily: FONT_MONO, fontSize: '0.86em', fontWeight: 400,
+                          padding: '0.15em 0.35em', borderRadius: '0.375rem',
+                          background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff',
+                        }}>{content}</code>
+                      }
+                      if (rich?.bold) {
+                        content = <strong style={{ color: '#ffffff', fontWeight: 600 }}>{content}</strong>
+                      }
+                      if (rich?.italic) {
+                        content = <em style={{ fontStyle: 'italic', color: 'rgba(255, 255, 255, 0.9)' }}>{content}</em>
+                      }
 
                       return (
                         <span key={wi}>
-                          {wi > 0 ? ' ' : ''}<span style={style}>{wt.word}</span>
+                          {wi > 0 ? ' ' : ''}<span style={style}>{content}</span>
                         </span>
                       )
                     })}
