@@ -1311,6 +1311,99 @@ generation). Server components use this for the fallback preview pattern.
 `Set`, and other non-plain objects are not supported in cache keys; they serialize
 to `{}`. Pass primitive representations instead (ISO strings, arrays, plain objects).
 
+## Framer Motion (motion/react) integration
+
+egaki auto-detects `motion` in the user's project and bridges it with Remotion's
+frame-based rendering. Users can use `motion.div`, springs, variants, staggered
+children, and keyframes inside MDX sections; animations stay frame-deterministic
+and support backward scrubbing.
+
+### How it works
+
+The Vite plugin checks for `motion-dom` in `node_modules` at `configResolved`.
+When detected, two things happen:
+
+1. **`transformIndexHtml`** injects `<script>delete Element.prototype.animate</script>`
+   before any ES modules load. This forces motion to use `JSAnimation` (JS path)
+   instead of `NativeAnimation` (WAAPI), which is required for seeking to work.
+
+2. **`virtual:egaki-modules`** gets a side-effect `import 'egaki/motion-timing'`
+   prepended. This module patches `JSAnimation.prototype` (play, finish, stop)
+   and exposes a `seekTo(ms)` function on `globalThis.__egakiMotionSeekTo`.
+
+`MotionTimingSync` (in `mdx-video.tsx`) wraps each section and the preamble in
+`player-page.tsx`. It reads `useCurrentFrame()` and calls `seekTo((frame/fps)*1000)`
+every render. When motion isn't installed, the global is undefined and the
+component is a no-op passthrough.
+
+### Limitations
+
+- **AnimatePresence / exit animations** depend on React removing elements from the
+  DOM. Remotion's frame-based seeking doesn't trigger React lifecycle, so exit
+  animations won't replay on backward seek. They work during forward playback.
+- **Layout animations** (`layout` prop) use FLIP measurements from React renders.
+  They work on first play but aren't seekable.
+- **WAAPI is disabled page-wide.** `delete Element.prototype.animate` affects all
+  code in the page. Third-party libraries relying on WAAPI will fall back to JS.
+- **`motion-timing.ts` is excluded from tsc** (`tsconfig.json` exclude) because
+  it imports `motion-dom`/`motion-utils` which are optional peer deps not installed
+  during the CLI build. The file is source-shipped and type-checked by the user's
+  project where motion IS installed.
+
+### Key files
+
+| File | Role |
+|---|---|
+| `cli/src/vite/motion-timing.ts` | JSAnimation patching, animation registry, `seekTo()` |
+| `cli/src/vite/mdx-video.tsx` | `MotionTimingSync` component (reads global seekTo) |
+| `cli/src/vite/vite-plugin.ts` | Detection, WAAPI script injection, conditional import |
+
+### Zero overhead for non-motion projects
+
+If the user doesn't have `motion` installed: no `<script>` injected in HTML,
+no `motion-timing.ts` imported, `MotionTimingSync` is a passthrough. No patches,
+no registry, no seekTo calls.
+
+### Hard-won implementation lessons
+
+These are documented here to prevent future regressions:
+
+- **Virtual module, not file import.** The motion-timing code is emitted as a
+  virtual module (`virtual:egaki-motion-timing`), not imported from a `.ts` file.
+  Importing from a file in egaki's source tree (`@fs/` path) causes Vite to
+  resolve `motion-dom` to a different instance than the one `motion/react` uses.
+  Virtual modules go through the normal resolution pipeline and hit `resolve.dedupe`.
+
+- **`resolve.dedupe` for motion packages.** `motion`, `motion-dom`, and `motion-utils`
+  are always added to `resolve.dedupe` in `configEnvironment` (not gated by
+  `hasMotion`, since `configEnvironment` runs before `configResolved`).
+
+- **`stop()` is a per-instance arrow function.** `JSAnimation.stop` is defined as
+  an arrow class field, not a prototype method. `JSAnimation.prototype.stop = ...`
+  gets shadowed by the instance property. Must wrap per-instance inside `play()`.
+
+- **`anim.sample(ms)` doesn't flush DOM.** `sample()` updates MotionValues but
+  does NOT synchronously flush the VisualElement render. Must call `owner.render()`
+  on each animation's VisualElement owner after sampling.
+
+- **`useLayoutEffect`, not render-time.** `seekTo()` must be called from
+  `useLayoutEffect`, not during render. Motion creates JSAnimation instances
+  during the layout/effect lifecycle. Calling seekTo during render runs before
+  any animations exist.
+
+- **Prune stale animations.** Unmounted elements leave animations in the registry
+  (their VisualElement `owner.current` becomes null). Without pruning, the registry
+  grows to thousands of entries and seekTo grinds to a halt. `getLiveAnimations()`
+  prunes on every seekTo call.
+
+- **Stop driver in `finish()`.** The patched `finish()` must stop the animation
+  driver, otherwise finished animations leak drivers. The animation stays seekable
+  via `sample()` without a running driver.
+
+- **Sample newly created animations.** When `play()` fires for a new animation,
+  if a seekTo time is already set (`__reg.currentTimeMs`), immediately sample the
+  animation at that time. Otherwise it flashes its initial state for one frame.
+
 ## Key files
 
 | File | Role |
@@ -1323,7 +1416,7 @@ to `{}`. Pass primitive representations instead (ISO strings, arrays, plain obje
 | `cli/src/vite/mdx-parse.ts` | Environment-agnostic section splitting and duration parsing |
 | `cli/src/vite/server-mdx.ts` | `<Server>` parsing: slot extraction, blanking, import detection |
 | `cli/src/vite/server-components.tsx` | Built-in server components (`egaki/text-to-speech`) |
-| `cli/src/vite/mdx-video.tsx` | Client animation components, `MDX_BUILTIN_COMPONENTS`, re-exports |
+| `cli/src/vite/mdx-video.tsx` | Client animation components, `MDX_BUILTIN_COMPONENTS`, `MotionTimingSync` |
 | `cli/src/vite/components.tsx` | Visual components (remocn ports) |
 | `cli/src/vite/player-page.tsx` | Client Player wrapper + export UI |
 | `cli/src/vite/render-client.ts` | In-browser MP4 export via `@remotion/web-renderer` |

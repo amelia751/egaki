@@ -1,27 +1,25 @@
 {
-  "name": "video-example",
+  "name": "framer-motion-example",
   "version": "0.0.1",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "test-e2e": "playwright test"
+    "dev": "vite"
   },
   "dependencies": {
     "@remotion/player": "4.0.475",
     "egaki": "workspace:^",
+    "motion": "^12.39.0",
+    "motion-dom": "^12.39.0",
+    "motion-utils": "^12.39.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "remotion": "4.0.475",
     "spiceflow": "1.26.0-rsc.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.52.0",
     "@types/react": "^19.2.17",
     "@vitejs/plugin-react": "^6.0.2",
-    "motion": "^12.40.0",
-    "motion-dom": "^12.40.0",
-    "motion-utils": "^12.39.0",
     "typescript": "^6.0.2",
     "vite": "^8.0.10"
   }

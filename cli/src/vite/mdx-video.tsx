@@ -62,6 +62,43 @@ export function useIsExporting(): boolean {
   return useContext(ExportContext)
 }
 
+declare global {
+  var __egakiMotionSeekTo: ((ms: number) => void) | undefined
+  var __egakiMotionRegistry:
+    | {
+        allAnimations: Set<any>
+        createdAtMap: WeakMap<any, number>
+        wrappedStops: WeakSet<any>
+        patched: boolean
+        currentTimeMs: number | undefined
+      }
+    | undefined
+}
+
+// ---------------------------------------------------------------------------
+// MotionTimingSync — bridges Framer Motion (motion/react) with Remotion.
+//
+// Reads the global seekTo function set by the virtual:egaki-motion-timing
+// module (emitted by the Vite plugin when the user has `motion` installed).
+// Calls seekTo with the current frame time from useLayoutEffect so motion.div
+// animations stay in sync with Remotion's frame-based rendering. No-op when
+// motion isn't installed.
+// ---------------------------------------------------------------------------
+
+export function MotionTimingSync({ children }: { children: ReactNode }) {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
+  // useLayoutEffect, not useEffect: motion/react creates JSAnimation
+  // instances during layout/effect lifecycle, not during render. Using
+  // useLayoutEffect ensures seekTo runs AFTER motion has mounted its
+  // animations but BEFORE the browser paints, so Remotion's frame
+  // capture sees the correct animation state.
+  useLayoutEffect(() => {
+    globalThis.__egakiMotionSeekTo?.((frame / fps) * 1000)
+  })
+  return <>{children}</>
+}
+
 // ---------------------------------------------------------------------------
 // Server slots context — carries RSC-rendered <Server> slot content so that
 // the SDK's renderStillOnWeb / renderMediaOnWeb can access them in the fresh
@@ -1563,7 +1600,6 @@ function VideoTrimControls(
     const frame = targetFrame
     seekTimerRef.current = setTimeout(() => {
       try {
-        sdk.pause()
         sdk.seekTo(Math.max(0, frame))
       } catch {
         // SDK not ready, ignore

@@ -36,6 +36,7 @@ import {
   LayoutAnimationLayer,
   LayoutGhost,
   LayoutTransitionProvider,
+  MotionTimingSync,
   ServerSlotsContext,
 } from './mdx-video.tsx'
 import { SectionIndexContext } from './media-duration-store.ts'
@@ -355,7 +356,9 @@ function SectionWithLayoutTransition({
             </LayoutGhost>
           </AbsoluteFill>
         ) : null}
-        <Fill style={SECTION_CONTENT_STYLE}>{jsx}</Fill>
+        <MotionTimingSync>
+          <Fill style={SECTION_CONTENT_STYLE}>{jsx}</Fill>
+        </MotionTimingSync>
         <LayoutAnimationLayer />
       </AbsoluteFill>
     </LayoutTransitionProvider>
@@ -376,7 +379,7 @@ function VideoComposition({
       {/* Preamble: MDX content before the first heading. Rendered at
           composition level so it persists across all sections. Runs in the
           background behind the Series (earlier DOM order = behind). */}
-      {preamble}
+      <MotionTimingSync>{preamble}</MotionTimingSync>
       {/* Sequential sections */}
       <Series>
         {sections.map((section, i) => (
@@ -643,17 +646,6 @@ export function PlayerPage({
     player.addEventListener('ratechange', onRateChange as any)
     return () => player.removeEventListener('ratechange', onRateChange as any)
   }, [mounted])
-
-  // Force pause while editing — catches play via spacebar, API calls, etc.
-  useEffect(() => {
-    if (!editing) return
-    const player = playerRef.current
-    if (!player) return
-    if (player.isPlaying()) player.pause()
-    const onPlay = () => player.pause()
-    player.addEventListener('play', onPlay)
-    return () => player.removeEventListener('play', onPlay)
-  }, [editing])
 
   // Keyboard shortcuts — modeled after After Effects / Premiere / DaVinci.
   // Disabled when the layout editor is active (it may use arrow keys).

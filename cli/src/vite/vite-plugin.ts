@@ -11,6 +11,7 @@
 
 import path from 'node:path'
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import type { Plugin, PluginOption } from 'vite'
 import { spiceflowPlugin } from 'spiceflow/vite'
@@ -34,6 +35,8 @@ const RESOLVED_MDX = '\0' + VIRTUAL_MDX
 
 const VIRTUAL_MODULES = 'virtual:egaki-modules'
 const RESOLVED_MODULES = '\0' + VIRTUAL_MODULES
+
+
 
 const PKG_NAME = 'egaki'
 
@@ -112,6 +115,8 @@ export function findChangedSectionIndex(oldSource: string, newSource: string): n
 export function video(options: VideoPluginOptions): PluginOption[] {
   let root: string
   let entryPath: string
+  /** Whether the user's project has `motion` (framer-motion) installed. */
+  let hasMotion = false
   /** Cached previous MDX source for section-level diff detection. */
   let previousMdxSource: string | null = null
 
@@ -159,6 +164,16 @@ export function video(options: VideoPluginOptions): PluginOption[] {
         }
       } catch {
         // Non-fatal: LSP autocomplete just won't work
+      }
+
+      // Detect if the user has `motion` (framer-motion) installed.
+      // When present, we inject timing patches so motion.div animations
+      // sync with Remotion's frame-based rendering.
+      try {
+        createRequire(root + '/').resolve('motion-dom')
+        hasMotion = true
+      } catch {
+        hasMotion = false
       }
     },
 
@@ -250,7 +265,15 @@ export function video(options: VideoPluginOptions): PluginOption[] {
         // handing the new map to the callback. Self-accepting here would
         // make THIS module the boundary and the importer callback would
         // never fire.
+        // When motion is installed, import motion-timing.ts as a
+        // side-effect so JSAnimation patches run before any user component.
+        // resolve.dedupe (set in configEnvironment) ensures motion-dom
+        // resolves to the same instance that motion/react uses.
+        const motionTimingPath = path.join(__srcDir, 'motion-timing.ts').replace(/\\/g, '/')
+        const motionImport = hasMotion ? [`import ${JSON.stringify(motionTimingPath)}`] : []
+
         return [
+          ...motionImport,
           ...imports,
           `export const eagerModules = {`,
           entries.join(',\n'),
@@ -410,6 +433,18 @@ export function video(options: VideoPluginOptions): PluginOption[] {
       arr.push(new RegExp(`^${PKG_NAME}`))
       arr.push(/^tweakpane/)
       config.resolve.noExternal = arr
+
+      // Deduplicate motion packages so egaki's motion-timing virtual module
+      // patches the same JSAnimation class that motion/react uses. Without
+      // this, Vite can resolve motion-dom to different instances and
+      // prototype patches won't affect the user's animations.
+      // Always applied (not gated by hasMotion) because configEnvironment
+      // runs before configResolved where hasMotion is set. Harmless when
+      // motion isn't installed — dedupe on missing packages is a no-op.
+      config.resolve.dedupe = mergeUnique(
+        config.resolve.dedupe as string[] | undefined,
+        ['motion', 'motion-dom', 'motion-utils'],
+      )
 
       if (name === 'client') {
         config.optimizeDeps ??= {}

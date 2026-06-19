@@ -39,6 +39,7 @@
       "types": "./src/vite/mdx-provided-components.ts",
       "default": "./src/vite/mdx-provided-components.ts"
     },
+
     "./src/cli/*": {
       "types": "./src/cli/*.ts",
       "default": "./src/cli/*.ts"
@@ -122,10 +123,22 @@
   },
   "peerDependencies": {
     "@vitejs/plugin-react": ">=6",
+    "motion": ">=12",
+    "motion-dom": ">=12",
+    "motion-utils": ">=12",
     "spiceflow": ">=1.26.0-rsc.5"
   },
   "peerDependenciesMeta": {
     "@vitejs/plugin-react": {
+      "optional": true
+    },
+    "motion": {
+      "optional": true
+    },
+    "motion-dom": {
+      "optional": true
+    },
+    "motion-utils": {
       "optional": true
     },
     "spiceflow": {

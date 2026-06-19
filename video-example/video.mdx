@@ -8,6 +8,7 @@ import { CREATE_LINES, DEPLOY_LINES, DOCS_JSON_CODE, FEATURES } from './data'
 import { AsyncStats } from './async-stats'
 import { TextToSpeech } from 'egaki/text-to-speech'
 import Tagline from './tagline.mdx'
+import { MotionFadeIn, MotionSpringSlide, MotionScaleRotate, MotionStaggeredList } from './motion-demo'
 
 <Audio src="/minecraft-soundtrack.mp3" />
 
@@ -128,3 +129,19 @@ some text
 <FadeIn duration={15}>
   <ShimmerSweep text="egaki" fontSize={88} fontWeight={700} baseColor="#3f3f46" shineColor="#fafafa" />
 </FadeIn>
+
+# Motion Fade duration=2s
+
+<MotionFadeIn />
+
+# Motion Spring duration=3s
+
+<MotionSpringSlide />
+
+# Motion Pop duration=3s
+
+<MotionScaleRotate />
+
+# Motion Stagger duration=3s
+
+<MotionStaggeredList />
