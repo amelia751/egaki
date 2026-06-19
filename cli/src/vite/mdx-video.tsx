@@ -63,11 +63,12 @@ export function useIsExporting(): boolean {
 }
 
 declare global {
-  var __egakiMotionSeekTo: ((ms: number) => void) | undefined
+  var __egakiMotionSeekTo: ((ms: number, scopeId?: string) => void) | undefined
+  var __egakiMotionPrepareTime: ((ms: number) => void) | undefined
   var __egakiMotionRegistry:
     | {
         allAnimations: Set<any>
-        createdAtMap: WeakMap<any, number>
+        scopeIdMap: WeakMap<any, string>
         wrappedStops: WeakSet<any>
         patched: boolean
         currentTimeMs: number | undefined
@@ -86,17 +87,34 @@ declare global {
 // ---------------------------------------------------------------------------
 
 export function MotionTimingSync({ children }: { children: ReactNode }) {
+  const scopeId = useId()
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
+  const timeMs = (frame / fps) * 1000
+
+  // Runs before any child layout effects create JSAnimation instances, so
+  // the play() patch can immediately sample new animations at this frame.
+  useInsertionEffect(() => {
+    globalThis.__egakiMotionPrepareTime?.(timeMs)
+  }, [timeMs])
+
   // useLayoutEffect, not useEffect: motion/react creates JSAnimation
   // instances during layout/effect lifecycle, not during render. Using
   // useLayoutEffect ensures seekTo runs AFTER motion has mounted its
   // animations but BEFORE the browser paints, so Remotion's frame
   // capture sees the correct animation state.
   useLayoutEffect(() => {
-    globalThis.__egakiMotionSeekTo?.((frame / fps) * 1000)
-  })
-  return <>{children}</>
+    globalThis.__egakiMotionSeekTo?.(timeMs, scopeId)
+  }, [timeMs, scopeId])
+
+  return (
+    <div
+      data-egaki-motion-scope-id={scopeId}
+      style={{ display: 'contents' }}
+    >
+      {children}
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -1133,6 +1151,7 @@ import {
   use,
   useEffect,
   useId,
+  useInsertionEffect,
   useLayoutEffect,
   useRef,
   useState,

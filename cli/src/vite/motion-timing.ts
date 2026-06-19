@@ -54,19 +54,21 @@ type AnimInstance = InstanceType<typeof JSAnimation> & AnimInternal
 
 const registry: {
   allAnimations: Set<AnimInstance>
-  createdAtMap: WeakMap<AnimInstance, number>
+  scopeIdMap?: WeakMap<AnimInstance, string>
   wrappedStops: WeakSet<AnimInstance>
   patched: boolean
   currentTimeMs: number | undefined
 } = (globalThis.__egakiMotionRegistry ??= {
   allAnimations: new Set(),
-  createdAtMap: new WeakMap(),
+  scopeIdMap: new WeakMap(),
   wrappedStops: new WeakSet(),
   patched: false,
   currentTimeMs: undefined,
 })
+registry.scopeIdMap ??= new WeakMap()
 
-const { allAnimations, createdAtMap, wrappedStops } = registry
+const { allAnimations, wrappedStops } = registry
+const scopeIdMap = registry.scopeIdMap
 
 // --- Helpers ---
 
@@ -76,7 +78,14 @@ function unregister(anim: AnimInstance) {
     anim.driver = undefined
   }
   allAnimations.delete(anim)
-  createdAtMap.delete(anim)
+  scopeIdMap.delete(anim)
+}
+
+function registerScope(anim: AnimInstance) {
+  const element = anim.options?.motionValue?.owner?.current
+  const scope = element?.closest?.('[data-egaki-motion-scope-id]')
+  const scopeId = scope?.getAttribute('data-egaki-motion-scope-id')
+  scopeIdMap.set(anim, scopeId ?? '')
 }
 
 /** Return only animations whose VisualElement owner is still mounted.
@@ -111,9 +120,12 @@ function flushOwners(anims: AnimInstance[]) {
   }
 }
 
-function sampleAnim(anim: AnimInstance, absoluteMs: number) {
-  const relativeMs = Math.max(0, absoluteMs - (createdAtMap.get(anim) ?? 0))
-  anim.sample(relativeMs)
+function sampleAnim(anim: AnimInstance, timeMs: number) {
+  anim.sample(timeMs)
+}
+
+function isInScope(anim: AnimInstance, scopeId: string) {
+  return (scopeIdMap.get(anim) ?? '') === scopeId
 }
 
 // --- Prototype patches (guarded against double-patching on HMR) ---
@@ -125,7 +137,7 @@ if (!registry.patched) {
   JSAnimation.prototype.play = function (this: AnimInstance) {
     if (!allAnimations.has(this)) {
       allAnimations.add(this)
-      createdAtMap.set(this, 0)
+      registerScope(this)
     }
     // stop() is an arrow class field (per-instance, not on prototype).
     // Must wrap per-instance inside play() to intercept unmount cleanup.
@@ -135,7 +147,7 @@ if (!registry.patched) {
       const self = this
       this.stop = function () {
         allAnimations.delete(self)
-        createdAtMap.delete(self)
+        scopeIdMap.delete(self)
         return origStop.call(self)
       }
     }
@@ -166,11 +178,15 @@ if (!registry.patched) {
 
 // --- seekTo: synchronously update all live animations and flush DOM ---
 
-globalThis.__egakiMotionSeekTo = function seekTo(absoluteMs: number) {
+globalThis.__egakiMotionPrepareTime = function prepareTime(absoluteMs: number) {
   registry.currentTimeMs = absoluteMs
   time.set(absoluteMs)
   ;(frameData as { timestamp: number }).timestamp = absoluteMs
-  const live = getLiveAnimations()
+}
+
+globalThis.__egakiMotionSeekTo = function seekTo(absoluteMs: number, scopeId = '') {
+  globalThis.__egakiMotionPrepareTime?.(absoluteMs)
+  const live = getLiveAnimations().filter((anim) => isInScope(anim, scopeId))
   for (let i = 0; i < live.length; i++) {
     sampleAnim(live[i]!, absoluteMs)
   }

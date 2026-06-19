@@ -1321,20 +1321,22 @@ and support backward scrubbing.
 ### How it works
 
 The Vite plugin checks for `motion-dom` in `node_modules` at `configResolved`.
-When detected, two things happen:
-
-1. **`transformIndexHtml`** injects `<script>delete Element.prototype.animate</script>`
-   before any ES modules load. This forces motion to use `JSAnimation` (JS path)
-   instead of `NativeAnimation` (WAAPI), which is required for seeking to work.
-
-2. **`virtual:egaki-modules`** gets a side-effect `import 'egaki/motion-timing'`
-   prepended. This module patches `JSAnimation.prototype` (play, finish, stop)
-   and exposes a `seekTo(ms)` function on `globalThis.__egakiMotionSeekTo`.
+When detected, `virtual:egaki-modules` gets a side-effect import for
+`motion-timing.ts` prepended before user modules. This module deletes
+`Element.prototype.animate` before Motion's memoized WAAPI support check runs,
+sets `MotionGlobalConfig.useManualTiming`, patches `JSAnimation.prototype`
+(`play`, `finish`, `stop`), and exposes `prepareTime(ms)`/`seekTo(ms)` functions
+on `globalThis`.
 
 `MotionTimingSync` (in `mdx-video.tsx`) wraps each section and the preamble in
-`player-page.tsx`. It reads `useCurrentFrame()` and calls `seekTo((frame/fps)*1000)`
-every render. When motion isn't installed, the global is undefined and the
-component is a no-op passthrough.
+`player-page.tsx`. It stores a scope id on the DOM, uses `useInsertionEffect()`
+to publish the current local section time before child layout effects create
+Motion animations, then calls `seekTo(ms)` from `useLayoutEffect()`. The `play()`
+patch reads the nearest scope id from the animation owner's DOM element and
+samples only animations in that scope, so preamble and section animations can
+share one global registry without resetting each other.
+When motion isn't installed, the globals are undefined and the component is a
+no-op passthrough.
 
 ### Limitations
 
@@ -1342,9 +1344,21 @@ component is a no-op passthrough.
   DOM. Remotion's frame-based seeking doesn't trigger React lifecycle, so exit
   animations won't replay on backward seek. They work during forward playback.
 - **Layout animations** (`layout` prop) use FLIP measurements from React renders.
-  They work on first play but aren't seekable.
+  They may work during normal forward playback, but they are not seekable and
+  should not be used for deterministic video effects.
+- **Shared layout / `layoutId` animations do not work reliably in egaki.** They
+  depend on Motion projection node snapshots across React commits, while egaki
+  samples Motion animations from Remotion frame time. Do not add `layoutId`
+  examples or recommend shared layout animations; use explicit Remotion
+  interpolation or egaki's `<LayoutTransition>` instead.
+- **Viewport and gesture animations** (`whileInView`, `whileHover`, drag, tap)
+  depend on browser observer/input state. They are not deterministic from video
+  frame time alone.
 - **WAAPI is disabled page-wide.** `delete Element.prototype.animate` affects all
   code in the page. Third-party libraries relying on WAAPI will fall back to JS.
+- **Motion private internals are patched.** The integration depends on current
+  `motion-dom` private fields (`driver`, `options`, `holdTime`, `sample()`,
+  `notifyFinished()`). Re-check Motion source before upgrading major versions.
 - **`motion-timing.ts` is excluded from tsc** (`tsconfig.json` exclude) because
   it imports `motion-dom`/`motion-utils` which are optional peer deps not installed
   during the CLI build. The file is source-shipped and type-checked by the user's
@@ -1368,11 +1382,10 @@ no registry, no seekTo calls.
 
 These are documented here to prevent future regressions:
 
-- **Virtual module, not file import.** The motion-timing code is emitted as a
-  virtual module (`virtual:egaki-motion-timing`), not imported from a `.ts` file.
-  Importing from a file in egaki's source tree (`@fs/` path) causes Vite to
-  resolve `motion-dom` to a different instance than the one `motion/react` uses.
-  Virtual modules go through the normal resolution pipeline and hit `resolve.dedupe`.
+- **Import motion timing before user modules.** `virtual:egaki-modules` prepends
+  the `motion-timing.ts` side-effect import before eager user imports, so WAAPI is
+  disabled and `JSAnimation` is patched before any user `motion/react` component
+  creates animations.
 
 - **`resolve.dedupe` for motion packages.** `motion`, `motion-dom`, and `motion-utils`
   are always added to `resolve.dedupe` in `configEnvironment` (not gated by
@@ -1400,9 +1413,10 @@ These are documented here to prevent future regressions:
   driver, otherwise finished animations leak drivers. The animation stays seekable
   via `sample()` without a running driver.
 
-- **Sample newly created animations.** When `play()` fires for a new animation,
-  if a seekTo time is already set (`__reg.currentTimeMs`), immediately sample the
-  animation at that time. Otherwise it flashes its initial state for one frame.
+- **Sample newly created animations relative to their scope.** When `play()` fires
+  for a new animation, read the nearest `data-egaki-motion-scope-id` ancestor,
+  then immediately sample at the current local section time. Preamble and section
+  scopes stay isolated even though they share one registry.
 
 ## Key files
 
