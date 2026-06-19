@@ -346,12 +346,6 @@ export function useTweakpane<T extends ParamSchema>(
         }
 
         folder.addBinding(params, key, opts).on('change', (ev) => {
-          // Pause the player on user interaction so the user can see
-          // the effect of their change on the current frame.
-          const player = contextRef?.playerRef.current
-          if (player?.isPlaying()) player.pause()
-          // Update the mutable params object (already done by tweakpane)
-          // and trigger a React re-render
           setValues((prev) => ({ ...prev, [key]: ev.value }))
         })
       }

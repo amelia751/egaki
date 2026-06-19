@@ -82,7 +82,8 @@ const getGenerationStatusServer = () => null
 const subscribeGenerationErrors = (callback: () => void) =>
   egakiStore.subscribe((state) => state.serverGenerationErrors, callback)
 const getGenerationErrors = () => egakiStore.getState().serverGenerationErrors
-const getGenerationErrorsServer = (): GenerationError[] => []
+const EMPTY_ERRORS: GenerationError[] = []
+const getGenerationErrorsServer = () => EMPTY_ERRORS
 
 // Modules
 const subscribeModules = (callback: () => void) =>
