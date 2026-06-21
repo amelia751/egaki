@@ -1171,6 +1171,10 @@ interface LayoutEntry {
   bounce: number
   /** Custom easing function. When set, overrides the spring. */
   easing: ((t: number) => number) | null
+  /** Intra-scene: frame at which this instance becomes visible (inclusive). */
+  showFrom?: number
+  /** Intra-scene: frame at which this instance stops being visible (exclusive). */
+  showUpTo?: number
 }
 
 interface LayoutRegistry {
@@ -1666,6 +1670,8 @@ export function LayoutTransition({
   duration = 20,
   bounce = 0.15,
   easing,
+  showFrom,
+  showUpTo,
   children,
 }: {
   id: string
@@ -1676,24 +1682,48 @@ export function LayoutTransition({
   /** Custom easing function. When set, uses interpolate() over `duration`
    *  frames instead of the spring. */
   easing?: (t: number) => number
+  /** Intra-scene: frame at which this instance becomes visible (inclusive).
+   *  When set (along with showUpTo), enables intra-scene FLIP transitions
+   *  between multiple instances of the same id within the same section.
+   *  Ranges must not overlap. */
+  showFrom?: number
+  /** Intra-scene: frame at which this instance stops being visible (exclusive).
+   *  Defaults to Infinity (visible until end of section). */
+  showUpTo?: number
   children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const registry = useContext(LayoutRegistryContext)
   const container = useContext(LayoutContainerContext)
+  // useCurrentFrame() throws outside Remotion context (SSR tests). The
+  // try-catch is safe: the hook is always called unconditionally so hook
+  // order is stable; we just handle the missing context gracefully.
+  let frame = 0
+  try { frame = useCurrentFrame() } catch {}
+
+  const hasTimeRange = showFrom !== undefined || showUpTo !== undefined
+  const rangeFrom = showFrom ?? 0
+  const rangeUpTo = showUpTo ?? Infinity
+  const isActive = !hasTimeRange || (frame >= rangeFrom && frame < rangeUpTo)
 
   // One stable entry object per component instance. Fields are refreshed
   // on every render (cheap own-ref mutation) so the animation layer always
   // reads current props without re-registration.
   const entryRef = useRef<LayoutEntry | null>(null)
   if (entryRef.current === null) {
-    entryRef.current = { id, container, ref, durationInFrames: duration, bounce, easing: easing ?? null }
+    entryRef.current = {
+      id, container, ref, durationInFrames: duration, bounce, easing: easing ?? null,
+      showFrom: hasTimeRange ? rangeFrom : undefined,
+      showUpTo: hasTimeRange ? rangeUpTo : undefined,
+    }
   }
   entryRef.current.id = id
   entryRef.current.container = container
   entryRef.current.durationInFrames = duration
   entryRef.current.bounce = bounce
   entryRef.current.easing = easing ?? null
+  entryRef.current.showFrom = hasTimeRange ? rangeFrom : undefined
+  entryRef.current.showUpTo = hasTimeRange ? rangeUpTo : undefined
 
   useLayoutEffect(() => {
     if (!registry) return
@@ -1702,8 +1732,19 @@ export function LayoutTransition({
 
   // transformOrigin '0 0': FLIP deltas are computed from top-left corners,
   // so the scale component must also originate from the top-left.
+  // When using time ranges, inactive instances are visibility:hidden (keeps
+  // layout footprint for FLIP measurement) instead of display:none.
   return (
-    <div ref={ref} data-layout-id={id} style={{ transformOrigin: '0 0' }}>
+    <div
+      ref={ref}
+      data-layout-id={id}
+      style={{
+        transformOrigin: '0 0',
+        ...(hasTimeRange && !isActive
+          ? { visibility: 'hidden' as const, pointerEvents: 'none' as const }
+          : {}),
+      }}
+    >
       {children}
     </div>
   )
@@ -1729,8 +1770,19 @@ export function LayoutAnimationLayer() {
   useLayoutEffect(() => {
     if (!registry) return
     const entries = [...registry.entries]
-    const visible = entries.filter((e) => e.container === 'visible')
-    const ghosts = entries.filter((e) => e.container === 'ghost')
+
+    // Split entries: timed entries (showFrom/showUpTo) use intra-scene FLIP,
+    // untimed entries use the cross-section ghost/visible FLIP.
+    const untimed = entries.filter((e) => e.showFrom === undefined)
+    // Only visible entries participate in intra-scene FLIP. Ghost entries
+    // (from the previous section) must be excluded; otherwise a ghost with
+    // the same id and overlapping showFrom can be picked as the active entry.
+    const timed = entries.filter(
+      (e) => e.container === 'visible' && e.showFrom !== undefined,
+    )
+
+    const visible = untimed.filter((e) => e.container === 'visible')
+    const ghosts = untimed.filter((e) => e.container === 'ghost')
 
     // Reset transforms BEFORE measuring: getBoundingClientRect() includes
     // transforms, so measuring a transformed element would compound the
@@ -1741,7 +1793,12 @@ export function LayoutAnimationLayer() {
         e.ref.current.style.transform = ''
       }
     }
-    if (ghosts.length === 0) return
+    // Reset transforms on timed entries too.
+    for (const e of timed) {
+      if (e.ref.current) {
+        e.ref.current.style.transform = ''
+      }
+    }
 
     const rootRect = rootRef.current?.getBoundingClientRect()
     if (!rootRect || rootRect.width === 0) return
@@ -1751,34 +1808,94 @@ export function LayoutAnimationLayer() {
     // (sx, sy) are dimensionless and unaffected.
     const playerScale = rootRect.width / width
 
-    for (const e of visible) {
-      const el = e.ref.current
-      if (!el) continue
-      const ghost = ghosts.find((g) => g.id === e.id)
-      const ghostEl = ghost?.ref.current
-      if (!ghostEl) continue
+    // --- Cross-section FLIP (ghost → visible) ---
+    if (ghosts.length > 0) {
+      for (const e of visible) {
+        const el = e.ref.current
+        if (!el) continue
+        const ghost = ghosts.find((g) => g.id === e.id)
+        const ghostEl = ghost?.ref.current
+        if (!ghostEl) continue
 
-      const progress = e.easing
-        ? interpolate(frame, [0, e.durationInFrames], [0, 1], {
-            extrapolateLeft: 'clamp',
-            extrapolateRight: 'clamp',
-            easing: e.easing,
-          })
-        : dspring(frame, fps, e.durationInFrames / fps, e.bounce)
-      if (progress > 0.999) continue
+        const progress = e.easing
+          ? interpolate(frame, [0, e.durationInFrames], [0, 1], {
+              extrapolateLeft: 'clamp',
+              extrapolateRight: 'clamp',
+              easing: e.easing,
+            })
+          : dspring(frame, fps, e.durationInFrames / fps, e.bounce)
+        if (progress > 0.999) continue
 
-      const from = ghostEl.getBoundingClientRect()
-      const to = el.getBoundingClientRect()
-      if (to.width === 0 || to.height === 0 || from.width === 0) continue
+        const from = ghostEl.getBoundingClientRect()
+        const to = el.getBoundingClientRect()
+        if (to.width === 0 || to.height === 0 || from.width === 0) continue
 
-      // FLIP: at progress 0 the element appears exactly at the ghost
-      // (previous section) position/size; at progress 1 it is untransformed.
-      const inv = 1 - progress
-      const dx = ((from.x - to.x) / playerScale) * inv
-      const dy = ((from.y - to.y) / playerScale) * inv
-      const sx = 1 + (from.width / to.width - 1) * inv
-      const sy = 1 + (from.height / to.height - 1) * inv
-      el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+        const inv = 1 - progress
+        const dx = ((from.x - to.x) / playerScale) * inv
+        const dy = ((from.y - to.y) / playerScale) * inv
+        const sx = 1 + (from.width / to.width - 1) * inv
+        const sy = 1 + (from.height / to.height - 1) * inv
+        el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+      }
+    }
+
+    // --- Intra-scene FLIP (timed entries within same section) ---
+    if (timed.length > 0) {
+      // Group timed entries by id, sort each group by showFrom.
+      const timedById = new Map<string, LayoutEntry[]>()
+      for (const e of timed) {
+        const list = timedById.get(e.id)
+        if (list) list.push(e)
+        else timedById.set(e.id, [e])
+      }
+
+      for (const [, group] of timedById) {
+        if (group.length < 2) continue
+        group.sort((a, b) => (a.showFrom ?? 0) - (b.showFrom ?? 0))
+
+        // Find the currently active entry.
+        const active = group.find(
+          (e) => frame >= (e.showFrom ?? 0) && frame < (e.showUpTo ?? Infinity),
+        )
+        if (!active?.ref.current) continue
+
+        // Find previous: the entry whose range ended most recently before
+        // the active entry's range starts. Since ranges don't overlap and
+        // are sorted, it's the last entry with showUpTo <= active.showFrom.
+        const activeFrom = active.showFrom ?? 0
+        let prev: LayoutEntry | undefined
+        for (let i = group.length - 1; i >= 0; i--) {
+          const e = group[i]!
+          if (e !== active && (e.showUpTo ?? Infinity) <= activeFrom) {
+            prev = e
+            break
+          }
+        }
+        if (!prev?.ref.current) continue
+
+        // Transition starts when the active entry's range begins.
+        const localFrame = frame - activeFrom
+        const progress = active.easing
+          ? interpolate(localFrame, [0, active.durationInFrames], [0, 1], {
+              extrapolateLeft: 'clamp',
+              extrapolateRight: 'clamp',
+              easing: active.easing,
+            })
+          : dspring(localFrame, fps, active.durationInFrames / fps, active.bounce)
+        if (progress > 0.999) continue
+
+        // FLIP: measure previous (visibility:hidden, keeps layout) → active.
+        const from = prev.ref.current.getBoundingClientRect()
+        const to = active.ref.current.getBoundingClientRect()
+        if (to.width === 0 || to.height === 0 || from.width === 0) continue
+
+        const inv = 1 - progress
+        const dx = ((from.x - to.x) / playerScale) * inv
+        const dy = ((from.y - to.y) / playerScale) * inv
+        const sx = 1 + (from.width / to.width - 1) * inv
+        const sy = 1 + (from.height / to.height - 1) * inv
+        active.ref.current.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+      }
     }
   })
 

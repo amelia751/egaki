@@ -1161,6 +1161,46 @@ describe('LayoutTransition', () => {
       `"<div data-layout-id="solo" style="transform-origin:0 0"><span>Alone</span></div>"`,
     )
   })
+
+  test('intra-scene: renders multiple instances with showFrom/showUpTo', async () => {
+    const { LayoutTransition, LayoutTransitionProvider } =
+      await import('./mdx-video.tsx')
+    // Outside Remotion context, useSafeCurrentFrame returns 0, so only the
+    // first instance (showFrom=0) should be visible. Others get visibility:hidden.
+    const html = renderToStaticMarkup(
+      <LayoutTransitionProvider>
+        <LayoutTransition id="dot" showFrom={0} showUpTo={30}>
+          <span>Dot 1</span>
+        </LayoutTransition>
+        <LayoutTransition id="dot" showFrom={30} showUpTo={60}>
+          <span>Dot 2</span>
+        </LayoutTransition>
+        <LayoutTransition id="dot" showFrom={60} showUpTo={90}>
+          <span>Dot 3</span>
+        </LayoutTransition>
+      </LayoutTransitionProvider>,
+    )
+    // First is active (frame 0 is in [0, 30)), second and third are hidden
+    expect(html).toContain('data-layout-id="dot"')
+    expect(html).toContain('<span>Dot 1</span>')
+    expect(html).toContain('visibility:hidden')
+    expect(html).toContain('<span>Dot 2</span>')
+    expect(html).toContain('<span>Dot 3</span>')
+  })
+
+  test('intra-scene: without time range props, no visibility style applied', async () => {
+    const { LayoutTransition, LayoutTransitionProvider } =
+      await import('./mdx-video.tsx')
+    const html = renderToStaticMarkup(
+      <LayoutTransitionProvider>
+        <LayoutTransition id="title">
+          <span>Always visible</span>
+        </LayoutTransition>
+      </LayoutTransitionProvider>,
+    )
+    expect(html).not.toContain('visibility')
+    expect(html).toContain('<span>Always visible</span>')
+  })
 })
 
 describe('findServerNodes', () => {

@@ -802,11 +802,70 @@ backward, forward, or mid-transition always produces the correct frame.
   (`GHOST_WINDOW_SECONDS` in `player-page.tsx`); springs must settle within
   that window.
 
+### Intra-scene transitions with `showFrom` / `showUpTo`
+
+`LayoutTransition` also works **within a single section**. Use `showFrom` and
+`showUpTo` props (frame numbers) to create time-windowed instances of the same
+`id`. Only one instance is visible at a time; the element FLIP-animates from the
+previous instance's position to the current one when the active window changes.
+
+```mdx
+# Active Item duration=6s
+
+<div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <LayoutTransition id="dot" showFrom={0} showUpTo={2 * FPS} duration={18} bounce={0.2}>
+      <Dot />
+    </LayoutTransition>
+    <span>First item</span>
+  </div>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <LayoutTransition id="dot" showFrom={2 * FPS} showUpTo={4 * FPS} duration={18} bounce={0.2}>
+      <Dot />
+    </LayoutTransition>
+    <span>Second item</span>
+  </div>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <LayoutTransition id="dot" showFrom={4 * FPS} showUpTo={6 * FPS} duration={18} bounce={0.2}>
+      <Dot />
+    </LayoutTransition>
+    <span>Third item</span>
+  </div>
+</div>
+```
+
+The dot appears next to "First item" for 2s, animates to "Second item" for 2s,
+then to "Third item". Each transition takes 18 frames with a bouncy spring.
+
+**How it works:** All instances are always in the DOM. Inactive instances use
+`visibility: hidden` (keeps layout footprint for FLIP measurement). The
+`LayoutAnimationLayer` groups timed entries by `id`, finds which is currently
+active, finds the previous entry (whose `showUpTo <= current entry's showFrom`),
+and applies the same FLIP transform logic as cross-section transitions.
+
+**Props:**
+- `showFrom` (number) — frame at which this instance becomes visible (inclusive).
+  Defaults to 0 when `showUpTo` is set.
+- `showUpTo` (number) — frame at which this instance stops being visible (exclusive).
+  Defaults to Infinity.
+- Ranges must **not overlap** for the same `id`.
+- When neither `showFrom` nor `showUpTo` is set, behavior is the standard
+  cross-section mode (always visible).
+
+**Constraints:**
+- Inactive instances are `visibility: hidden`, so they still take up space in
+  layout. This is intentional: the element reserves its slot (e.g. next to a
+  list item) whether visible or not, giving accurate FLIP measurements.
+- Use `FPS` and `BEAT` scope variables in MDX expressions for readable values.
+
+Demo: `layout-transition-example/` project.
+
+### Implementation
+
 Implementation lives in `cli/src/vite/mdx-video.tsx` (`LayoutTransition`,
 `LayoutTransitionProvider`, `LayoutGhost`, `LayoutAnimationLayer`) and
 `cli/src/vite/player-page.tsx` (`SectionWithLayoutTransition`, ghost
-mounting). Manual demo: `video-example/layout-test.mdx` via
-`pnpm vite --config vite.layout-test.config.ts` in `video-example/`.
+mounting).
 
 ## Client-side rendering — HtmlInCanvas mode
 

@@ -1,0 +1,75 @@
+---
+fps: 30
+bpm: 120
+---
+
+import { Dot, ListItem, FeatureCard, ActiveBadge } from './components'
+
+# Active Indicator duration=6s
+
+<Fill style={{ justifyContent: 'center', padding: '0 300px' }}>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
+    <ListItem
+      label="Design"
+      description="Create mockups and prototypes"
+      indicator={
+        <LayoutTransition id="dot" showFrom={0} showUpTo={2 * FPS} duration={18} bounce={0.2}>
+          <Dot />
+        </LayoutTransition>
+      }
+    />
+    <ListItem
+      label="Develop"
+      description="Build with React and TypeScript"
+      indicator={
+        <LayoutTransition id="dot" showFrom={2 * FPS} showUpTo={4 * FPS} duration={18} bounce={0.2}>
+          <Dot />
+        </LayoutTransition>
+      }
+    />
+    <ListItem
+      label="Deploy"
+      description="Ship to production in seconds"
+      indicator={
+        <LayoutTransition id="dot" showFrom={4 * FPS} showUpTo={6 * FPS} duration={18} bounce={0.2}>
+          <Dot />
+        </LayoutTransition>
+      }
+    />
+  </div>
+</Fill>
+
+# Feature Cards duration=6s
+
+<Fill style={{ justifyContent: 'center', padding: '0 200px' }}>
+  <div style={{ display: 'flex', gap: 32, justifyContent: 'center' }}>
+    <FeatureCard
+      title="Speed"
+      icon="⚡"
+      active={true}
+      badge={
+        <LayoutTransition id="badge" showFrom={0} showUpTo={2 * FPS} duration={20} bounce={0.25}>
+          <ActiveBadge />
+        </LayoutTransition>
+      }
+    />
+    <FeatureCard
+      title="Scale"
+      icon="📈"
+      badge={
+        <LayoutTransition id="badge" showFrom={2 * FPS} showUpTo={4 * FPS} duration={20} bounce={0.25}>
+          <ActiveBadge />
+        </LayoutTransition>
+      }
+    />
+    <FeatureCard
+      title="Safety"
+      icon="🛡️"
+      badge={
+        <LayoutTransition id="badge" showFrom={4 * FPS} showUpTo={6 * FPS} duration={20} bounce={0.25}>
+          <ActiveBadge />
+        </LayoutTransition>
+      }
+    />
+  </div>
+</Fill>
