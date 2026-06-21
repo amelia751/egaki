@@ -1771,30 +1771,17 @@ export function LayoutAnimationLayer() {
     if (!registry) return
     const entries = [...registry.entries]
 
-    // Split entries: timed entries (showFrom/showUpTo) use intra-scene FLIP,
-    // untimed entries use the cross-section ghost/visible FLIP.
-    const untimed = entries.filter((e) => e.showFrom === undefined)
-    // Only visible entries participate in intra-scene FLIP. Ghost entries
-    // (from the previous section) must be excluded; otherwise a ghost with
-    // the same id and overlapping showFrom can be picked as the active entry.
-    const timed = entries.filter(
-      (e) => e.container === 'visible' && e.showFrom !== undefined,
-    )
+    // Categorize entries by container and timing mode.
+    const allGhosts = entries.filter((e) => e.container === 'ghost')
+    const allVisible = entries.filter((e) => e.container === 'visible')
+    // Timed visible entries for intra-scene FLIP (ghost entries excluded
+    // to prevent cross-section pollution).
+    const timedVisible = allVisible.filter((e) => e.showFrom !== undefined)
 
-    const visible = untimed.filter((e) => e.container === 'visible')
-    const ghosts = untimed.filter((e) => e.container === 'ghost')
-
-    // Reset transforms BEFORE measuring: getBoundingClientRect() includes
-    // transforms, so measuring a transformed element would compound the
-    // previous frame's FLIP offset. This also clears stale transforms once
-    // the ghost unmounts (no pairs left).
-    for (const e of visible) {
-      if (e.ref.current) {
-        e.ref.current.style.transform = ''
-      }
-    }
-    // Reset transforms on timed entries too.
-    for (const e of timed) {
+    // Reset ALL transforms BEFORE measuring: getBoundingClientRect()
+    // includes transforms, so measuring a transformed element would
+    // compound the previous frame's FLIP offset.
+    for (const e of entries) {
       if (e.ref.current) {
         e.ref.current.style.transform = ''
       }
@@ -1809,11 +1796,39 @@ export function LayoutAnimationLayer() {
     const playerScale = rootRect.width / width
 
     // --- Cross-section FLIP (ghost → visible) ---
-    if (ghosts.length > 0) {
-      for (const e of visible) {
+    // Build one "representative" per id from each side so cross-section
+    // FLIP works even when the previous section used untimed entries and
+    // the current section uses timed entries (or vice versa).
+    if (allGhosts.length > 0) {
+      // Ghost representatives: for untimed ghosts, use directly. For timed
+      // ghosts, find the one that was active at the frozen frame. The ghost
+      // container freezes at prevDurationInFrames-1, so the active timed
+      // ghost has NO inline visibility:hidden (set by LayoutTransition).
+      const ghostReps = new Map<string, LayoutEntry>()
+      for (const e of allGhosts) {
+        if (ghostReps.has(e.id)) continue
+        if (e.showFrom === undefined) {
+          ghostReps.set(e.id, e)
+        } else if (e.ref.current?.style.visibility !== 'hidden') {
+          ghostReps.set(e.id, e)
+        }
+      }
+
+      // Visible representatives: untimed visible first, then active timed.
+      const visibleReps = new Map<string, LayoutEntry>()
+      for (const e of allVisible) {
+        if (visibleReps.has(e.id)) continue
+        if (e.showFrom === undefined) {
+          visibleReps.set(e.id, e)
+        } else if (frame >= (e.showFrom ?? 0) && frame < (e.showUpTo ?? Infinity)) {
+          visibleReps.set(e.id, e)
+        }
+      }
+
+      for (const [id, e] of visibleReps) {
         const el = e.ref.current
         if (!el) continue
-        const ghost = ghosts.find((g) => g.id === e.id)
+        const ghost = ghostReps.get(id)
         const ghostEl = ghost?.ref.current
         if (!ghostEl) continue
 
@@ -1840,10 +1855,10 @@ export function LayoutAnimationLayer() {
     }
 
     // --- Intra-scene FLIP (timed entries within same section) ---
-    if (timed.length > 0) {
+    if (timedVisible.length > 0) {
       // Group timed entries by id, sort each group by showFrom.
       const timedById = new Map<string, LayoutEntry[]>()
-      for (const e of timed) {
+      for (const e of timedVisible) {
         const list = timedById.get(e.id)
         if (list) list.push(e)
         else timedById.set(e.id, [e])
