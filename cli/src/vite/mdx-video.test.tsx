@@ -18,7 +18,7 @@ import { findChangedSectionIndex } from './vite-plugin.ts'
 import { computeEffectiveDuration } from './media-duration-store.ts'
 import { findServerNodes, blankServerContents, collectServerImportSources, wrapGenerateNodes, collectServerFileImportNames } from './server-mdx.ts'
 import { stableJsonKey, hashKey, promptPrefix } from './server-components.tsx'
-import { MDX_BUILTIN_COMPONENTS } from './mdx-video.tsx'
+import { MDX_BUILTIN_COMPONENTS, springFromDuration, findSpringConfig } from './mdx-video.tsx'
 
 describe('MDX_BUILTIN_COMPONENTS', () => {
   test('registry keys match client and server slot maps', () => {
@@ -2088,6 +2088,118 @@ describe('mdxParse error recovery', () => {
         "height": 1080,
         "scale": 1,
         "width": 1920,
+      }
+    `)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Spring physics: springFromDuration and findSpringConfig
+// ---------------------------------------------------------------------------
+
+describe('springFromDuration', () => {
+  const round = (n: number) => Math.round(n * 1000) / 1000
+
+  test('matches Motion visualDuration formula', () => {
+    // Motion: root = 2π / (vd * 1.2), stiffness = root², damping = 2 * zeta * sqrt(stiffness)
+    const check = (duration: number, bounce: number) => {
+      const result = springFromDuration(duration, bounce)
+      const omega = (2 * Math.PI) / (duration * 1.2)
+      const stiffness = omega * omega
+      // Motion clamps dampingRatio to [0.05, 1], not bounce
+      const dampingRatio = Math.max(0.05, Math.min(1, 1 - bounce))
+      const damping = 2 * dampingRatio * Math.sqrt(stiffness)
+      expect(round(result.stiffness)).toBe(round(stiffness))
+      expect(round(result.damping)).toBe(round(damping))
+      expect(result.mass).toBe(1)
+    }
+    check(0.3, 0.3)
+    check(0.5, 0)
+    check(0.5, 0.5)
+    check(0.67, 0.85)
+    check(1.0, 1.0)
+  })
+
+  test('bounce=0 produces critically damped spring (no overshoot)', () => {
+    const config = springFromDuration(0.5, 0)
+    // dampingRatio = max(0.05, 1 - 0) = 1 → critically damped
+    expect(round(config.damping)).toBe(round(2 * 1 * Math.sqrt(config.stiffness)))
+  })
+
+  test('bounce=1 produces minimum damping (max overshoot)', () => {
+    const config = springFromDuration(0.5, 1)
+    // dampingRatio = max(0.05, 1 - 1) = 0.05 → nearly undamped
+    expect(round(config.damping)).toBe(round(2 * 0.05 * Math.sqrt(config.stiffness)))
+  })
+
+  test('snapshot key configs', () => {
+    expect(springFromDuration(0.3, 0.3)).toMatchInlineSnapshot(`
+      {
+        "damping": 24.434609527920614,
+        "mass": 1,
+        "stiffness": 304.61741978670864,
+      }
+    `)
+    expect(springFromDuration(0.5, 0.5)).toMatchInlineSnapshot(`
+      {
+        "damping": 10.471975511965978,
+        "mass": 1,
+        "stiffness": 109.6622711232151,
+      }
+    `)
+    expect(springFromDuration(0.67, 0.85)).toMatchInlineSnapshot(`
+      {
+        "damping": 2.344472129544622,
+        "mass": 1,
+        "stiffness": 61.07277295790548,
+      }
+    `)
+  })
+})
+
+describe('findSpringConfig', () => {
+  const round = (n: number) => Math.round(n * 1000) / 1000
+
+  test('produces valid spring config', () => {
+    const config = findSpringConfig(0.8, 0.3)
+    expect(config.stiffness).toBeGreaterThan(0)
+    expect(config.damping).toBeGreaterThan(0)
+    expect(config.mass).toBe(1)
+  })
+
+  test('higher bounce = lower damping ratio', () => {
+    const low = findSpringConfig(0.8, 0.2)
+    const high = findSpringConfig(0.8, 0.8)
+    // Higher bounce → lower damping ratio → lower absolute damping
+    expect(high.damping).toBeLessThan(low.damping)
+  })
+
+  test('bounce=0 produces critically damped spring', () => {
+    const config = findSpringConfig(0.8, 0)
+    // zeta = 1 → damping = 2 * 1 * sqrt(mass * stiffness)
+    expect(round(config.damping)).toBe(round(2 * Math.sqrt(config.mass * config.stiffness)))
+  })
+
+  test('snapshot key configs', () => {
+    expect(findSpringConfig(0.5, 0.3)).toMatchInlineSnapshot(`
+      {
+        "damping": 27.55101044670115,
+        "mass": 1,
+        "stiffness": 387.2745799154265,
+      }
+    `)
+    expect(findSpringConfig(0.8, 0.5)).toMatchInlineSnapshot(`
+      {
+        "damping": 15.896122836620204,
+        "mass": 1,
+        "stiffness": 252.68672123691837,
+      }
+    `)
+    expect(findSpringConfig(1.0, 0.85)).toMatchInlineSnapshot(`
+      {
+        "damping": 10.044027575315129,
+        "mass": 1,
+        "stiffness": 1120.9165548187852,
       }
     `)
   })

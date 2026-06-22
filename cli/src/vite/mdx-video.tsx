@@ -209,9 +209,16 @@ export interface SpringConfig {
 
 /**
  * Convert a human-readable (duration, bounce) pair into Remotion spring
- * physics config. Ported from Framer Motion's spring resolver.
+ * physics config. Matches Motion's `visualDuration` spring formula exactly.
  *
- * @param duration - Animation duration in seconds (e.g. 0.5)
+ * The `duration` param is a *perceptual* duration (how long the animation
+ * *feels*), not the exact settling time. Motion multiplies it by 1.2
+ * internally to derive the natural frequency, so the spring actually
+ * oscillates slightly longer than `duration` but *appears* to complete
+ * within it. We use the same 1.2 factor for identical behavior.
+ *
+ * @param duration - Perceptual animation duration in seconds (e.g. 0.5).
+ *   Internally multiplied by 1.2 to match Motion's visualDuration formula.
  * @param bounce - Bounciness from 0 (no overshoot) to 1 (max bounce). Default 0.
  *
  * ```ts
@@ -229,12 +236,121 @@ export function springFromDuration(
   duration: number,
   bounce: number = 0,
 ): SpringConfig {
-  const omega = (2 * Math.PI) / duration
-  const zeta = 1 - Math.max(0, Math.min(1, bounce))
+  // Matches Motion's visualDuration path (motion-dom spring.ts lines 191-205).
+  // The 1.2 factor converts perceptual duration to the spring's natural period.
+  const omega = (2 * Math.PI) / (duration * 1.2)
+  const stiffness = omega * omega
+  // Motion clamps dampingRatio (not bounce) to [0.05, 1]
+  const dampingRatio = Math.max(0.05, Math.min(1, 1 - bounce))
   return {
-    stiffness: omega * omega,
-    damping: 2 * zeta * omega,
+    stiffness,
+    damping: 2 * dampingRatio * Math.sqrt(stiffness),
     mass: 1,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// findSpringConfig — Motion's duration-based spring solver (Newton-Raphson).
+//
+// Unlike springFromDuration (which uses a perceptual visual-duration), this
+// finds spring params where the envelope decays to near-zero at exactly the
+// given duration. Ported from Motion's findSpring() (motion-dom spring.ts).
+// ---------------------------------------------------------------------------
+
+function calcAngularFreq(undampedFreq: number, dampingRatio: number) {
+  return undampedFreq * Math.sqrt(1 - dampingRatio * dampingRatio)
+}
+
+function approximateRoot(
+  envelope: (n: number) => number,
+  derivative: (n: number) => number,
+  initialGuess: number,
+): number {
+  let result = initialGuess
+  for (let i = 1; i < 12; i++) {
+    result = result - envelope(result) / derivative(result)
+  }
+  return result
+}
+
+/**
+ * Find spring physics config where the spring settles at exactly `duration`.
+ * Ported from Motion's `findSpring()` — uses Newton-Raphson root-finding to
+ * solve for the undamped natural frequency that makes the spring envelope
+ * reach near-zero at the given duration.
+ *
+ * Use this when you need the spring to settle at a precise time (e.g. syncing
+ * to a beat or section boundary). For general-purpose springs where the feel
+ * matters more than exact timing, prefer `springFromDuration()`.
+ *
+ * @param duration - Exact settling time in seconds.
+ * @param bounce - Bounciness from 0 (no overshoot) to 1 (max bounce). Default 0.
+ *
+ * ```ts
+ * // Spring that settles in exactly 800ms with moderate bounce
+ * spring({ frame, fps, config: findSpringConfig(0.8, 0.3) })
+ * ```
+ */
+export function findSpringConfig(
+  duration: number,
+  bounce: number = 0,
+): SpringConfig {
+  const mass = 1
+  const velocity = 0
+  const safeMin = 0.001
+
+  let dampingRatio = 1 - bounce
+  dampingRatio = Math.max(0.05, Math.min(1, dampingRatio))
+  duration = Math.max(0.01, Math.min(10, duration))
+
+  let envelope: (n: number) => number
+  let derivative: (n: number) => number
+
+  if (dampingRatio < 1) {
+    // Underdamped
+    envelope = (undampedFreq) => {
+      const exponentialDecay = undampedFreq * dampingRatio
+      const delta = exponentialDecay * duration
+      const a = exponentialDecay - velocity
+      const b = calcAngularFreq(undampedFreq, dampingRatio)
+      const c = Math.exp(-delta)
+      return safeMin - (a / b) * c
+    }
+    derivative = (undampedFreq) => {
+      const exponentialDecay = undampedFreq * dampingRatio
+      const delta = exponentialDecay * duration
+      const d = delta * velocity + velocity
+      const e = Math.pow(dampingRatio, 2) * Math.pow(undampedFreq, 2) * duration
+      const f = Math.exp(-delta)
+      const g = calcAngularFreq(Math.pow(undampedFreq, 2), dampingRatio)
+      const factor = -envelope(undampedFreq) + safeMin > 0 ? -1 : 1
+      return (factor * ((d - e) * f)) / g
+    }
+  } else {
+    // Critically damped
+    envelope = (undampedFreq) => {
+      const a = Math.exp(-undampedFreq * duration)
+      const b = (undampedFreq - velocity) * duration + 1
+      return -safeMin + a * b
+    }
+    derivative = (undampedFreq) => {
+      const a = Math.exp(-undampedFreq * duration)
+      const b = (velocity - undampedFreq) * (duration * duration)
+      return a * b
+    }
+  }
+
+  const undampedFreq = approximateRoot(envelope, derivative, 5 / duration)
+
+  if (isNaN(undampedFreq)) {
+    return { stiffness: 100, damping: 10, mass: 1 }
+  }
+
+  const stiffness = Math.pow(undampedFreq, 2) * mass
+  return {
+    stiffness,
+    damping: dampingRatio * 2 * Math.sqrt(mass * stiffness),
+    mass,
   }
 }
 
