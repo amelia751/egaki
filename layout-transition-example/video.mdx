@@ -13,7 +13,7 @@ import { Dot, ListItem, FeatureCard, ActiveBadge, TextCard, ShapeBox } from './c
       label="Design"
       description="Create mockups and prototypes"
       indicator={
-        <LayoutTransition id="dot" showFrom={0} showUpTo={1 * FPS} duration={12} bounce={0.7}>
+        <LayoutTransition id="dot" showFrom={0} showUpTo={1 * FPS} duration={20} bounce={0.85}>
           <Dot />
         </LayoutTransition>
       }
@@ -22,7 +22,7 @@ import { Dot, ListItem, FeatureCard, ActiveBadge, TextCard, ShapeBox } from './c
       label="Develop"
       description="Build with React and TypeScript"
       indicator={
-        <LayoutTransition id="dot" showFrom={1 * FPS} showUpTo={2 * FPS} duration={12} bounce={0.7}>
+        <LayoutTransition id="dot" showFrom={1 * FPS} showUpTo={2 * FPS} duration={20} bounce={0.85}>
           <Dot />
         </LayoutTransition>
       }
@@ -31,7 +31,7 @@ import { Dot, ListItem, FeatureCard, ActiveBadge, TextCard, ShapeBox } from './c
       label="Deploy"
       description="Ship to production in seconds"
       indicator={
-        <LayoutTransition id="dot" showFrom={2 * FPS} showUpTo={3 * FPS} duration={12} bounce={0.7}>
+        <LayoutTransition id="dot" showFrom={2 * FPS} showUpTo={3 * FPS} duration={20} bounce={0.85}>
           <Dot />
         </LayoutTransition>
       }
@@ -49,7 +49,7 @@ import { Dot, ListItem, FeatureCard, ActiveBadge, TextCard, ShapeBox } from './c
       showFrom={0}
       showUpTo={1 * FPS}
       badge={
-        <LayoutTransition id="badge" showFrom={0} showUpTo={1 * FPS} duration={12} bounce={0.7}>
+        <LayoutTransition id="badge" showFrom={0} showUpTo={1 * FPS} duration={20} bounce={0.85}>
           <ActiveBadge />
         </LayoutTransition>
       }
@@ -60,7 +60,7 @@ import { Dot, ListItem, FeatureCard, ActiveBadge, TextCard, ShapeBox } from './c
       showFrom={1 * FPS}
       showUpTo={2 * FPS}
       badge={
-        <LayoutTransition id="badge" showFrom={1 * FPS} showUpTo={2 * FPS} duration={12} bounce={0.7}>
+        <LayoutTransition id="badge" showFrom={1 * FPS} showUpTo={2 * FPS} duration={20} bounce={0.85}>
           <ActiveBadge />
         </LayoutTransition>
       }
@@ -71,7 +71,7 @@ import { Dot, ListItem, FeatureCard, ActiveBadge, TextCard, ShapeBox } from './c
       showFrom={2 * FPS}
       showUpTo={3 * FPS}
       badge={
-        <LayoutTransition id="badge" showFrom={2 * FPS} showUpTo={3 * FPS} duration={12} bounce={0.7}>
+        <LayoutTransition id="badge" showFrom={2 * FPS} showUpTo={3 * FPS} duration={20} bounce={0.85}>
           <ActiveBadge />
         </LayoutTransition>
       }
@@ -82,17 +82,17 @@ import { Dot, ListItem, FeatureCard, ActiveBadge, TextCard, ShapeBox } from './c
 # Text Size duration=3s
 
 <Fill style={{ justifyContent: 'center', alignItems: 'center' }}>
-  <LayoutTransition id="text" showFrom={0} showUpTo={1 * FPS} duration={12} bounce={0.7}>
+  <LayoutTransition id="text" showFrom={0} showUpTo={1 * FPS} duration={20} bounce={0.85}>
     <TextCard fontSize={36} fontWeight={600} padding="16px 32px" borderRadius={12}>Hello World</TextCard>
   </LayoutTransition>
 </Fill>
 <Fill style={{ justifyContent: 'center', alignItems: 'center' }}>
-  <LayoutTransition id="text" showFrom={1 * FPS} showUpTo={2 * FPS} duration={12} bounce={0.7}>
+  <LayoutTransition id="text" showFrom={1 * FPS} showUpTo={2 * FPS} duration={20} bounce={0.85}>
     <TextCard fontSize={72} fontWeight={700} padding="24px 48px" borderRadius={24}>Hello World</TextCard>
   </LayoutTransition>
 </Fill>
 <Fill style={{ justifyContent: 'center', alignItems: 'center' }}>
-  <LayoutTransition id="text" showFrom={2 * FPS} showUpTo={3 * FPS} duration={12} bounce={0.7}>
+  <LayoutTransition id="text" showFrom={2 * FPS} showUpTo={3 * FPS} duration={20} bounce={0.85}>
     <TextCard fontSize={120} fontWeight={800} padding="32px 64px" borderRadius={40}>Hello World</TextCard>
   </LayoutTransition>
 </Fill>
@@ -100,17 +100,17 @@ import { Dot, ListItem, FeatureCard, ActiveBadge, TextCard, ShapeBox } from './c
 # Color & Shape duration=3s
 
 <Fill style={{ justifyContent: 'center', alignItems: 'center' }}>
-  <LayoutTransition id="box" showFrom={0} showUpTo={1 * FPS} duration={12} bounce={0.7}>
+  <LayoutTransition id="box" showFrom={0} showUpTo={1 * FPS} duration={20} bounce={0.85}>
     <ShapeBox width={200} height={200} borderRadius={16} backgroundColor="#3b82f6">Blue</ShapeBox>
   </LayoutTransition>
 </Fill>
 <Fill style={{ justifyContent: 'center', alignItems: 'center' }}>
-  <LayoutTransition id="box" showFrom={1 * FPS} showUpTo={2 * FPS} duration={12} bounce={0.7}>
+  <LayoutTransition id="box" showFrom={1 * FPS} showUpTo={2 * FPS} duration={20} bounce={0.85}>
     <ShapeBox width={400} height={120} borderRadius={60} backgroundColor="#8b5cf6">Purple</ShapeBox>
   </LayoutTransition>
 </Fill>
 <Fill style={{ justifyContent: 'center', alignItems: 'center' }}>
-  <LayoutTransition id="box" showFrom={2 * FPS} showUpTo={3 * FPS} duration={12} bounce={0.7}>
+  <LayoutTransition id="box" showFrom={2 * FPS} showUpTo={3 * FPS} duration={20} bounce={0.85}>
     <ShapeBox width={300} height={300} borderRadius={150} backgroundColor="#ef4444">Red</ShapeBox>
   </LayoutTransition>
 </Fill>

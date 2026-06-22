@@ -313,7 +313,7 @@ function applyFlip({
  *  applyFlip patches (e.g. backgroundColor via interpolate()) and React's
  *  new value happens to serialize identically to our last applied value,
  *  reset will incorrectly restore the stale previous. This only matters
- *  on the transition end frame (progress > 0.999) when applyFlip is
+ *  on the transition end frame (|progress - 1| < 0.001) when applyFlip is
  *  skipped. Avoid animating borderRadius, backgroundColor, boxShadow,
  *  overflow, or opacity on elements inside LayoutTransition during the
  *  transition window. */
@@ -619,7 +619,10 @@ export function LayoutAnimationLayer() {
               easing: e.easing,
             })
           : dspring(frame, fps, e.durationInFrames / fps, e.bounce)
-        if (progress > 0.999) continue
+        // Must check |progress - 1| not just progress > threshold, otherwise
+        // bouncy springs that overshoot past 1.0 get their overshoot frames
+        // skipped and the bounce is invisible.
+        if (Math.abs(progress - 1) < 0.001) continue
 
         const fromRect = ghostEl.getBoundingClientRect()
         const toRect = el.getBoundingClientRect()
@@ -672,7 +675,10 @@ export function LayoutAnimationLayer() {
               easing: active.easing,
             })
           : dspring(localFrame, fps, active.durationInFrames / fps, active.bounce)
-        if (progress > 0.999) continue
+        // Must check |progress - 1| not just progress > threshold, otherwise
+        // bouncy springs that overshoot past 1.0 get their overshoot frames
+        // skipped and the bounce is invisible.
+        if (Math.abs(progress - 1) < 0.001) continue
 
         // FLIP: measure previous (visibility:hidden, keeps layout) → active.
         const fromRect = prev.ref.current.getBoundingClientRect()
