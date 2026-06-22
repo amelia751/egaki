@@ -76,18 +76,27 @@ export function ListItem({
   )
 }
 
-/** Feature card that highlights when active, used in the second example. */
+/**
+ * Feature card that highlights when its badge is visible, used in the second example.
+ * Pass showFrom/showUpTo matching the badge's LayoutTransition time window so the
+ * card's background activates in sync with the badge position.
+ */
 export function FeatureCard({
   title,
   icon,
-  active,
   badge,
+  showFrom = 0,
+  showUpTo = Infinity,
 }: {
   title: string
   icon: string
-  active?: boolean
   badge?: React.ReactNode
+  showFrom?: number
+  showUpTo?: number
 }) {
+  const frame = useCurrentFrame()
+  const active = frame >= showFrom && frame < showUpTo
+
   return (
     <div
       style={{
