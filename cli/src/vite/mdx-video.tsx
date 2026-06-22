@@ -283,6 +283,10 @@ function approximateRoot(
  * to a beat or section boundary). For general-purpose springs where the feel
  * matters more than exact timing, prefer `springFromDuration()`.
  *
+ * Note: Motion's generator also forcibly snaps `value = target` when
+ * `t >= duration`. Remotion's spring() does not; it naturally settles.
+ * The envelope will be near-zero at `duration` but not forcibly clamped.
+ *
  * @param duration - Exact settling time in seconds.
  * @param bounce - Bounciness from 0 (no overshoot) to 1 (max bounce). Default 0.
  *
