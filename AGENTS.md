@@ -785,8 +785,15 @@ the element in the new section springs from where the viewer last saw it.
 In Scene 2, "Hello" animates from its centered Scene-1 position to its new
 slot above "World". "World" has no match in Scene 1 so it just appears
 normally. Props: `id` (required), `duration` (frames, default 20), `bounce`
-(spring bounce 0-1, default 0.15), `mode` (`'both' | 'position' | 'size'`,
-default `'both'`).
+(spring bounce 0-1, default 0.15), `easing` (custom easing function, overrides
+`bounce`), `mode` (`'both' | 'position' | 'size'`, default `'both'`).
+
+**`bounce` vs `easing`:** By default, the transition uses a spring driven by
+`bounce`. When `easing` is set, the spring is replaced entirely with
+`interpolate()` over `duration` frames using that easing function; `bounce`
+is ignored. Use `easing` when you want a specific curve (e.g.
+`easing={EASE.overshootBouncy}` or `easing={overshootBouncy(60)}`); use
+`bounce` when you want a simple spring feel.
 
 **Visual style interpolation.** During the transition, `LayoutTransition`
 automatically interpolates visual properties between the old and new elements:
@@ -888,7 +895,7 @@ Demo: `layout-transition-example/` project.
 
 ### Implementation
 
-Implementation lives in `cli/src/vite/mdx-video.tsx` (`LayoutTransition`,
+Implementation lives in `cli/src/vite/layout-transition.tsx` (`LayoutTransition`,
 `LayoutTransitionProvider`, `LayoutGhost`, `LayoutAnimationLayer`) and
 `cli/src/vite/player-page.tsx` (`SectionWithLayoutTransition`, ghost
 mounting).
@@ -1515,7 +1522,10 @@ These are documented here to prevent future regressions:
 | `cli/src/vite/mdx-parse.ts` | Environment-agnostic section splitting and duration parsing |
 | `cli/src/vite/server-mdx.ts` | `<Server>` parsing: slot extraction, blanking, import detection |
 | `cli/src/vite/server-components.tsx` | Built-in server components (`egaki/text-to-speech`) |
-| `cli/src/vite/mdx-video.tsx` | Client animation components, `MDX_BUILTIN_COMPONENTS`, `MotionTimingSync` |
+| `cli/src/vite/mdx-video.tsx` | Client animation wrappers, easing presets, `MDX_BUILTIN_COMPONENTS`, `MotionTimingSync` |
+| `cli/src/vite/layout-transition.tsx` | `LayoutTransition` FLIP animation system + style interpolation helpers |
+| `cli/src/vite/keyframes.tsx` | `keyframes()` evaluator, Lottie converters (`fromLottieProperty`) |
+| `cli/src/vite/media-components.tsx` | Ghost-aware `Img`/`Audio`/`Video`, `ExportContext`, duration reporting |
 | `cli/src/vite/components.tsx` | Visual components (remocn ports) |
 | `cli/src/vite/player-page.tsx` | Client Player wrapper + export UI |
 | `cli/src/vite/render-client.ts` | In-browser MP4 export via `@remotion/web-renderer` |

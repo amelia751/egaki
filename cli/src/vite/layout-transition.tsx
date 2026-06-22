@@ -451,10 +451,11 @@ export function LayoutTransition({
   id: string
   /** Transition duration in frames. Default 20. */
   duration?: number
-  /** Spring bounce, 0 = no overshoot, 1 = max. Default 0.15. */
+  /** Spring bounce, 0 = no overshoot, 1 = max. Default 0.15.
+   *  Ignored when `easing` is set (easing replaces the spring entirely). */
   bounce?: number
   /** Custom easing function. When set, uses interpolate() over `duration`
-   *  frames instead of the spring. */
+   *  frames instead of the spring. Overrides `bounce`. */
   easing?: (t: number) => number
   /** Which axes to animate. 'position' snaps size instantly; 'size' snaps
    *  position instantly; 'both' (default) animates both. */
