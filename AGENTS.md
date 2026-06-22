@@ -785,7 +785,33 @@ the element in the new section springs from where the viewer last saw it.
 In Scene 2, "Hello" animates from its centered Scene-1 position to its new
 slot above "World". "World" has no match in Scene 1 so it just appears
 normally. Props: `id` (required), `duration` (frames, default 20), `bounce`
-(spring bounce 0-1, default 0.15).
+(spring bounce 0-1, default 0.15), `mode` (`'both' | 'position' | 'size'`,
+default `'both'`).
+
+**Visual style interpolation.** During the transition, `LayoutTransition`
+automatically interpolates visual properties between the old and new elements:
+- **Border radius**: each corner is interpolated and counter-scaled by the
+  projection delta so corners don't distort during size changes.
+- **Background color**: RGB channels are linearly interpolated between the
+  source and target elements' computed `backgroundColor`.
+- **Box shadow**: shadow offsets and blur are counter-scaled by the FLIP
+  scale factor so shadows don't squish during size transitions.
+- **Opacity**: when source and target elements have different opacity values,
+  opacity is linearly interpolated during the transition. Motion's compressed
+  crossfade (fade from 0 with circOut) is not used because the ghost container
+  is hidden; starting at opacity 0 would cause a visible flash. The `crossfade`
+  prop is reserved for future overlay-style transitions.
+
+Computed styles are read from the wrapper's `firstElementChild` (where user
+visual styles live), and interpolated values are applied to the wrapper div
+during the transition, then cleared when the animation completes.
+
+**`mode` prop** controls which axes animate:
+- `'both'` (default): animate position and size (standard FLIP).
+- `'position'`: only animate position; size snaps instantly. Use when elements
+  change size but you only want them to slide into place.
+- `'size'`: only animate size; position snaps instantly. Use for resize
+  animations without movement.
 
 **Seek-safe by design.** No temporal state is used. The previous section is
 re-rendered in a hidden ghost container pinned at its last frame via Remotion

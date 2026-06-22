@@ -1201,6 +1201,39 @@ describe('LayoutTransition', () => {
     expect(html).not.toContain('visibility')
     expect(html).toContain('<span>Always visible</span>')
   })
+
+  test('accepts mode prop without changing rendered output', async () => {
+    const { LayoutTransition } = await import('./mdx-video.tsx')
+    const html = renderToStaticMarkup(
+      <LayoutTransition id="card" mode="position">
+        <div>Card</div>
+      </LayoutTransition>,
+    )
+    // mode is an internal prop consumed by LayoutAnimationLayer, not rendered
+    expect(html).toContain('data-layout-id="card"')
+    expect(html).toContain('<div>Card</div>')
+    expect(html).not.toContain('mode')
+  })
+
+  test('mode="size" with ghost and visible', async () => {
+    const { LayoutTransition, LayoutTransitionProvider, LayoutGhost } =
+      await import('./mdx-video.tsx')
+    const html = renderToStaticMarkup(
+      <LayoutTransitionProvider>
+        <LayoutGhost>
+          <LayoutTransition id="box" mode="size">
+            <div style={{ width: 100, height: 100 }}>Small</div>
+          </LayoutTransition>
+        </LayoutGhost>
+        <LayoutTransition id="box" mode="size">
+          <div style={{ width: 200, height: 200 }}>Big</div>
+        </LayoutTransition>
+      </LayoutTransitionProvider>,
+    )
+    expect(html).toContain('data-layout-id="box"')
+    expect(html).toContain('Small')
+    expect(html).toContain('Big')
+  })
 })
 
 describe('findServerNodes', () => {

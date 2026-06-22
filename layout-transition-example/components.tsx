@@ -142,3 +142,69 @@ export function ActiveBadge() {
     </div>
   )
 }
+
+/** Text card with configurable size, used in the Text Size scene. */
+export function TextCard({
+  children,
+  fontSize = 36,
+  fontWeight = 600,
+  padding = '16px 32px',
+  borderRadius = 12,
+}: {
+  children: React.ReactNode
+  fontSize?: number
+  fontWeight?: number
+  padding?: string
+  borderRadius?: number
+}) {
+  return (
+    <div
+      style={{
+        fontSize,
+        fontWeight,
+        color: '#fafafa',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        backgroundColor: '#1e293b',
+        padding,
+        borderRadius,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** Colored shape box for the Color & Shape scene. */
+export function ShapeBox({
+  children,
+  width,
+  height,
+  borderRadius,
+  backgroundColor,
+}: {
+  children: React.ReactNode
+  width: number
+  height: number
+  borderRadius: number
+  backgroundColor: string
+}) {
+  return (
+    <div
+      style={{
+        width,
+        height,
+        borderRadius,
+        backgroundColor,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 48,
+        fontWeight: 700,
+        color: 'white',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
