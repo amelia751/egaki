@@ -1552,3 +1552,9 @@ cd video-example && pnpm run test-e2e
 Playwright starts Vite on port **5199** (`video-example/playwright.config.ts`), runs `video-example/e2e/hmr.test.ts` serially. Reuses an existing server on 5199 when not in CI.
 
 Vitest alone is enough for isolated parsing or helper changes with no plugin/HMR behavior. If behavior crosses server ↔ client or the browser Player, run **`video-example` e2e** before finishing.
+
+## Midjourney CDN URLs
+
+Midjourney's CDN (`cdn.midjourney.com`) is behind Cloudflare bot protection. `curl` and other non-browser HTTP clients receive a "Just a moment..." JS challenge page instead of the actual file. Do NOT waste time trying to download these URLs with curl, wget, or fetch from Node.
+
+Instead, use the URL directly as `src` in components (`<Video>`, `<img>`, CSS `background-image`, etc.). The browser rendering the page can solve the Cloudflare challenge and load the asset at runtime.
