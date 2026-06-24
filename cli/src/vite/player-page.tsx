@@ -287,7 +287,13 @@ const SECTION_CONTENT_STYLE: React.CSSProperties = {
   // See: https://remotion.dev/docs/troubleshooting/subpixel-rendering
   perspective: '1000px',
   willChange: 'transform',
-}
+  // Grayscale antialiasing instead of subpixel. Subpixel rendering adds
+  // RGB color fringing at text edges which creates shimmering artifacts
+  // when text moves or scales in video. Grayscale is also consistent
+  // across platforms (subpixel varies by OS and display).
+  WebkitFontSmoothing: 'antialiased',
+  MozOsxFontSmoothing: 'grayscale',
+} as React.CSSProperties
 
 // How long (in seconds) the hidden ghost copy of the previous section stays
 // mounted at the start of a section. LayoutTransition springs (default 20
