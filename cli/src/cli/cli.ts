@@ -77,6 +77,16 @@ import {
 import {
   DEFAULT_TRANSCRIPTION_MODEL,
 } from './transcription-models.js'
+import {
+  separateAudioUncached as separateAudio,
+  downloadStem,
+  type StemName,
+  type DemucsModel,
+} from './separation-generate.js'
+import {
+  cloneVoiceUncached as cloneVoice,
+  type CloneProvider,
+} from './clone-generate.js'
 
 const cli = goke('egaki')
 
@@ -844,6 +854,304 @@ cli
     }
 
     printCost(result.cost)
+  })
+
+// ─── separate command ────────────────────────────────────────────────────────
+
+cli
+  .command(
+    'separate [audio]',
+    dedent`
+      Separate audio into stems (vocals, background, drums, bass, etc.)
+      using fal.ai's Demucs model. Requires a fal.ai API key.
+      By default extracts vocals and background (other) stems.
+    `,
+  )
+  .option(
+    '--stems [list]',
+    z
+      .string()
+      .describe('Comma-separated stems to extract: vocals, drums, bass, other, guitar, piano. Default: vocals,other'),
+  )
+  .option(
+    '--model [model]',
+    z
+      .string()
+      .describe('Demucs model variant. Default: htdemucs_6s. Options: htdemucs, htdemucs_ft, htdemucs_6s, mdx, mdx_extra'),
+  )
+  .option(
+    '--output-format [format]',
+    z
+      .enum(['mp3', 'wav'])
+      .default('mp3')
+      .describe('Output audio format: mp3 or wav'),
+  )
+  .option(
+    '-o, --output [dir]',
+    z
+      .string()
+      .describe('Output directory for separated stems. Default: current directory'),
+  )
+  .option(
+    '--shifts [n]',
+    z
+      .number()
+      .describe('Number of random shifts for quality (higher = better but slower). Default: 1'),
+  )
+  .option(
+    '--overlap [n]',
+    z
+      .number()
+      .describe('Segment overlap 0.0-1.0 (higher = better quality). Default: 0.25'),
+  )
+  .option(
+    '--stdin',
+    'Read audio from stdin instead of a file path',
+  )
+  .option(
+    '--json',
+    'Output result metadata as JSON to stdout',
+  )
+  .example('# Separate vocals and background from an audio file')
+  .example('egaki separate song.mp3')
+  .example('# Extract all stems (vocals, drums, bass, guitar, piano, other)')
+  .example('egaki separate song.mp3 --stems vocals,drums,bass,other,guitar,piano')
+  .example('# Extract only vocals as WAV')
+  .example('egaki separate song.mp3 --stems vocals --output-format wav')
+  .example('# Save to a specific directory')
+  .example('egaki separate song.mp3 -o stems/')
+  .example('# Higher quality (slower)')
+  .example('egaki separate song.mp3 --shifts 5')
+  .action(async (audioPath = '', options) => {
+    if (!options.stdin && !audioPath) {
+      console.error(pc.red('No audio provided. Pass an audio file path or use --stdin.'))
+      process.exit(1)
+    }
+
+    let audioData: Uint8Array
+    let filename: string | undefined
+
+    if (options.stdin) {
+      const chunks: Buffer[] = []
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk)
+      }
+      audioData = new Uint8Array(Buffer.concat(chunks))
+    } else {
+      const resolved = path.resolve(audioPath)
+      if (!fs.existsSync(resolved)) {
+        console.error(pc.red(`File not found: ${resolved}`))
+        process.exit(1)
+      }
+      audioData = new Uint8Array(fs.readFileSync(resolved))
+      filename = path.basename(resolved)
+    }
+
+    if (audioData.length === 0) {
+      console.error(pc.red('No audio data provided.'))
+      process.exit(1)
+    }
+
+    const stems: StemName[] = options.stems
+      ? (options.stems as string).split(',').map((s: string) => s.trim() as StemName)
+      : ['vocals', 'other']
+    const model = (options.model ?? 'htdemucs_6s') as DemucsModel
+    const outputFormat = options.outputFormat ?? 'mp3'
+    const outputDir = options.output ? path.resolve(options.output) : process.cwd()
+
+    console.error(pc.dim(`Model: ${model}`))
+    console.error(pc.dim(`Stems: ${stems.join(', ')}`))
+    console.error(pc.dim(`Audio: ${options.stdin ? 'stdin' : audioPath} (${(audioData.length / 1024 / 1024).toFixed(1)} MB)`))
+    console.error(pc.cyan('Separating audio...'))
+
+    const result = await runProviderCall('Audio separation', () => separateAudio({
+      audio: audioData,
+      stems,
+      model,
+      outputFormat,
+      shifts: options.shifts,
+      overlap: options.overlap,
+      filename,
+      onProgress: (msg) => console.error(pc.dim(msg)),
+    }))
+
+    // Create output directory if needed
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true })
+    }
+
+    // Download and save each stem
+    const baseName = filename
+      ? path.basename(filename, path.extname(filename))
+      : 'audio'
+    const savedFiles: Array<{ stem: string; path: string; size: number }> = []
+
+    for (const stem of result.stems) {
+      console.error(pc.dim(`Downloading ${stem.name}...`))
+      const bytes = await downloadStem(stem.url)
+      if (bytes instanceof Error) {
+        console.error(pc.red(`Failed to download ${stem.name}: ${bytes.message}`))
+        continue
+      }
+      const stemPath = path.join(outputDir, `${baseName}-${stem.name}.${outputFormat}`)
+      fs.writeFileSync(stemPath, bytes)
+      savedFiles.push({ stem: stem.name, path: stemPath, size: bytes.length })
+      console.error(pc.green(`Saved: ${stemPath} (${(bytes.length / 1024 / 1024).toFixed(1)} MB)`))
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify({
+        model: result.model,
+        stems: savedFiles,
+      }, null, 2))
+    }
+  })
+
+// ─── voice clone command ─────────────────────────────────────────────────────
+
+cli
+  .command(
+    'voice clone [audio]',
+    dedent`
+      Clone a voice from an audio clip. Returns a voice ID for use with
+      'egaki speech --voice <id>'. Supports Cartesia (default) and ElevenLabs.
+
+      Best practices for high-quality clones:
+
+      1. Isolate vocals first: 'egaki separate recording.mp3 --stems vocals'
+         removes background music, noise, and other speakers.
+      2. Find a clean snippet: 'egaki transcribe recording-vocals.mp3' to get
+         word timestamps. Pick a 5-10s segment with a complete phrase, clear
+         speech, no hesitations or crosstalk.
+      3. Trim to speech boundaries:
+         ffmpeg -i recording-vocals.mp3 -ss 12.5 -to 22.0 -c copy clip.mp3
+         No silence padding at start or end.
+      4. Match energy to intent: the clone mimics the tone and pacing of the
+         source clip. Use an energetic clip for energetic output.
+      5. Speak in the target language. Use --language to set the code.
+
+      Cartesia: up to 10s of audio, instant, free. Good for short clean clips.
+      ElevenLabs: 1-3 min recommended, has --remove-background-noise option.
+    `,
+  )
+  .option(
+    '--name [name]',
+    z
+      .string()
+      .describe('Name for the cloned voice (required)'),
+  )
+  .option(
+    '-p, --provider [provider]',
+    z
+      .enum(['cartesia', 'elevenlabs'])
+      .default('cartesia')
+      .describe('Voice cloning provider: cartesia or elevenlabs'),
+  )
+  .option(
+    '--language [lang]',
+    z
+      .string()
+      .describe('ISO 639-1 language code (default: en). E.g. en, es, fr, de, ja'),
+  )
+  .option(
+    '--description [text]',
+    z
+      .string()
+      .describe('Optional description for the voice'),
+  )
+  .option(
+    '--base-voice-id [id]',
+    z
+      .string()
+      .describe('Cartesia: optional base voice ID to derive from'),
+  )
+  .option(
+    '--remove-background-noise',
+    'ElevenLabs: apply AI noise removal to the clip before cloning',
+  )
+  .option(
+    '--stdin',
+    'Read audio from stdin instead of a file path',
+  )
+  .option(
+    '--json',
+    'Output result as JSON to stdout',
+  )
+  .example('# Clone a voice from a recording')
+  .example('egaki voice clone recording.wav --name "My Voice"')
+  .example('# Clone with ElevenLabs and noise removal')
+  .example('egaki voice clone vocals.mp3 --name "Narrator" --provider elevenlabs --remove-background-noise')
+  .example('# Full pipeline: separate → trim → clone')
+  .example('egaki separate interview.mp3 --stems vocals')
+  .example('ffmpeg -i interview-vocals.mp3 -ss 5.0 -to 15.0 -c copy clip.mp3')
+  .example('egaki voice clone clip.mp3 --name "Speaker"')
+  .example('# Use the cloned voice')
+  .example('egaki speech "Hello world" --voice <voice-id>')
+  .action(async (audioPath = '', options) => {
+    if (!options.stdin && !audioPath) {
+      console.error(pc.red('No audio provided. Pass an audio file path or use --stdin.'))
+      process.exit(1)
+    }
+
+    const name = options.name
+    if (!name) {
+      console.error(pc.red('Voice name is required. Use --name "My Voice".'))
+      process.exit(1)
+    }
+
+    let audioData: Uint8Array
+    let filename: string | undefined
+
+    if (options.stdin) {
+      const chunks: Buffer[] = []
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk)
+      }
+      audioData = new Uint8Array(Buffer.concat(chunks))
+    } else {
+      const resolved = path.resolve(audioPath)
+      if (!fs.existsSync(resolved)) {
+        console.error(pc.red(`File not found: ${resolved}`))
+        process.exit(1)
+      }
+      audioData = new Uint8Array(fs.readFileSync(resolved))
+      filename = path.basename(resolved)
+    }
+
+    if (audioData.length === 0) {
+      console.error(pc.red('No audio data provided.'))
+      process.exit(1)
+    }
+
+    const provider = (options.provider ?? 'cartesia') as CloneProvider
+
+    console.error(pc.dim(`Provider: ${provider}`))
+    console.error(pc.dim(`Name: ${name}`))
+    console.error(pc.dim(`Audio: ${options.stdin ? 'stdin' : audioPath} (${(audioData.length / 1024).toFixed(1)} KB)`))
+    console.error(pc.cyan('Cloning voice...'))
+
+    const result = await runProviderCall('Voice cloning', () => cloneVoice({
+      audio: audioData,
+      name,
+      provider,
+      language: options.language,
+      description: options.description,
+      baseVoiceId: options.baseVoiceId,
+      removeBackgroundNoise: options.removeBackgroundNoise || false,
+      filename,
+    }))
+
+    console.error(pc.green(`Voice cloned successfully!`))
+    console.error(pc.bold(`Voice ID: ${result.voiceId}`))
+    console.error(pc.dim(`Use it: egaki speech "Hello" --voice ${result.voiceId}`))
+
+    if (options.json) {
+      console.log(JSON.stringify({
+        voiceId: result.voiceId,
+        name: result.name,
+        provider: result.provider,
+      }, null, 2))
+    }
   })
 
 // ─── models command ──────────────────────────────────────────────────────────

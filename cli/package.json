@@ -39,7 +39,6 @@
       "types": "./src/vite/mdx-provided-components.ts",
       "default": "./src/vite/mdx-provided-components.ts"
     },
-
     "./src/cli/*": {
       "types": "./src/cli/*.ts",
       "default": "./src/cli/*.ts"
@@ -97,6 +96,7 @@
     "@ai-sdk/replicate": "2.0.20",
     "@ai-sdk/xai": "^3.0.92",
     "@clack/prompts": "^1.0.1",
+    "@fal-ai/client": "^1.10.1",
     "@remotion/media": "4.0.475",
     "@remotion/player": "4.0.475",
     "@remotion/web-renderer": "4.0.475",
