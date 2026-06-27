@@ -54,6 +54,23 @@ The `--model` / `-m` flag is **optional** on both `egaki image` and `egaki video
 
 Agents should always pass `-m` explicitly to avoid the interactive picker.
 
+### Preferred image models
+
+When the user does not specify a model, prefer these in order:
+
+1. **`gpt-image-1`** (or `gpt-image-2` / `chatgpt-image-latest` if available)
+2. **`grok-imagine-image`** (xAI Grok)
+3. **`nano-banana-pro-preview`**
+
+Always try the first available model. Fall back to the next if auth is missing
+for the preferred one.
+
+### Preferred video models
+
+When the user does not specify a video model, prefer:
+
+1. **`grok-imagine-video-1.5`** (xAI Grok)
+
 ## Example commands
 
 ```bash
