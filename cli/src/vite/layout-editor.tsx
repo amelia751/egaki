@@ -527,6 +527,8 @@ export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditing
 
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEl) {
         e.preventDefault()
+        // Invalidate any in-flight attachMoveable async imports
+        moveableGenRef.current++
         const player = getPlayer()
         // Ensure a change entry exists for this element
         if (!changesRef.current.has(selectedEl)) {
