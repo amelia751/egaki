@@ -5,7 +5,7 @@
  *
  * Wraps Remotion's Img and @remotion/media's Audio/Video with:
  * - LayoutTransition ghost neutralization (Audio renders nothing in ghost,
- *   Video renders muted for FLIP measurement)
+ *   Video renders a lightweight div placeholder for FLIP measurement)
  * - Promise<string> src support via Suspense + React 19 use()
  * - Auto duration reporting to the per-section duration store
  * - Tweakpane trim controls for interactive Video editing
@@ -320,8 +320,13 @@ export function Video(props: VideoProps) {
     gapBefore ? <Sequence from={gapBefore} layout="none">{el}</Sequence> : el
 
   if (container === 'ghost') {
-    // Render real video muted so LayoutTransition FLIP gets accurate geometry
-    return wrapWithGap(<MediaVideo {...filledProps} muted volume={0} />)
+    // Render a lightweight placeholder instead of a real <MediaVideo>.
+    // The ghost is visibility:hidden + opacity:0, so no content is visible.
+    // FLIP only needs accurate geometry (width/height), which the filled
+    // style already provides. Loading an actual video here is expensive:
+    // the browser fetches, decodes, and buffers the previous section's
+    // video file even though it's never displayed.
+    return wrapWithGap(<div style={filledProps.style} />)
   }
 
   // During export, report duration but skip tweakpane UI

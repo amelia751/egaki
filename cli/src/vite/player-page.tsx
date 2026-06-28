@@ -302,6 +302,11 @@ const SECTION_CONTENT_STYLE: React.CSSProperties = {
 // mount decision happens before that.
 const GHOST_WINDOW_SECONDS = 5
 
+// How many seconds before a section cut to premount the next section.
+// Remotion's premountFor renders the next sequence early (hidden) so
+// <Video> elements start loading before the cut, preventing stutter.
+const PREMOUNT_SECONDS = 3
+
 /**
  * Section content wrapper enabling <LayoutTransition> FLIP animations
  * across section boundaries.
@@ -378,6 +383,9 @@ function VideoComposition({
   totalDuration: number
   preamble?: ReactNode
 }) {
+  const { fps } = useVideoConfig()
+  const premountFrames = Math.round(fps * PREMOUNT_SECONDS)
+
   return (
     <AbsoluteFill style={{ background: '#050505', fontSize: 60 }}>
       {/* Preamble: MDX content before the first heading. Rendered at
@@ -392,6 +400,11 @@ function VideoComposition({
             durationInFrames={section.durationInFrames}
             // @ts-ignore — name prop exists on Series.Sequence
             name={section.heading || `Section ${i}`}
+            // Premount the next section N seconds early so <Video> elements
+            // start loading before the cut, preventing playback stutter.
+            // Remotion renders the premounted section hidden; it receives
+            // its own correct frame context (starting at frame 0).
+            premountFor={premountFrames}
           >
             <SectionIndexContext.Provider value={i}>
               <Suspense fallback={<SuspenseFallback />}>
