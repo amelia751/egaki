@@ -842,7 +842,6 @@ cli
       durationInSeconds: result.durationInSeconds,
       model: result.model,
       cost: result.cost,
-      warnings: result.warnings,
     }
 
     if (options.output) {

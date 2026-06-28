@@ -5,19 +5,19 @@
 //   - `transcribeAudio(opts)` — cached, writes JSON to public/generated/transcription/, returns WordTimestamp[]
 //   - `transcribeAudioUncached(opts)` — raw, returns TranscribeResult with text + segments
 //
+// Uses direct HTTP calls to each provider API (no AI SDK dependency).
+// Each provider implementation lives in transcription-providers.ts.
+//
 // Usage:
 //   import { transcribeAudio, transcribeAudioUncached } from 'egaki/generate'
 //   const cached = await transcribeAudio({ audio: fs.readFileSync('audio.mp3') })
 //   if (!(cached instanceof Error)) cached // WordTimestamp[]
 //   const raw = await transcribeAudioUncached({ audio: fs.readFileSync('audio.mp3') })
 //   if (!(raw instanceof Error)) raw.text // full transcript
-import {
-  experimental_transcribe as aiTranscribe,
-} from 'ai'
 import { injectCredentialsToEnv } from './credentials.js'
 import {
   getTranscriptionModelConfig,
-  createTranscriptionModel,
+  getTranscriptionProvider,
   DEFAULT_TRANSCRIPTION_MODEL,
 } from './transcription-models.js'
 
@@ -58,7 +58,6 @@ export interface TranscribeResult {
   durationInSeconds: number | undefined
   model: string
   cost: number | null
-  warnings?: unknown[]
 }
 
 // ─── word-level timestamp types ──────────────────────────────────────────────
@@ -80,9 +79,12 @@ export interface WordTimestamp {
 export function segmentsToWordTimestamps(segments: TranscriptionSegment[]): WordTimestamp[] {
   const result: WordTimestamp[] = []
   for (const seg of segments) {
-    const words = seg.text.trim().split(/\s+/).filter(Boolean)
+    const trimmed = seg.text.trim()
+    // Skip empty/whitespace-only segments (ElevenLabs returns space segments)
+    if (!trimmed) continue
+    const words = trimmed.split(/\s+/).filter(Boolean)
     if (words.length <= 1) {
-      result.push({ word: seg.text.trim(), startSecond: seg.startSecond, endSecond: seg.endSecond })
+      result.push({ word: trimmed, startSecond: seg.startSecond, endSecond: seg.endSecond })
       continue
     }
     // Phrase-level segment: distribute time evenly across words
@@ -130,71 +132,7 @@ export function calculateTranscriptionCost(
   return durationInSeconds * cost.perSecond
 }
 
-// ─── provider-specific options ───────────────────────────────────────────────
-
-/**
- * Build providerOptions for the AI SDK transcribe() call.
- *
- * Each provider has quirks:
- * - ElevenLabs uses `languageCode` instead of `language`
- * - Deepgram needs `detectLanguage: true` for auto language detection
- * - Groq needs `responseFormat: 'verbose_json'` to get timestamps and duration
- * - OpenAI Whisper needs `timestampGranularities: ['word']` for word-level timestamps
- */
-function buildProviderOptions(
-  provider: string,
-  modelId: string,
-  language: string | undefined,
-): Record<string, Record<string, string | boolean | string[]>> | undefined {
-  if (provider === 'elevenlabs') {
-    if (!language) return undefined
-    return { elevenlabs: { languageCode: language } }
-  }
-
-  if (provider === 'deepgram') {
-    return {
-      deepgram: {
-        ...(language ? { language } : { detectLanguage: true }),
-      },
-    }
-  }
-
-  if (provider === 'groq') {
-    return {
-      groq: {
-        responseFormat: 'verbose_json',
-        timestampGranularities: ['segment'],
-        ...(language ? { language } : {}),
-      },
-    }
-  }
-
-  if (provider === 'openai') {
-    // whisper-1 supports word-level timestamps; gpt-4o-transcribe models
-    // use their own format and don't support timestampGranularities
-    if (modelId === 'whisper-1') {
-      return {
-        openai: {
-          timestampGranularities: ['word'],
-          ...(language ? { language } : {}),
-        },
-      }
-    }
-    if (!language) return undefined
-    return { openai: { language } }
-  }
-
-  if (provider === 'cartesia') {
-    // Cartesia passes language via providerOptions; defaults to 'en' in the provider
-    if (!language) return undefined
-    return { cartesia: { language } }
-  }
-
-  if (!language) return undefined
-  return { [provider]: { language } }
-}
-
-// ─── transcribeAudio ─────────────────────────────────────────────────────────
+// ─── transcribeAudioUncached ─────────────────────────────────────────────────
 
 /**
  * Transcribe audio to text. Auto-detects which provider to use
@@ -207,21 +145,19 @@ export async function transcribeAudioUncached(opts: TranscribeOptions): Promise<
   const config = getTranscriptionModelConfig(model)
   if (config instanceof Error) return config
 
-  const transcriptionModel = await createTranscriptionModel(model)
-  if (transcriptionModel instanceof Error) return transcriptionModel
-
   if (opts.language && !config.features.languageHint) {
     return new Error(`Model ${model} does not support a language hint`)
   }
 
-  const providerOptions = buildProviderOptions(config.provider, model, opts.language)
+  const provider = getTranscriptionProvider(config.provider)
+  if (provider instanceof Error) return provider
 
   let result
   try {
-    result = await aiTranscribe({
-      model: transcriptionModel,
+    result = await provider.transcribe({
       audio: opts.audio,
-      ...(providerOptions ? { providerOptions } : {}),
+      modelId: model,
+      language: opts.language,
     })
   } catch (err) {
     return err instanceof Error ? err : new Error(String(err))
@@ -236,7 +172,6 @@ export async function transcribeAudioUncached(opts: TranscribeOptions): Promise<
     durationInSeconds: result.durationInSeconds,
     model,
     cost,
-    warnings: result.warnings,
   }
 }
 

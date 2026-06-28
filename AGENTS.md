@@ -128,6 +128,38 @@ egaki models --provider openai
 
 Use `egaki models --json` when an agent needs the exact model IDs in a machine-readable form.
 
+**Always use egaki CLI for media tasks.** Never use raw `curl`, provider SDKs, or
+system-installed tools (like local `demucs`, `whisper`, `ffmpeg`-based TTS) for tasks
+that egaki already handles. The CLI manages auth, caching, and provider differences.
+Full command surface:
+
+| Command | What it does |
+|---|---|
+| `egaki image` | Generate/edit images (Imagen, Gemini, GPT, Fal, xAI) |
+| `egaki video` | Generate videos (Veo, Kling, Wan, Seedance, xAI) |
+| `egaki speech` | Text-to-speech (OpenAI, ElevenLabs, Cartesia) |
+| `egaki demucs` | Stem separation via fal.ai (no local torch needed) |
+| `egaki voice clone` | Clone a voice from audio (Cartesia, ElevenLabs) |
+| `egaki transcribe` | Speech-to-text (OpenAI, ElevenLabs, Deepgram, Groq, Cartesia) |
+
+Audio workflow example:
+
+```bash
+# 1. Separate vocals from a song
+egaki demucs song.mp3 --stems vocals -o stems/
+
+# 2. Clone the voice from the isolated vocals
+egaki voice clone stems/song-vocals.mp3 --name "Singer" --json
+
+# 3. Generate TTS with the cloned voice
+egaki speech "Your text here." --voice <voice-id> -m sonic-3.5 -o output.mp3
+
+# 4. Transcribe audio to get word timestamps
+egaki transcribe recording.mp3 -m whisper-1
+```
+
+Run `egaki <command> --help` for full option details.
+
 **Error handling:** This project uses [errore](https://errore.org) — Go-style error
 handling for TypeScript. Functions return `Error | T` unions instead of throwing.
 Check errors with `instanceof Error` and early-return them.
@@ -298,6 +330,11 @@ MDX-to-video framework built on Remotion and Spiceflow. Write MDX with headings 
 | `frames` / `frame` / `fps` / `f` | `duration=90frames` | Raw frames |
 | *(bare number)* | `duration=90` | Raw frames (same as `frames`) |
 
+Heading durations are parsed from raw text, **not** MDX expressions.
+`duration={33 * BEAT}` does not work; use `duration=33beats` instead.
+For computed durations that need expressions, use the `BEAT` or `FPS`
+scope variables inside component props, not in heading attributes.
+
 ```mdx
 ---
 fps: 30
@@ -312,6 +349,22 @@ bpm: 120
 
 # Outro duration=2s
 ```
+
+When a heading does **not** set an explicit `duration`, the section uses the
+maximum duration of any `<Audio>` or `<Video>` element inside it (including
+`gapBefore`/`gapAfter` padding). Media components report their duration to
+the section via `MediaDurationContext`; the longest one wins. If no media is
+present and no duration is set, the section falls back to a default frame count.
+
+**Auto-duration pitfall:** if you want a section's duration to match a short
+audio clip (e.g. a narration segment), never place a long-running video or
+full-length soundtrack `<Audio>` inside that section. The longest media wins,
+so the section would inherit the full video/soundtrack duration instead of the
+short clip's. Place long-running media in the **preamble** (before the first
+heading) so it plays across all sections without affecting any section's
+auto-duration. See `bible-montage/video.mdx` for this pattern: the background
+music is in the preamble, and each section contains only its trimmed narration
+`<Audio>`, so each section's duration matches just the narration length.
 
 ## How it works
 
@@ -526,6 +579,35 @@ Both accept `gapBefore` and `gapAfter` props (in frames) to add empty timeline
 padding before/after the media. `gapBefore` delays playback start; both gaps are
 included in auto-duration computation. Use `FPS`/`BEAT` scope variables for
 readable values: `<Video src="/clip.mp4" gapBefore={1 * FPS} gapAfter={2 * BEAT} />`.
+
+## `useAbsoluteCurrentFrame` — global frame across the whole video
+
+Remotion's `useCurrentFrame()` returns the frame **relative to the current section**
+(resets to 0 at each `Series.Sequence` boundary). `useAbsoluteCurrentFrame()` returns
+the **absolute frame** across the entire composition, from 0 to `totalDuration`.
+
+Import from `egaki/video`:
+
+```tsx
+import { useAbsoluteCurrentFrame } from 'egaki/video'
+import { useVideoConfig } from 'remotion'
+
+function GlobalTimer() {
+  const absoluteFrame = useAbsoluteCurrentFrame()
+  const { fps } = useVideoConfig()
+  const elapsedSeconds = (absoluteFrame / fps).toFixed(1)
+  return <span>{elapsedSeconds}s</span>
+}
+```
+
+Use cases:
+- **Preamble overlays** that need to know the global position (progress bars, timecodes)
+- **Cross-section sync** where an element needs to know its absolute position in the video
+- **Global elapsed time** display
+
+Inside a section, `useCurrentFrame()` gives 0-based section-local frames.
+`useAbsoluteCurrentFrame()` gives the composition-wide frame regardless of
+which section is rendering. Both are reactive hooks that re-render every frame.
 
 ## Making components configurable with `useTweakpane`
 
@@ -762,6 +844,168 @@ This content appears on top of the ambient background video.
 ```
 
 Content inside sections (after a heading) is scoped to that section's `Series.Sequence` and only visible during that section's duration. Preamble content has no such scoping; it renders for the entire composition and sits behind the sections in z-order.
+
+## Adding captions to egaki videos
+
+Word-by-word captions synced to narration or voiceover audio. The workflow
+is: transcribe audio to get word timestamps, convert timestamps to frame
+delays, render a Caption component in the section.
+
+### Transcription for word timestamps
+
+Use `egaki transcribe` to get word-level timestamps. Not all models return
+them; prefer models marked with `wordTimestamps: true` in the catalog.
+
+```bash
+egaki transcribe audio.mp3 --model whisper-1
+egaki transcribe audio.mp3 --model ink-whisper
+egaki transcribe audio.mp3 --model scribe_v1
+```
+
+**Most transcription models return word timestamps.** Every provider uses
+direct HTTP calls (no AI SDK), so `response_format: "verbose_json"` and
+`timestamp_granularities: ["word"]` are sent correctly for all models that
+support them.
+
+**Models with word timestamps**: `whisper-1` (OpenAI), `ink-whisper`
+(Cartesia, cheapest), `scribe_v1` (ElevenLabs), `nova-3` (Deepgram),
+`whisper-large-v3`, `whisper-large-v3-turbo`, `distil-whisper-large-v3-en`
+(Groq, fastest).
+
+**Models without word timestamps**: `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`
+(OpenAI API only supports `response_format: "json"` for these models;
+`verbose_json` required for timestamps is rejected by the API).
+
+### Computing frame delays from timestamps
+
+Convert each word's `startSecond` to a frame number. `Math.round()` is not
+available in safe-mdx scope, so pre-compute and hardcode frame values.
+
+```ts
+// At 30fps: frame = Math.round(startSecond * 30)
+// "quit" at 0.26s → frame 8
+// "your" at 0.48s → frame 14
+```
+
+### Default caption style
+
+When the user doesn't specify a style, use **film-style subtitles**:
+
+```tsx
+<AbsoluteFill style={{
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'center',
+  padding: '0 80px 120px',
+}}>
+  <span style={{
+    fontSize: 42,
+    fontWeight: 400,
+    color: '#f5d442',
+    fontFamily: '"Georgia", "Times New Roman", serif',
+    textAlign: 'center',
+    lineHeight: 1.4,
+    letterSpacing: '0.01em',
+    maxWidth: '70%',
+  }}>
+    {words.map((w, i) => (
+      <span key={i} style={{ opacity: frame >= w.delay ? 1 : 0 }}>
+        {i > 0 ? ' ' : ''}{w.word}
+      </span>
+    ))}
+  </span>
+</AbsoluteFill>
+```
+
+**Style rules:**
+- Georgia serif, `fontWeight: 400`, soft yellow `#f5d442`
+- 42px for 1080x1920 vertical; scale proportionally for other resolutions
+- Bottom of screen via `alignItems: 'flex-end'` with `padding-bottom: 120px`
+- `maxWidth: '70%'` to prevent captions spanning full width
+- No text shadow, no uppercase, no fade animation; instant `opacity: 0/1`
+- **No layout shift**: render ALL words always, toggle visibility with
+  `opacity`, never conditional rendering. Hidden words keep their layout
+  space so visible words don't jump around
+- No `textShadow` or `WebkitTextStroke` unless the user asks
+
+**Reference examples**: `sun-montage-example/` (film-style),
+`bible-montage/` (editorial cascade with font rotation),
+`captions-example/` (TikTok highlight style using `@remotion/captions`).
+
+## Voice cloning and TTS workflow
+
+End-to-end pipeline for cloning a voice from audio and generating speech.
+Always use `egaki` CLI commands, not raw curl or provider API calls.
+
+### Audio separation
+
+Separate vocals from background music before cloning:
+
+```bash
+egaki demucs song.mp3 --stems vocals,other -o stems/
+```
+
+### Voice cloning
+
+Clone from the isolated vocals. Cartesia is the default (instant, free,
+up to 10s). ElevenLabs supports longer clips and noise removal.
+
+```bash
+# Cartesia (default, instant)
+egaki voice clone stems/vocals.mp3 --name "my-voice" --language en --json
+
+# ElevenLabs (better for noisy audio)
+egaki voice clone stems/vocals.mp3 --provider elevenlabs --name "my-voice" --remove-background-noise --json
+```
+
+### TTS generation
+
+Generate speech with the cloned voice ID:
+
+```bash
+egaki speech "Your text here." --voice <voice-id> --model sonic-3.5 --output-format mp3 -o public/voice.mp3
+```
+
+**Speed control**: Cartesia supports `--speed 0.6` (min) to `1.5` (max).
+Default is 1.0. ElevenLabs does not support speed control.
+
+**Model options**: Cartesia `sonic-3.5` (default, best quality), `sonic-3`.
+ElevenLabs `eleven_v3` (best), `eleven_multilingual_v2`, `eleven_flash_v2_5`.
+
+### Using TTS in egaki videos
+
+Place the generated audio in `public/` and reference it with `<Audio>`.
+For voiceover that plays over the whole video, put it in the preamble.
+For section-specific narration, put it inside the section.
+
+```mdx
+<Audio src="/voice-intro.mp3" />
+
+# Scene duration=5s
+
+<Caption words={[...]} />
+```
+
+## DimOverlay pattern for background darkening
+
+When a preamble `<Video>` plays behind section content, use a `DimOverlay`
+component inside `<Background>` to darken and optionally blur the video.
+Combine `backdrop-filter: blur()` with an animated black overlay that
+eases in using `EASE.decelerate`.
+
+```mdx
+# Scene duration=10s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backdropFilter: 'blur(20px)' }}>
+    <DimOverlay darkness={0.8} duration={22} />
+  </div>
+</Background>
+```
+
+The `DimOverlay` component uses `interpolate` with `EASE.decelerate` to
+transition from transparent to the target darkness over `duration` frames.
+See `sun-montage-example/components.tsx` for the implementation.
 
 ## LayoutTransition — FLIP animation across section boundaries
 

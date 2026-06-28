@@ -103,11 +103,13 @@ export const TRANSCRIPTION_CATALOG: TranscriptionModelEntry[] = [
   {
     id: 'gpt-4o-transcribe',
     name: 'GPT-4o Transcribe',
-    description: 'GPT-4o powered transcription. Better accuracy than Whisper on complex audio.',
+    description: 'GPT-4o powered transcription. Better accuracy than Whisper on complex audio. No word timestamps (OpenAI API only supports response_format=json for this model, verbose_json is required for timestamps).',
     ...openaiBase,
     released: '2025-03',
     cost: { type: 'per-second', perSecond: 0.0001 }, // $0.006/min
     features: {
+      // OpenAI API limitation: gpt-4o-transcribe only supports response_format=json,
+      // not verbose_json. Word timestamps require verbose_json.
       wordTimestamps: false,
       diarization: false,
       languageDetection: true,
@@ -119,11 +121,12 @@ export const TRANSCRIPTION_CATALOG: TranscriptionModelEntry[] = [
   {
     id: 'gpt-4o-mini-transcribe',
     name: 'GPT-4o Mini Transcribe',
-    description: 'GPT-4o Mini powered transcription. Cheaper, still better than Whisper.',
+    description: 'GPT-4o Mini powered transcription. Cheaper, still better than Whisper. No word timestamps (same OpenAI API limitation as gpt-4o-transcribe).',
     ...openaiBase,
     released: '2025-03',
     cost: { type: 'per-second', perSecond: 0.00005 }, // $0.003/min
     features: {
+      // Same OpenAI API limitation as gpt-4o-transcribe.
       wordTimestamps: false,
       diarization: false,
       languageDetection: true,
@@ -173,12 +176,12 @@ export const TRANSCRIPTION_CATALOG: TranscriptionModelEntry[] = [
   {
     id: 'whisper-large-v3',
     name: 'Whisper Large v3 (Groq)',
-    description: 'Whisper large-v3 on Groq. Extremely fast inference.',
+    description: 'Whisper large-v3 on Groq. Extremely fast inference with word-level timestamps.',
     ...groqBase,
     released: '2024-01',
     cost: { type: 'per-second', perSecond: 0.00000185 }, // $0.000111/min
     features: {
-      wordTimestamps: false,
+      wordTimestamps: true,
       diarization: false,
       languageDetection: true,
       languageHint: true,
@@ -194,7 +197,7 @@ export const TRANSCRIPTION_CATALOG: TranscriptionModelEntry[] = [
     released: '2024-06',
     cost: { type: 'per-second', perSecond: 0.000000667 }, // $0.00004/min
     features: {
-      wordTimestamps: false,
+      wordTimestamps: true,
       diarization: false,
       languageDetection: true,
       languageHint: true,
@@ -210,7 +213,7 @@ export const TRANSCRIPTION_CATALOG: TranscriptionModelEntry[] = [
     released: '2024-01',
     cost: { type: 'per-second', perSecond: 0.000000333 }, // $0.00002/min
     features: {
-      wordTimestamps: false,
+      wordTimestamps: true,
       diarization: false,
       languageDetection: false,
       languageHint: false,

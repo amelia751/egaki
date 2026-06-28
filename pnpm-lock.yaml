@@ -160,6 +160,43 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
+  bible-montage:
+    dependencies:
+      '@remotion/media':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.5
+        version: 1.26.0-rsc.5(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.3.6)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
   browser-new-example:
     dependencies:
       '@remotion/player':
@@ -233,12 +270,6 @@ importers:
       '@ai-sdk/bytedance':
         specifier: ^1.0.14
         version: 1.0.14(zod@4.3.6)
-      '@ai-sdk/deepgram':
-        specifier: ^2.0.35
-        version: 2.0.35(zod@4.3.6)
-      '@ai-sdk/elevenlabs':
-        specifier: ^2.0.35
-        version: 2.0.35(zod@4.3.6)
       '@ai-sdk/fal':
         specifier: 2.0.34
         version: 2.0.34(zod@4.3.6)
@@ -248,9 +279,6 @@ importers:
       '@ai-sdk/google-vertex':
         specifier: ^4.0.137
         version: 4.0.141(zod@4.3.6)
-      '@ai-sdk/groq':
-        specifier: ^3.0.41
-        version: 3.0.41(zod@4.3.6)
       '@ai-sdk/openai':
         specifier: 3.0.36
         version: 3.0.36(zod@4.3.6)
@@ -890,6 +918,40 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
+  sun-montage-example:
+    dependencies:
+      '@remotion/media':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.5
+        version: 1.26.0-rsc.5(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.3.6)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
   testimonial-example:
     dependencies:
       '@remotion/player':
@@ -1015,18 +1077,6 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/deepgram@2.0.35':
-    resolution: {integrity: sha512-awBjUhosRS9qfo5IHP1S+JMiVortq59mtlceVO4cQZ0ijbdwjv1z598umeXxggyjpgo4awFivU4uTzCtVQ+cAA==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/elevenlabs@2.0.35':
-    resolution: {integrity: sha512-KjgM2IDMwm1qTKaW2n2qCr2ok9/wlhUC9ggNvyYYeCupEEGR8Gki1oFRA16PsBcyEr98k+kaKw4cF6D0XaVWWA==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
   '@ai-sdk/fal@2.0.34':
     resolution: {integrity: sha512-g/YfKDGZgMDp0EY3+1X8EjWB4VX0l6WV80mD07wKJXZEtXzpAvNc1Bw0l58HWAsOENkKlIpfMR5akUHbjhylVw==}
     engines: {node: '>=18'}
@@ -1057,12 +1107,6 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/groq@3.0.41':
-    resolution: {integrity: sha512-J3zWdzUdSgE2B8e70i/4b5TGEzDc2Z2xN18AKUs9XCzPF7k6WHyaCCahDUB7JIhRN8Q2nWJ+LQQthl144vq9fg==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
   '@ai-sdk/openai-compatible@2.0.48':
     resolution: {integrity: sha512-z9MC6M4Oh/yUY/F/eszOtO8wc2nMz99XmZQKd2gWTtyIfe716xTfrKe3aYZKg20NZDtyjqPPKPSR+wqz7q1T7Q==}
     engines: {node: '>=18'}
@@ -1083,12 +1127,6 @@ packages:
 
   '@ai-sdk/provider-utils@4.0.27':
     resolution: {integrity: sha512-ubkAJ+xODouwtmN1tYlvTPphH1hPOBfZaEQe8U7skGvFAnIRs9PPpsq57bC2+Ky/MB4yzhd6YOsxTAx9sGpazw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/provider-utils@4.0.29':
-    resolution: {integrity: sha512-uhukHaCBvqkwBHkT8C2PrnqKTCoLn3pdHXqtcR9I8ErH+flbzgW4o7VHSNIup9LRu+WBvZIZDQLsx6rwl2tiOA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -4459,18 +4497,6 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.27(zod@4.3.6)
       zod: 4.3.6
 
-  '@ai-sdk/deepgram@2.0.35(zod@4.3.6)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.29(zod@4.3.6)
-      zod: 4.3.6
-
-  '@ai-sdk/elevenlabs@2.0.35(zod@4.3.6)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.29(zod@4.3.6)
-      zod: 4.3.6
-
   '@ai-sdk/fal@2.0.34(zod@4.3.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
@@ -4508,12 +4534,6 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.27(zod@4.3.6)
       zod: 4.3.6
 
-  '@ai-sdk/groq@3.0.41(zod@4.3.6)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.29(zod@4.3.6)
-      zod: 4.3.6
-
   '@ai-sdk/openai-compatible@2.0.48(zod@4.3.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
@@ -4534,13 +4554,6 @@ snapshots:
       zod: 4.3.6
 
   '@ai-sdk/provider-utils@4.0.27(zod@4.3.6)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.10
-      '@standard-schema/spec': 1.1.0
-      eventsource-parser: 3.0.8
-      zod: 4.3.6
-
-  '@ai-sdk/provider-utils@4.0.29(zod@4.3.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
       '@standard-schema/spec': 1.1.0
