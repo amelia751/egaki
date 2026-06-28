@@ -856,11 +856,11 @@ cli
     printCost(result.cost)
   })
 
-// ─── separate command ────────────────────────────────────────────────────────
+// ─── demucs command ──────────────────────────────────────────────────────────
 
 cli
   .command(
-    'separate [audio]',
+    'demucs [audio]',
     dedent`
       Separate audio into stems (vocals, background, drums, bass, etc.)
       using fal.ai's Demucs model. Requires a fal.ai API key.
@@ -913,15 +913,15 @@ cli
     'Output result metadata as JSON to stdout',
   )
   .example('# Separate vocals and background from an audio file')
-  .example('egaki separate song.mp3')
+  .example('egaki demucs song.mp3')
   .example('# Extract all stems (vocals, drums, bass, guitar, piano, other)')
-  .example('egaki separate song.mp3 --stems vocals,drums,bass,other,guitar,piano')
+  .example('egaki demucs song.mp3 --stems vocals,drums,bass,other,guitar,piano')
   .example('# Extract only vocals as WAV')
-  .example('egaki separate song.mp3 --stems vocals --output-format wav')
+  .example('egaki demucs song.mp3 --stems vocals --output-format wav')
   .example('# Save to a specific directory')
-  .example('egaki separate song.mp3 -o stems/')
+  .example('egaki demucs song.mp3 -o stems/')
   .example('# Higher quality (slower)')
-  .example('egaki separate song.mp3 --shifts 5')
+  .example('egaki demucs song.mp3 --shifts 5')
   .action(async (audioPath = '', options) => {
     if (!options.stdin && !audioPath) {
       console.error(pc.red('No audio provided. Pass an audio file path or use --stdin.'))
@@ -1018,7 +1018,7 @@ cli
 
       Best practices for high-quality clones:
 
-      1. Isolate vocals first: 'egaki separate recording.mp3 --stems vocals'
+      1. Isolate vocals first: 'egaki demucs recording.mp3 --stems vocals'
          removes background music, noise, and other speakers.
       2. Find a clean snippet: 'egaki transcribe recording-vocals.mp3' to get
          word timestamps. Pick a 5-10s segment with a complete phrase, clear
@@ -1082,7 +1082,7 @@ cli
   .example('# Clone with ElevenLabs and noise removal')
   .example('egaki voice clone vocals.mp3 --name "Narrator" --provider elevenlabs --remove-background-noise')
   .example('# Full pipeline: separate → trim → clone')
-  .example('egaki separate interview.mp3 --stems vocals')
+  .example('egaki demucs interview.mp3 --stems vocals')
   .example('ffmpeg -i interview-vocals.mp3 -ss 5.0 -to 15.0 -c copy clip.mp3')
   .example('egaki voice clone clip.mp3 --name "Speaker"')
   .example('# Use the cloned voice')
