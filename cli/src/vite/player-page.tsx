@@ -947,7 +947,8 @@ export function PlayerPage({
               value={currentRoute}
               onChange={(e) => {
                 const route = e.target.value
-                window.location.href = `/${route}`
+                const base = import.meta.env.BASE_URL ?? '/'
+                window.location.href = `${base}${route}`
               }}
               className='appearance-none rounded-full px-3 py-1.5 text-[13px] font-medium text-zinc-300 bg-transparent hover:bg-white/5 transition-colors cursor-pointer outline-none'
               style={{ maxWidth: 150 }}

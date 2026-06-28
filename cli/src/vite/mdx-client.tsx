@@ -380,27 +380,24 @@ export function MdxClientApp({
 
   const { sections, totalDuration, preamble, hasUnresolvedDurations } = useMemo(() => {
     const { fps, bpm } = composed.frontmatter
-    const resolved = resolveAutoDurations(composed.sections, fps, bpm, sectionDurations)
-    // A section is "unresolved" if it had no explicit duration= AND the
-    // media duration store has no reports for it yet (still using the
-    // default placeholder). This gates the export button.
-    const hasUnresolved = composed.sections.some((s, i) =>
-      s.durationInFrames === null && sectionDurations[String(i)] === undefined,
-    )
+
     // MDX files without headings (e.g. imported partials rendered standalone)
-    // have 0 sections. Wrap their preamble as a single section with default
-    // duration so the Player has something to render.
-    let finalSections = resolved
+    // have 0 sections. Synthesize one from the preamble with null duration
+    // BEFORE resolving auto-durations, so media auto-sizing still works.
+    let sourceSections = composed.sections
     let finalPreamble = composed.preamble
-    if (finalSections.length === 0 && finalPreamble) {
-      const { fps: f, bpm: b } = composed.frontmatter
-      const defaultFrames = Math.round(10 * f / (b / 60))
-      finalSections = [{ heading: null, durationInFrames: defaultFrames, jsx: finalPreamble }]
+    if (sourceSections.length === 0 && finalPreamble) {
+      sourceSections = [{ heading: null, durationInFrames: null, jsx: finalPreamble }]
       finalPreamble = undefined
     }
+
+    const resolved = resolveAutoDurations(sourceSections, fps, bpm, sectionDurations)
+    const hasUnresolved = sourceSections.some((s, i) =>
+      s.durationInFrames === null && sectionDurations[String(i)] === undefined,
+    )
     return {
-      sections: finalSections,
-      totalDuration: Math.max(1, calculateTotalDuration(finalSections)),
+      sections: resolved,
+      totalDuration: Math.max(1, calculateTotalDuration(resolved)),
       preamble: finalPreamble,
       hasUnresolvedDurations: hasUnresolved,
     }

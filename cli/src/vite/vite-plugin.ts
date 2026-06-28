@@ -431,7 +431,19 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
           mdxEntries.set(relPath.replace(/\.mdx$/, ''), absEntry)
         }
         defaultRoute = resolveDefaultRoute(mdxEntries, options?.entry, root)
-        entryPathSet = new Set(mdxEntries.values())
+        const nextEntryPathSet = new Set(mdxEntries.values())
+
+        // Sync previousMdxSources: seed new entries, prune removed ones.
+        for (const file of previousMdxSources.keys()) {
+          if (!nextEntryPathSet.has(file)) previousMdxSources.delete(file)
+        }
+        for (const file of nextEntryPathSet) {
+          if (!previousMdxSources.has(file)) {
+            try { previousMdxSources.set(file, fs.readFileSync(file, 'utf-8')) }
+            catch { /* file may be mid-write */ }
+          }
+        }
+        entryPathSet = nextEntryPathSet
 
         invalidateVirtual([RESOLVED_APP, RESOLVED_MDX, RESOLVED_MODULES])
         if (this.environment.name === 'client') {
