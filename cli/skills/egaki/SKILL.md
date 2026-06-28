@@ -152,8 +152,10 @@ Output files are named `{input}-{stem}.{format}` (e.g. `song-vocals.mp3`,
 `song-other.mp3`).
 
 **Model variants:** `htdemucs_6s` (default, 6 stems), `htdemucs` (4 stems),
-`htdemucs_ft` (fine-tuned 4 stems), `mdx_extra` (4 stems, MDX architecture).
-Guitar and piano stems are only available with `htdemucs_6s`.
+`htdemucs_ft` (fine-tuned 4 stems), `hdemucs_mmi` (4 stems), `mdx` (4 stems,
+MDX architecture), `mdx_extra` (4 stems, MDX), `mdx_q` (4 stems, quantized),
+`mdx_extra_q` (4 stems, quantized). Guitar and piano stems are only available
+with `htdemucs_6s`.
 
 ## Voice cloning
 
@@ -221,7 +223,7 @@ egaki voice clone clip-long.mp3 --name "Speaker Name" --provider elevenlabs
 # ElevenLabs with AI noise removal (if source still has some noise)
 egaki voice clone clip.mp3 --name "Speaker Name" --provider elevenlabs --remove-background-noise
 
-# Specify language for non-English voices
+# Specify language for non-English Cartesia clones (ignored by ElevenLabs)
 egaki voice clone clip.mp3 --name "Narrador" --language es
 ```
 

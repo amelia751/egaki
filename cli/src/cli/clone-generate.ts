@@ -23,7 +23,7 @@ export interface CloneVoiceOptions {
   name: string
   /** Which provider to use. */
   provider: CloneProvider
-  /** ISO 639-1 language code. Default: 'en'. */
+  /** Cartesia only: ISO 639-1 language code. Default: 'en'. Ignored by ElevenLabs. */
   language?: string
   /** Optional description for the voice. */
   description?: string
@@ -116,17 +116,22 @@ async function cloneVoiceCartesia(opts: CloneVoiceOptions): Promise<Error | Clon
       'Authorization': `Bearer ${apiKey}`,
     },
     body: formData,
-  })
+  }).catch((cause) => new Error('Cartesia clone request failed', { cause }))
+  if (response instanceof Error) return response
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => '')
     return new Error(`Cartesia clone API error ${response.status}: ${errorText || response.statusText}`)
   }
 
-  const json = await response.json() as { id: string; name: string }
+  const json = await response.json().catch(
+    (cause) => new Error('Cartesia clone API returned invalid JSON', { cause }),
+  ) as { id?: string; name?: string } | Error
+  if (json instanceof Error) return json
+  if (!json.id) return new Error('Cartesia clone API response did not include a voice id')
   return {
     voiceId: json.id,
-    name: json.name,
+    name: json.name ?? opts.name.trim(),
     provider: 'cartesia',
   }
 }
@@ -160,14 +165,19 @@ async function cloneVoiceElevenLabs(opts: CloneVoiceOptions): Promise<Error | Cl
       'xi-api-key': apiKey,
     },
     body: formData,
-  })
+  }).catch((cause) => new Error('ElevenLabs clone request failed', { cause }))
+  if (response instanceof Error) return response
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => '')
     return new Error(`ElevenLabs clone API error ${response.status}: ${errorText || response.statusText}`)
   }
 
-  const json = await response.json() as { voice_id: string; requires_verification: boolean }
+  const json = await response.json().catch(
+    (cause) => new Error('ElevenLabs clone API returned invalid JSON', { cause }),
+  ) as { voice_id?: string; requires_verification?: boolean } | Error
+  if (json instanceof Error) return json
+  if (!json.voice_id) return new Error('ElevenLabs clone API response did not include a voice_id')
   return {
     voiceId: json.voice_id,
     name: opts.name.trim(),

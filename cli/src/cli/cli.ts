@@ -877,7 +877,7 @@ cli
     '--model [model]',
     z
       .string()
-      .describe('Demucs model variant. Default: htdemucs_6s. Options: htdemucs, htdemucs_ft, htdemucs_6s, mdx, mdx_extra'),
+      .describe('Demucs model variant. Default: htdemucs_6s. Options: htdemucs, htdemucs_ft, htdemucs_6s, hdemucs_mmi, mdx, mdx_extra, mdx_q, mdx_extra_q'),
   )
   .option(
     '--output-format [format]',
@@ -1028,7 +1028,7 @@ cli
          No silence padding at start or end.
       4. Match energy to intent: the clone mimics the tone and pacing of the
          source clip. Use an energetic clip for energetic output.
-      5. Speak in the target language. Use --language to set the code.
+       5. Speak in the target language. Use --language for Cartesia clones.
 
       Cartesia: up to 10s of audio, instant, free. Good for short clean clips.
       ElevenLabs: 1-3 min recommended, has --remove-background-noise option.
@@ -1051,7 +1051,7 @@ cli
     '--language [lang]',
     z
       .string()
-      .describe('ISO 639-1 language code (default: en). E.g. en, es, fr, de, ja'),
+      .describe('Cartesia only: ISO 639-1 language code (default: en). E.g. en, es, fr, de, ja'),
   )
   .option(
     '--description [text]',
