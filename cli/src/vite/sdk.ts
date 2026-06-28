@@ -485,14 +485,19 @@ class EgakiSDK {
 
     // Create the output canvas upfront, then render and draw each tile
     // one at a time to avoid storing all intermediate bitmaps in memory.
+    // A small gap between tiles makes the grid structure visible even when
+    // adjacent scenes share the same background color.
     const tileW = Math.round(c.width * renderScale)
     const tileH = Math.round(c.height * renderScale)
-    const canvas = new OffscreenCanvas(cols * tileW, rows * tileH)
+    const gap = Math.max(2, Math.round(tileW * 0.006))
+    const canvasW = cols * tileW + (cols + 1) * gap
+    const canvasH = rows * tileH + (rows + 1) * gap
+    const canvas = new OffscreenCanvas(canvasW, canvasH)
     const ctx = canvas.getContext('2d')!
 
-    // Fill background black for any empty cells
-    ctx.fillStyle = '#050505'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    // White background visible through gaps and empty cells
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvasW, canvasH)
 
     for (let i = 0; i < framesToCapture.length; i++) {
       const still = await renderStillOnWeb({
@@ -514,7 +519,9 @@ class EgakiSDK {
       const tileCanvas = await still.canvas()
       const col = i % cols
       const row = Math.floor(i / cols)
-      ctx.drawImage(tileCanvas, col * tileW, row * tileH, tileW, tileH)
+      const x = gap + col * (tileW + gap)
+      const y = gap + row * (tileH + gap)
+      ctx.drawImage(tileCanvas, x, y, tileW, tileH)
     }
 
     // Convert to data URL
