@@ -337,6 +337,8 @@ export function MdxClientApp({
   mdx,
   serverSlots = EMPTY_SLOTS,
   entryPath,
+  availableEntries = [],
+  currentRoute = '',
 }: {
   mdx: string
   /** Server-rendered <Server> subtrees keyed by node start line, produced
@@ -345,6 +347,10 @@ export function MdxClientApp({
   serverSlots?: ServerSlots
   /** Absolute path of the MDX entry file, for copy prompts. */
   entryPath: string
+  /** All available MDX entry route paths for navigation. */
+  availableEntries?: string[]
+  /** Current route path ('' for default entry). */
+  currentRoute?: string
 }) {
   const modules = useModules()
 
@@ -381,10 +387,21 @@ export function MdxClientApp({
     const hasUnresolved = composed.sections.some((s, i) =>
       s.durationInFrames === null && sectionDurations[String(i)] === undefined,
     )
+    // MDX files without headings (e.g. imported partials rendered standalone)
+    // have 0 sections. Wrap their preamble as a single section with default
+    // duration so the Player has something to render.
+    let finalSections = resolved
+    let finalPreamble = composed.preamble
+    if (finalSections.length === 0 && finalPreamble) {
+      const { fps: f, bpm: b } = composed.frontmatter
+      const defaultFrames = Math.round(10 * f / (b / 60))
+      finalSections = [{ heading: null, durationInFrames: defaultFrames, jsx: finalPreamble }]
+      finalPreamble = undefined
+    }
     return {
-      sections: resolved,
-      totalDuration: calculateTotalDuration(resolved),
-      preamble: composed.preamble,
+      sections: finalSections,
+      totalDuration: Math.max(1, calculateTotalDuration(finalSections)),
+      preamble: finalPreamble,
       hasUnresolvedDurations: hasUnresolved,
     }
   }, [composed, sectionDurations])
@@ -398,6 +415,8 @@ export function MdxClientApp({
         entryPath={entryPath}
         hasUnresolvedDurations={hasUnresolvedDurations}
         frontmatter={composed.frontmatter}
+        availableEntries={availableEntries}
+        currentRoute={currentRoute}
       />
     </ServerSlotsContext.Provider>
   )
