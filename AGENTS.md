@@ -1622,7 +1622,7 @@ EOF
 - `framesPerScene` (number, required) — frames to capture per scene
 - `format` ('png' | 'jpeg' | 'webp', default 'png')
 - `quality` (0-1, for jpeg/webp)
-- `scale` (number, default 1)
+- `scale` (number, default 0.33)
 - `allowHtmlInCanvas` (boolean, default true)
 
 **`export(options?)`** — renders video via `renderMediaOnWeb()`. If `path` is set, also triggers a browser download.

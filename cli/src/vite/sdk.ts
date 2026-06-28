@@ -153,7 +153,7 @@ export interface FilmstripOptions {
   format?: 'png' | 'jpeg' | 'webp'
   /** Encoder quality for jpeg/webp, 0-1. */
   quality?: number
-  /** Scale multiplier for each frame render. Default 1. */
+  /** Scale multiplier for each frame render. Default 0.33 (overview size). */
   scale?: number
   /** Use Chromium experimental HTML-in-canvas. Default true. */
   allowHtmlInCanvas?: boolean
@@ -440,7 +440,10 @@ class EgakiSDK {
     const c = this.getConfig()
     const sectionInfos = this.getSectionInfos()
     const format = options.format ?? 'png'
-    const renderScale = options.scale ?? c.scale
+    // Default to 1/3 scale for overview images to save memory.
+    // A 1920×1080 composition at scale 0.33 produces ~634×356 tiles,
+    // keeping even large grids well within browser canvas limits.
+    const renderScale = options.scale ?? 0.33
 
     // Validate inputs
     if (!Array.isArray(options.scenes) || options.scenes.length === 0) {
@@ -475,10 +478,23 @@ class EgakiSDK {
       }
     }
 
-    // Render each frame to an ImageBitmap. Tiles are always rendered as PNG
-    // internally to avoid double-compression when the final grid is JPEG/WebP.
-    const bitmaps: ImageBitmap[] = []
-    for (const frame of framesToCapture) {
+    // Compute grid dimensions (smallest square grid that fits all items)
+    const totalItems = framesToCapture.length
+    const cols = Math.max(1, Math.ceil(Math.sqrt(totalItems)))
+    const rows = Math.max(1, Math.ceil(totalItems / cols))
+
+    // Create the output canvas upfront, then render and draw each tile
+    // one at a time to avoid storing all intermediate bitmaps in memory.
+    const tileW = Math.round(c.width * renderScale)
+    const tileH = Math.round(c.height * renderScale)
+    const canvas = new OffscreenCanvas(cols * tileW, rows * tileH)
+    const ctx = canvas.getContext('2d')!
+
+    // Fill background black for any empty cells
+    ctx.fillStyle = '#050505'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    for (let i = 0; i < framesToCapture.length; i++) {
       const still = await renderStillOnWeb({
         composition: {
           component: c.component,
@@ -489,37 +505,17 @@ class EgakiSDK {
           id: 'EgakiSDK',
           calculateMetadata: null,
         },
-        frame,
+        frame: framesToCapture[i]!,
         scale: renderScale,
         allowHtmlInCanvas: options.allowHtmlInCanvas ?? true,
       })
-      const blob = await still.blob({ format: 'png' })
-      bitmaps.push(await createImageBitmap(blob))
-    }
-
-    // Compute grid dimensions (smallest square grid that fits all items)
-    const totalItems = bitmaps.length
-    const cols = Math.max(1, Math.ceil(Math.sqrt(totalItems)))
-    const rows = Math.max(1, Math.ceil(totalItems / cols))
-
-    // Composite into an OffscreenCanvas
-    const tileW = Math.round(c.width * renderScale)
-    const tileH = Math.round(c.height * renderScale)
-    const canvas = new OffscreenCanvas(cols * tileW, rows * tileH)
-    const ctx = canvas.getContext('2d')!
-
-    // Fill background black for any empty cells
-    ctx.fillStyle = '#050505'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    for (let i = 0; i < bitmaps.length; i++) {
+      // Draw directly from the rendered OffscreenCanvas to the grid canvas.
+      // No PNG encode/decode roundtrip, no intermediate ImageBitmap storage.
+      const tileCanvas = await still.canvas()
       const col = i % cols
       const row = Math.floor(i / cols)
-      ctx.drawImage(bitmaps[i]!, col * tileW, row * tileH, tileW, tileH)
+      ctx.drawImage(tileCanvas, col * tileW, row * tileH, tileW, tileH)
     }
-
-    // Clean up bitmaps
-    for (const bm of bitmaps) bm.close()
 
     // Convert to data URL
     const mimeType = format === 'jpeg' ? 'image/jpeg'
