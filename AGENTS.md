@@ -1504,7 +1504,43 @@ EOF
 
 ```js
 playwriter -s 1 -e 'console.log(await state.page.evaluate(() => window.egakiSDK.getInfo()))'
-// { totalDuration: 450, fps: 30, width: 1920, height: 1080, sectionCount: 3, durationSeconds: 15, currentFrame: 0, isPlaying: false }
+// { totalDuration: 450, fps: 30, width: 1920, height: 1080, sectionCount: 3,
+//   sections: [
+//     { index: 0, heading: "Intro", durationInFrames: 150, startFrame: 0 },
+//     { index: 1, heading: "Main", durationInFrames: 180, startFrame: 150 },
+//     { index: 2, heading: "Outro", durationInFrames: 120, startFrame: 330 }
+//   ],
+//   durationSeconds: 15, currentFrame: 0, isPlaying: false }
+```
+
+### Filmstrip — animation overview for agents
+
+Renders equidistant frames from specified scenes into a single grid image.
+Agents use this to understand scene structure and animations without video
+playback. Each scene is sampled at `framesPerScene` equidistant points
+(start, midpoint, etc.) and composited into the smallest square grid that fits.
+
+```js
+// Generate a 2×2 grid: 2 scenes × 2 frames each (start + midpoint)
+playwriter -s 1 -e "$(cat <<'EOF'
+const dataUrl = await state.page.evaluate(() =>
+  window.egakiSDK.filmstrip({ scenes: [0, 1], framesPerScene: 2 })
+)
+const buf = Buffer.from(await (await fetch(dataUrl)).arrayBuffer())
+require("node:fs").writeFileSync("/tmp/filmstrip.png", buf)
+console.log("saved", buf.length, "bytes")
+EOF
+)"
+
+// All 5 scenes, 3 frames each = 15 frames → 4×4 grid (one empty cell)
+playwriter -s 1 -e "$(cat <<'EOF'
+const dataUrl = await state.page.evaluate(() =>
+  window.egakiSDK.filmstrip({ scenes: [0, 1, 2, 3, 4], framesPerScene: 3, format: 'jpeg', quality: 0.85 })
+)
+const buf = Buffer.from(await (await fetch(dataUrl)).arrayBuffer())
+require("node:fs").writeFileSync("/tmp/all-scenes.jpg", buf)
+EOF
+)"
 ```
 
 ### Get element position
@@ -1581,6 +1617,14 @@ EOF
 
 **`screenshotCurrentFrame(options?)`** — same as `screenshot()` but captures whatever frame the player is on. Accepts the same options except `frame`.
 
+**`filmstrip(options)`** — renders equidistant frames from specified scenes and composites them into a single grid image. Returns a data URL. Each scene is sampled at `framesPerScene` equidistant points; the grid layout is the smallest square that fits all frames.
+- `scenes` (number[], required) — scene indices (0-based)
+- `framesPerScene` (number, required) — frames to capture per scene
+- `format` ('png' | 'jpeg' | 'webp', default 'png')
+- `quality` (0-1, for jpeg/webp)
+- `scale` (number, default 1)
+- `allowHtmlInCanvas` (boolean, default true)
+
 **`export(options?)`** — renders video via `renderMediaOnWeb()`. If `path` is set, also triggers a browser download.
 - `frameRange` (number | [number, number] | null, default null = all)
 - `container` ('mp4' | 'webm' | 'mkv', default 'mp4')
@@ -1591,7 +1635,7 @@ EOF
 - `path` (string — triggers download)
 - `onProgress` (callback)
 
-**`getInfo()`** — returns `{ totalDuration, fps, width, height, sectionCount, durationSeconds, currentFrame, isPlaying }`.
+**`getInfo()`** — returns `{ totalDuration, fps, width, height, sectionCount, sections, durationSeconds, currentFrame, isPlaying }`.
 
 All option types are re-exported from `@remotion/web-renderer`. See Remotion docs for full details on each parameter.
 

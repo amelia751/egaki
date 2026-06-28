@@ -300,12 +300,12 @@ const SECTION_CONTENT_STYLE: React.CSSProperties = {
 // frames) settle well within this window. A constant is used because
 // per-element durations are only known after children render — the ghost
 // mount decision happens before that.
-const GHOST_WINDOW_SECONDS = 5
+const GHOST_WINDOW_SECONDS = 3
 
 // How many seconds before a section cut to premount the next section.
 // Remotion's premountFor renders the next sequence early (hidden) so
 // <Video> elements start loading before the cut, preventing stutter.
-const PREMOUNT_SECONDS = 3
+const PREMOUNT_SECONDS = 1
 
 /**
  * Section content wrapper enabling <LayoutTransition> FLIP animations
@@ -339,7 +339,7 @@ function SectionWithLayoutTransition({
 
   return (
     <LayoutTransitionProvider>
-      <AbsoluteFill style={{ background: '#050505' }}>
+      <AbsoluteFill style={{ background: 'transparent' }}>
         {showGhost ? (
           // Ghost: hidden but laid out (visibility:hidden keeps geometry).
           // opacity:0 is added for web-renderer safety, and the ghost comes
@@ -479,10 +479,14 @@ export function PlayerPage({
       height,
       scale,
       sectionCount: sections.length,
+      sections: sections.map((s) => ({
+        heading: s.heading,
+        durationInFrames: s.durationInFrames,
+      })),
       playerRef,
       playerContainerRef,
     })
-  }, [Component, totalDuration, sections.length, fps, width, height, scale])
+  }, [Component, totalDuration, sections, fps, width, height, scale])
 
   // Consume pending scene seek after the RSC refetch delivers new sections.
   // The module-level pendingSceneSeek is set by import.meta.hot.on before

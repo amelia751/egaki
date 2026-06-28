@@ -50,6 +50,11 @@ interface PlayerHandle {
   isPlaying: () => boolean
 }
 
+interface SectionDescriptor {
+  heading: string | null
+  durationInFrames: number
+}
+
 interface CompositionConfig {
   component: React.FC
   totalDuration: number
@@ -57,6 +62,8 @@ interface CompositionConfig {
   width: number
   height: number
   sectionCount: number
+  /** Per-section metadata: heading and duration. Ordered by section index. */
+  sections: SectionDescriptor[]
   /** Pixel density / scale multiplier from frontmatter. Default 1. */
   scale: number
   playerRef: { current: PlayerHandle | null }
@@ -114,18 +121,42 @@ export interface ExportOptions {
   onProgress?: RenderMediaOnWebProgressCallback
 }
 
+export interface SectionInfo {
+  index: number
+  heading: string | null
+  durationInFrames: number
+  startFrame: number
+}
+
 export interface CompositionInfo {
   totalDuration: number
   fps: number
   width: number
   height: number
   sectionCount: number
+  /** Per-section metadata with start frames computed from durations. */
+  sections: SectionInfo[]
   /** Duration in seconds */
   durationSeconds: number
   /** Current frame the player is on */
   currentFrame: number
   /** Whether the player is currently playing */
   isPlaying: boolean
+}
+
+export interface FilmstripOptions {
+  /** Scene indices (0-based). */
+  scenes: number[]
+  /** Frames to capture per scene. Total grid cells = scenes.length * framesPerScene. */
+  framesPerScene: number
+  /** Output format. Default 'png'. */
+  format?: 'png' | 'jpeg' | 'webp'
+  /** Encoder quality for jpeg/webp, 0-1. */
+  quality?: number
+  /** Scale multiplier for each frame render. Default 1. */
+  scale?: number
+  /** Use Chromium experimental HTML-in-canvas. Default true. */
+  allowHtmlInCanvas?: boolean
 }
 
 export interface ElementPosition {
@@ -247,6 +278,22 @@ class EgakiSDK {
   // Info
   // -------------------------------------------------------------------------
 
+  /** Compute section start frames from durations. */
+  private getSectionInfos(): SectionInfo[] {
+    const c = this.getConfig()
+    let startFrame = 0
+    return c.sections.map((s, i) => {
+      const info: SectionInfo = {
+        index: i,
+        heading: s.heading,
+        durationInFrames: s.durationInFrames,
+        startFrame,
+      }
+      startFrame += s.durationInFrames
+      return info
+    })
+  }
+
   /** Returns metadata about the current composition and player state. */
   getInfo(): CompositionInfo {
     const c = this.getConfig()
@@ -257,6 +304,7 @@ class EgakiSDK {
       width: c.width,
       height: c.height,
       sectionCount: c.sectionCount,
+      sections: this.getSectionInfos(),
       durationSeconds: c.totalDuration / c.fps,
       currentFrame: player?.getCurrentFrame() ?? 0,
       isPlaying: player?.isPlaying() ?? false,
@@ -373,6 +421,115 @@ class EgakiSDK {
       quality: options.quality,
     })
     return blobToDataUrl(blob)
+  }
+
+  /**
+   * Render equidistant frames from specified scenes and composite them
+   * into a single grid image. Designed for agents to quickly understand
+   * scene structure and animations from a single image.
+   *
+   * Frame selection: for each scene, `framesPerScene` equidistant frames
+   * are captured starting from the scene's first frame. With framesPerScene=2,
+   * captures the start frame and the midpoint. With 3, captures at 0/3,
+   * 1/3, and 2/3 of the scene duration.
+   *
+   * Grid layout: the smallest square grid that fits all frames.
+   * 4 frames → 2×2, 6 frames → 3×2, 9 frames → 3×3.
+   */
+  async filmstrip(options: FilmstripOptions): Promise<string> {
+    const c = this.getConfig()
+    const sectionInfos = this.getSectionInfos()
+    const format = options.format ?? 'png'
+    const renderScale = options.scale ?? c.scale
+
+    // Validate inputs
+    if (!Array.isArray(options.scenes) || options.scenes.length === 0) {
+      throw new Error('filmstrip: scenes must contain at least one scene index.')
+    }
+
+    if (!Number.isInteger(options.framesPerScene) || options.framesPerScene < 1) {
+      throw new Error('filmstrip: framesPerScene must be a positive integer.')
+    }
+
+    if (!Number.isFinite(renderScale) || renderScale <= 0) {
+      throw new Error('filmstrip: scale must be a positive finite number.')
+    }
+
+    for (const idx of options.scenes) {
+      if (!Number.isInteger(idx) || idx < 0 || idx >= sectionInfos.length) {
+        throw new Error(
+          `filmstrip: scene index ${idx} is invalid. ` +
+          `Must be an integer in range 0-${sectionInfos.length - 1}.`,
+        )
+      }
+    }
+
+    // Compute which absolute frames to capture
+    const framesToCapture: number[] = []
+    for (const sceneIdx of options.scenes) {
+      const section = sectionInfos[sceneIdx]!
+      for (let i = 0; i < options.framesPerScene; i++) {
+        const frame = section.startFrame +
+          Math.floor(i * section.durationInFrames / options.framesPerScene)
+        framesToCapture.push(frame)
+      }
+    }
+
+    // Render each frame to an ImageBitmap. Tiles are always rendered as PNG
+    // internally to avoid double-compression when the final grid is JPEG/WebP.
+    const bitmaps: ImageBitmap[] = []
+    for (const frame of framesToCapture) {
+      const still = await renderStillOnWeb({
+        composition: {
+          component: c.component,
+          durationInFrames: c.totalDuration,
+          fps: c.fps,
+          width: c.width,
+          height: c.height,
+          id: 'EgakiSDK',
+          calculateMetadata: null,
+        },
+        frame,
+        scale: renderScale,
+        allowHtmlInCanvas: options.allowHtmlInCanvas ?? true,
+      })
+      const blob = await still.blob({ format: 'png' })
+      bitmaps.push(await createImageBitmap(blob))
+    }
+
+    // Compute grid dimensions (smallest square grid that fits all items)
+    const totalItems = bitmaps.length
+    const cols = Math.max(1, Math.ceil(Math.sqrt(totalItems)))
+    const rows = Math.max(1, Math.ceil(totalItems / cols))
+
+    // Composite into an OffscreenCanvas
+    const tileW = Math.round(c.width * renderScale)
+    const tileH = Math.round(c.height * renderScale)
+    const canvas = new OffscreenCanvas(cols * tileW, rows * tileH)
+    const ctx = canvas.getContext('2d')!
+
+    // Fill background black for any empty cells
+    ctx.fillStyle = '#050505'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    for (let i = 0; i < bitmaps.length; i++) {
+      const col = i % cols
+      const row = Math.floor(i / cols)
+      ctx.drawImage(bitmaps[i]!, col * tileW, row * tileH, tileW, tileH)
+    }
+
+    // Clean up bitmaps
+    for (const bm of bitmaps) bm.close()
+
+    // Convert to data URL
+    const mimeType = format === 'jpeg' ? 'image/jpeg'
+      : format === 'webp' ? 'image/webp'
+      : 'image/png'
+    const gridBlob = await canvas.convertToBlob({
+      type: mimeType,
+      quality: options.quality,
+    })
+    return blobToDataUrl(gridBlob)
   }
 
   /** Render a video (or segment) and return a data URL string.
