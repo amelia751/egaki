@@ -60,3 +60,67 @@ bpm: 120
     seed={77}
   />
 </Background>
+
+# Liquid Gradient Default duration=5s
+
+<Background>
+  <LiquidGradientShader />
+</Background>
+
+# Liquid Gradient Warm duration=5s
+
+<Background>
+  <LiquidGradientShader
+    colors={["#1a0033", "#ff4500", "#ff8c00", "#ffd700", "#fff5e6"]}
+    speed={0.5}
+    turbAmp={0.8}
+    waveFreq={2.5}
+    seed={42}
+    exposure={1.3}
+  />
+</Background>
+
+# Liquid Gradient Jellify duration=5s
+
+<Background>
+  <LiquidGradientShader
+    colors={["#0a0a2e", "#00bcd4", "#e040fb", "#76ff03"]}
+    speed={0.4}
+    scale={0.6}
+    jellify={1}
+    ditherMode={1}
+    saturation={1.4}
+    seed={300}
+  />
+</Background>
+
+# Rings Default duration=5s
+
+<Background>
+  <DispersionRingsShader />
+</Background>
+
+# Rings Neon duration=5s
+
+<Background>
+  <DispersionRingsShader
+    colors={["#ff0055", "#aa00ff", "#00aaff", "#00ffaa"]}
+    speed={0.8}
+    ringDispersion={0.7}
+    edgeDisp={3}
+    ringSpacing={2}
+  />
+</Background>
+
+# Rings Warm duration=5s
+
+<Background>
+  <DispersionRingsShader
+    colors={["#f59e0b", "#ef4444", "#8b5cf6"]}
+    lensScale={5}
+    ringRadius={1.5}
+    ringWarpStrength={2}
+    speed={0.3}
+    seed={99}
+  />
+</Background>

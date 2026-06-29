@@ -33,6 +33,8 @@ import { AngledScreen } from './angled-screen.tsx'
 import { CodeBlock, CODE_THEMES } from './code-block.tsx'
 import { BandsShader } from './bands-shader.tsx'
 import { WaveGradientShader } from './wave-gradient-shader.tsx'
+import { LiquidGradientShader } from './liquid-gradient-shader.tsx'
+import { DispersionRingsShader } from './dispersion-rings-shader.tsx'
 
 
 export { splitIntoSections, calculateTotalDuration, resolveAutoDurations }
@@ -924,6 +926,8 @@ export {
   CODE_THEMES,
   BandsShader,
   WaveGradientShader,
+  LiquidGradientShader,
+  DispersionRingsShader,
 }
 
 /** Built-in JSX names available in MDX without user imports. Shared by
@@ -949,6 +953,8 @@ export const MDX_BUILTIN_COMPONENTS = {
   AngledScreen,
   BandsShader,
   WaveGradientShader,
+  LiquidGradientShader,
+  DispersionRingsShader,
   BlurReveal,
   MaskedSlideReveal,
   StaggeredFadeUp,
