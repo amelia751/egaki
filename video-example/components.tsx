@@ -1,40 +1,73 @@
 /**
- * User-defined React components for the video.
- * Only exports components (no data) so React Fast Refresh works.
- * Data constants live in data.ts.
- *
- * No 'use client' needed: MDX renders fully on the client, so user
- * components are client components by default.
+ * Custom components for the video-example showcase.
+ * Dot and ListItem are used for the intra-scene LayoutTransition demo.
  */
 
-import { FeaturePill } from 'egaki/src/vite/components'
-import type { FEATURES } from './data'
+import { useCurrentFrame, useVideoConfig } from 'remotion'
 
-export function FeatureGrid({ features }: { features: typeof FEATURES }) {
+export function Dot() {
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, auto)',
-        gap: 20,
-        padding: '24px 80px 0',
+        width: 20,
+        height: 20,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #818cf8, #6366f1)',
+        boxShadow: '0 0 12px rgba(99, 102, 241, 0.6)',
+        flexShrink: 0,
       }}
-    >
-      {features.map((f, i) => (
-        <FeaturePill key={f.label} label={f.label} icon={f.icon} index={i} />
-      ))}
-    </div>
+    />
   )
 }
 
-/**
- * Demo: MDX expression props can be functions because rendering happens
- * on the client (no RSC serialization boundary). Used by the e2e tests.
- */
-export function FnPropDemo({ format }: { format?: (s: string) => string }) {
+export function ListItem({
+  label,
+  description,
+  children,
+}: {
+  label: string
+  description: string
+  children?: React.ReactNode
+}) {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
+
   return (
-    <span style={{ color: '#fafafa', fontSize: 40 }}>
-      {format ? format('fn-props-work') : 'no-fn-prop'}
-    </span>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 20,
+        padding: '20px 24px',
+        background: 'rgba(255, 255, 255, 0.04)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: 14,
+      }}
+    >
+      <div style={{ width: 20, display: 'flex', justifyContent: 'center' }}>
+        {children}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span
+          style={{
+            fontSize: 22,
+            fontWeight: 600,
+            color: '#e4e4e7',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+          }}
+        >
+          {label}
+        </span>
+        <span
+          style={{
+            fontSize: 16,
+            color: '#71717a',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+          }}
+        >
+          {description}
+        </span>
+      </div>
+    </div>
   )
 }
