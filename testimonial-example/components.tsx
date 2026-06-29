@@ -33,6 +33,7 @@ const impulseOvershoot71 = impulseOvershoot(71)
 
 function BackgroundVisual({ src }: { src: string }) {
   const { fps } = useVideoConfig()
+  if (!src) return null
   return (
     <Scale from={1.5} to={1} duration={1.49 * fps} easing={EASE.smooth} label="bg-zoom">
       <Img
@@ -253,7 +254,7 @@ export function TestimonialCard({
   const { fps } = useVideoConfig()
 
   return (
-    <Fill style={{ backgroundColor: '#00D0FF', fontFamily, overflow: 'hidden' }}>
+    <Fill style={{ fontFamily, overflow: 'hidden' }}>
       {fontSrc && (
         <style>{`
           @font-face {

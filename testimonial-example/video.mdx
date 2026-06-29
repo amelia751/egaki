@@ -7,13 +7,17 @@ import { TestimonialCard } from './components'
 # Testimonial duration=5.14s
 
 <Background>
-  <div style={{ width: '100%', height: '100%', background: '#ffffff' }} />
+  <WaveGradientShader
+    colors={['#0a0a2e', '#1a0a3e', '#00d0ff', '#ff6b9d']}
+    seed={42}
+    style={{ width: '100%', height: '100%' }}
+  />
 </Background>
 
 <TestimonialCard
   quote="Mango's AI templates save us hours and make every campaign feel personalized. Highly recommend!"
   author="John Doe, CEO of Acme"
   portraitSrc="/images/portrait.jpg"
-  backgroundSrc="/images/visual.jpg"
+  backgroundSrc=""
   url="buildmango.co"
 />
