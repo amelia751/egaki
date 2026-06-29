@@ -679,7 +679,7 @@ const FONT_MONO =
 // Opacity is never implicit. TranslateX doesn't auto-fade; wrap in <Opacity>.
 // ---------------------------------------------------------------------------
 
-interface AnimateProps {
+export interface AnimateProps {
   children: ReactNode
   /** Start value of the animated property. */
   from: number
@@ -721,6 +721,12 @@ interface AnimateProps {
   inline?: boolean
   /** Extra styles applied to the wrapper element (both inline and Fill modes). */
   style?: React.CSSProperties
+  /**
+   * Label for this animation instance. Used as:
+   * - The tweakpane folder title (for visual identification)
+   * - An HTML `data-animation` attribute (for agent inspection)
+   */
+  label: string
 }
 
 // Ease-out for enters: arrives with momentum, decelerates into place.
@@ -737,148 +743,138 @@ function resolveAnimateStart(
   durationInFrames: number,
 ): { effectiveStart: number; isExit: boolean } {
   if (startInFrames < 0) {
-    // Exit: negative delay counts from section end
+    // Exit: negative start counts from section end
     const resolvedStart = durationInFrames + startInFrames
     return {
       effectiveStart: resolvedStart + cutInMotion * duration,
       isExit: true,
     }
   }
-  // Enter: positive delay counts from section start
+  // Enter: positive start counts from section start
   return {
     effectiveStart: startInFrames - cutInMotion * duration,
     isExit: false,
   }
 }
 
-export function Opacity({
-  children,
-  from,
-  to,
-  duration,
-  easing,
-  startInFrames = 0,
-  cutInMotion = 0,
-  inline,
-  style,
-}: AnimateProps) {
-  const frame = useCurrentFrame()
-  const { durationInFrames } = useVideoConfig()
-  const { effectiveStart, isExit } = resolveAnimateStart(
-    startInFrames, duration, cutInMotion, durationInFrames,
-  )
-  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
-  })
-  const animStyle = { opacity: value, ...style }
-  if (inline) return <div style={animStyle}>{children}</div>
-  return <Fill style={animStyle}>{children}</Fill>
+// ---------------------------------------------------------------------------
+// Easing name ↔ function map for tweakpane dropdown.
+//
+// Subset of EASE presets plus "linear". The function lookup happens at render
+// time so the interpolate() call always uses a real function, never a string.
+// ---------------------------------------------------------------------------
+
+const EASING_OPTIONS: Record<string, (t: number) => number> = {
+  smooth: EASE.smooth,
+  natural: EASE.natural,
+  decelerate: EASE.decelerate,
+  accelerate: EASE.accelerate,
+  apple: EASE.apple,
+  enterFast: EASE.enterFast,
+  exitSlow: EASE.exitSlow,
+  snappy: EASE.snappy,
+  cinematic: EASE.cinematic,
+  bounce: EASE.bounce,
+  overshoot: EASE.overshoot,
+  overshootElastic: EASE.overshootElastic,
+  elasticSnap: EASE.elasticSnap,
+  impulseOvershoot: EASE.impulseOvershoot,
+  linear: (t: number) => t,
 }
 
-export function Scale({
-  children,
-  from,
-  to,
-  duration,
-  easing,
-  startInFrames = 0,
-  cutInMotion = 0,
-  inline,
-  style,
-}: AnimateProps) {
-  const frame = useCurrentFrame()
-  const { durationInFrames } = useVideoConfig()
-  const { effectiveStart, isExit } = resolveAnimateStart(
-    startInFrames, duration, cutInMotion, durationInFrames,
-  )
-  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
-  })
-  const animStyle = { transform: `scale(${value})`, willChange: 'transform' as const, ...style }
-  if (inline) return <div style={animStyle}>{children}</div>
-  return <Fill style={animStyle}>{children}</Fill>
+/** Find the EASING_OPTIONS key for a given function, or null. */
+function easingToName(fn: ((t: number) => number) | undefined): string | null {
+  if (!fn) return null
+  for (const [name, easeFn] of Object.entries(EASING_OPTIONS)) {
+    if (easeFn === fn) return name
+  }
+  return null
 }
 
-export function TranslateX({
-  children,
-  from,
-  to,
-  duration,
-  easing,
-  startInFrames = 0,
-  cutInMotion = 0,
-  inline,
-  style,
-}: AnimateProps) {
+/** Shared tweakpane + interpolation logic for all animation primitives. */
+function useAnimateValue(
+  componentName: string,
+  props: AnimateProps,
+): { value: number; resolvedInline: boolean; resolvedStyle: React.CSSProperties | undefined; label: string | undefined } {
   const frame = useCurrentFrame()
-  const { durationInFrames } = useVideoConfig()
-  const { effectiveStart, isExit } = resolveAnimateStart(
-    startInFrames, duration, cutInMotion, durationInFrames,
-  )
-  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
+  const { durationInFrames, fps } = useVideoConfig()
+
+  const tpLabel = props.label ? `${componentName}: ${props.label}` : componentName
+
+  // Determine default easing name for the dropdown
+  const defaultIsExit = (props.startInFrames ?? 0) < 0
+  const propEasingName = easingToName(props.easing)
+  const defaultEasingName = propEasingName ?? (defaultIsExit ? 'accelerate' : 'smooth')
+
+  const tp = useTweakpane(tpLabel, {
+    from: { value: props.from, min: -2000, max: 2000, step: 1 },
+    to: { value: props.to, min: -2000, max: 2000, step: 1 },
+    duration: { value: props.duration, min: 1, max: 10 * fps, step: 1 },
+    startInFrames: { value: props.startInFrames ?? 0, min: -10 * fps, max: 10 * fps, step: 1 },
+    cutInMotion: { value: props.cutInMotion ?? 0, min: 0, max: 1, step: 0.01 },
+    easing: { value: defaultEasingName, options: Object.keys(EASING_OPTIONS) },
+    inline: props.inline ?? false,
   })
-  const animStyle = { transform: `translateX(${value}px)`, willChange: 'transform' as const, ...style }
-  if (inline) return <div style={animStyle}>{children}</div>
-  return <Fill style={animStyle}>{children}</Fill>
+
+  const resolvedEasing = EASING_OPTIONS[tp.easing] ?? EASE.smooth
+  // If the user changed easing in tweakpane, use that. Otherwise use the
+  // prop easing function (which may be a custom function not in the dropdown).
+  const finalEasing = tp.easing !== defaultEasingName
+    ? resolvedEasing
+    : (props.easing ?? (defaultIsExit ? EXIT_EASING : ENTER_EASING))
+
+  const { effectiveStart } = resolveAnimateStart(
+    tp.startInFrames as number, tp.duration as number,
+    tp.cutInMotion as number, durationInFrames,
+  )
+  const value = interpolate(
+    frame,
+    [effectiveStart, effectiveStart + (tp.duration as number)],
+    [tp.from as number, tp.to as number],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: finalEasing },
+  )
+
+  return {
+    value,
+    resolvedInline: tp.inline as boolean,
+    resolvedStyle: props.style,
+    label: props.label,
+  }
 }
 
-export function TranslateY({
-  children,
-  from,
-  to,
-  duration,
-  easing,
-  startInFrames = 0,
-  cutInMotion = 0,
-  inline,
-  style,
-}: AnimateProps) {
-  const frame = useCurrentFrame()
-  const { durationInFrames } = useVideoConfig()
-  const { effectiveStart, isExit } = resolveAnimateStart(
-    startInFrames, duration, cutInMotion, durationInFrames,
-  )
-  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
-  })
-  const animStyle = { transform: `translateY(${value}px)`, willChange: 'transform' as const, ...style }
-  if (inline) return <div style={animStyle}>{children}</div>
-  return <Fill style={animStyle}>{children}</Fill>
+export function Opacity(props: AnimateProps) {
+  const { value, resolvedInline, resolvedStyle, label } = useAnimateValue('Opacity', props)
+  const animStyle = { opacity: value, ...resolvedStyle }
+  if (resolvedInline) return <div style={animStyle} data-animation={label}>{props.children}</div>
+  return <Fill style={animStyle} data-animation={label}>{props.children}</Fill>
 }
 
-export function Blur({
-  children,
-  from,
-  to,
-  duration,
-  easing,
-  startInFrames = 0,
-  cutInMotion = 0,
-  inline,
-  style,
-}: AnimateProps) {
-  const frame = useCurrentFrame()
-  const { durationInFrames } = useVideoConfig()
-  const { effectiveStart, isExit } = resolveAnimateStart(
-    startInFrames, duration, cutInMotion, durationInFrames,
-  )
-  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
-  })
-  const animStyle = { filter: `blur(${value}px)`, ...style }
-  if (inline) return <div style={animStyle}>{children}</div>
-  return <Fill style={animStyle}>{children}</Fill>
+export function Scale(props: AnimateProps) {
+  const { value, resolvedInline, resolvedStyle, label } = useAnimateValue('Scale', props)
+  const animStyle = { transform: `scale(${value})`, willChange: 'transform' as const, ...resolvedStyle }
+  if (resolvedInline) return <div style={animStyle} data-animation={label}>{props.children}</div>
+  return <Fill style={animStyle} data-animation={label}>{props.children}</Fill>
+}
+
+export function TranslateX(props: AnimateProps) {
+  const { value, resolvedInline, resolvedStyle, label } = useAnimateValue('TranslateX', props)
+  const animStyle = { transform: `translateX(${value}px)`, willChange: 'transform' as const, ...resolvedStyle }
+  if (resolvedInline) return <div style={animStyle} data-animation={label}>{props.children}</div>
+  return <Fill style={animStyle} data-animation={label}>{props.children}</Fill>
+}
+
+export function TranslateY(props: AnimateProps) {
+  const { value, resolvedInline, resolvedStyle, label } = useAnimateValue('TranslateY', props)
+  const animStyle = { transform: `translateY(${value}px)`, willChange: 'transform' as const, ...resolvedStyle }
+  if (resolvedInline) return <div style={animStyle} data-animation={label}>{props.children}</div>
+  return <Fill style={animStyle} data-animation={label}>{props.children}</Fill>
+}
+
+export function Blur(props: AnimateProps) {
+  const { value, resolvedInline, resolvedStyle, label } = useAnimateValue('Blur', props)
+  const animStyle = { filter: `blur(${value}px)`, ...resolvedStyle }
+  if (resolvedInline) return <div style={animStyle} data-animation={label}>{props.children}</div>
+  return <Fill style={animStyle} data-animation={label}>{props.children}</Fill>
 }
 
 // ---------------------------------------------------------------------------
