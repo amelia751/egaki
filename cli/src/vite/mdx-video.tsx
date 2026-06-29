@@ -24,21 +24,15 @@ import {
   type VideoFrontmatter,
 } from './mdx-parse.ts'
 import {
-  MeshGradientBg,
   BlurReveal,
   MaskedSlideReveal,
   StaggeredFadeUp,
-  TerminalSimulator,
-  GlassCodeBlock,
   ShimmerSweep,
-  SpringPopIn,
-  AnimatedChart,
-  FeaturePill,
-  SlotText,
 } from './components.tsx'
 import { AngledScreen } from './angled-screen.tsx'
 import { CodeBlock, CODE_THEMES } from './code-block.tsx'
 import { BandsShader } from './bands-shader.tsx'
+import { WaveGradientShader } from './wave-gradient-shader.tsx'
 
 
 export { splitIntoSections, calculateTotalDuration, resolveAutoDurations }
@@ -875,57 +869,6 @@ export function BlurOut({ children, duration = 20, easing, delay = 0 }: EnterExi
 }
 
 // ---------------------------------------------------------------------------
-// <Animate> shorthand — composes enter + exit wrappers
-// ---------------------------------------------------------------------------
-
-type AnimationType = 'fadeIn' | 'fadeOut' | 'zoomIn' | 'zoomOut' |
-  'slideIn' | 'slideOut' | 'blurIn' | 'blurOut'
-
-interface AnimateProps {
-  children: ReactNode
-  enter?: AnimationType
-  exit?: AnimationType
-  enterDuration?: number
-  exitDuration?: number
-}
-
-const ENTER_COMPONENTS: Record<string, React.FC<EnterExitProps>> = {
-  fadeIn: FadeIn,
-  zoomIn: ZoomIn,
-  slideIn: SlideIn,
-  blurIn: BlurIn,
-}
-
-const EXIT_COMPONENTS: Record<string, React.FC<EnterExitProps>> = {
-  fadeOut: FadeOut,
-  zoomOut: ZoomOut,
-  slideOut: SlideOut,
-  blurOut: BlurOut,
-}
-
-export function Animate({
-  children,
-  enter,
-  exit,
-  enterDuration,
-  exitDuration,
-}: AnimateProps) {
-  let result = children
-  if (exit) {
-    const ExitComp = EXIT_COMPONENTS[exit]
-    if (ExitComp) {
-      result = <ExitComp duration={exitDuration}>{result}</ExitComp>
-    }
-  }
-  if (enter) {
-    const EnterComp = ENTER_COMPONENTS[enter]
-    if (EnterComp) {
-      result = <EnterComp duration={enterDuration}>{result}</EnterComp>
-    }
-  }
-  return <>{result}</>
-}
-
 // ---------------------------------------------------------------------------
 // Keyframes & Lottie utilities — extracted to ./keyframes.tsx
 // Re-exported here so all existing consumers keep working.
@@ -972,20 +915,15 @@ export { ExportContext, useIsExporting, Img, Audio, Video } from './media-compon
 // Visual components and animations are re-exported so they're available
 // as named imports from this client module for MDX usage.
 export {
-  MeshGradientBg,
   BlurReveal,
   MaskedSlideReveal,
   StaggeredFadeUp,
-  TerminalSimulator,
-  GlassCodeBlock,
   ShimmerSweep,
-  SpringPopIn,
-  AnimatedChart,
-  FeaturePill,
   AngledScreen,
   CodeBlock,
   CODE_THEMES,
   BandsShader,
+  WaveGradientShader,
 }
 
 /** Built-in JSX names available in MDX without user imports. Shared by
@@ -1010,17 +948,12 @@ export const MDX_BUILTIN_COMPONENTS = {
   LayoutTransition,
   AngledScreen,
   BandsShader,
-  MeshGradientBg,
+  WaveGradientShader,
   BlurReveal,
   MaskedSlideReveal,
   StaggeredFadeUp,
-  TerminalSimulator,
-  GlassCodeBlock,
   CodeBlock,
   ShimmerSweep,
-  SpringPopIn,
-  AnimatedChart,
-  FeaturePill,
   Img,
   Audio,
   Video,
@@ -1032,8 +965,6 @@ export const MDX_BUILTIN_COMPONENTS = {
   SlideOut,
   BlurIn,
   BlurOut,
-  Animate,
-  SlotText,
   GeneratedImage,
   GeneratedVideo,
   GeneratedSpeech,

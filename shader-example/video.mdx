@@ -1,0 +1,62 @@
+---
+fps: 30
+bpm: 120
+---
+
+# Bands Default duration=5s
+
+<Background>
+  <BandsShader />
+</Background>
+
+# Bands Neon duration=5s
+
+<Background>
+  <BandsShader
+    colors={["#ff0055", "#aa00ff", "#00aaff", "#00ffaa"]}
+    speed={0.5}
+    dispersionStrength={0.7}
+    edgeDisp={3}
+  />
+</Background>
+
+# Bands Warm duration=5s
+
+<Background>
+  <BandsShader
+    colors={["#f59e0b", "#ef4444", "#8b5cf6"]}
+    lensScale={1.5}
+    lensRadius={1.2}
+    speed={0.2}
+    seed={42}
+  />
+</Background>
+
+# Wave Gradient Default duration=5s
+
+<Background>
+  <WaveGradientShader />
+</Background>
+
+# Wave Gradient Cool duration=5s
+
+<Background>
+  <WaveGradientShader
+    colors={["#0055ff", "#00ccff", "#aa00ff", "#ff00aa"]}
+    waveSpeed={0.8}
+    waveFreqX={2}
+    waveAngle={-45}
+  />
+</Background>
+
+# Wave Gradient Slow duration=5s
+
+<Background>
+  <WaveGradientShader
+    colors={["#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"]}
+    waveSpeed={0.3}
+    blendAmount={0.8}
+    waveAmplitude={1.5}
+    seed={77}
+  />
+</Background>

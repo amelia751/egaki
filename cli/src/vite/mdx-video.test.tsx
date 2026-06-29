@@ -25,8 +25,6 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
     expect(Object.keys(MDX_BUILTIN_COMPONENTS).sort()).toMatchInlineSnapshot(`
       [
         "AngledScreen",
-        "Animate",
-        "AnimatedChart",
         "Audio",
         "Background",
         "BandsShader",
@@ -36,24 +34,19 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "CodeBlock",
         "FadeIn",
         "FadeOut",
-        "FeaturePill",
         "Fill",
         "GeneratedImage",
         "GeneratedSpeech",
         "GeneratedVideo",
-        "GlassCodeBlock",
         "Img",
         "LayoutTransition",
         "MaskedSlideReveal",
-        "MeshGradientBg",
         "ShimmerSweep",
         "SlideIn",
         "SlideOut",
-        "SlotText",
-        "SpringPopIn",
         "StaggeredFadeUp",
-        "TerminalSimulator",
         "Video",
+        "WaveGradientShader",
         "ZoomIn",
         "ZoomOut",
       ]
@@ -205,7 +198,7 @@ w
   test('background before first heading goes to preamble, not a section', () => {
     const result = split(`
 <Background>
-<MeshGradientBg colors={['#6366f1']} />
+<BandsShader colors={['#6366f1']} />
 </Background>
 
 # Scene
@@ -223,7 +216,7 @@ Content
 # Scene
 
 <Background>
-<MeshGradientBg colors={['#6366f1']} />
+<BandsShader colors={['#6366f1']} />
 </Background>
 
 Content
