@@ -21,7 +21,7 @@
 
 import { useEffect, useRef, useState, createContext, useContext } from 'react'
 import type { PlayerRef } from '@remotion/player'
-import { LayoutContainerContext } from './mdx-video.tsx'
+import { LayoutContainerContext, useIsPremounting } from './mdx-video.tsx'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -73,6 +73,16 @@ export interface TweakpaneContextValue {
 }
 
 export const TweakpaneContext = createContext<TweakpaneContextValue | null>(null)
+
+// ---------------------------------------------------------------------------
+// Global disable switch
+// ---------------------------------------------------------------------------
+
+/**
+ * Set to `true` to completely disable tweakpane across all components.
+ * useTweakpane() will return raw default values without mounting any UI.
+ */
+export let TWEAKPANE_DISABLED = false
 
 // ---------------------------------------------------------------------------
 // Singleton pane state (module-level, not React state)
@@ -277,9 +287,13 @@ export function useTweakpane<T extends ParamSchema>(
 ): ResolvedValues<T> {
   // Skip registration inside layout-transition ghost renders (the previous
   // section is re-rendered hidden for FLIP measurement; we don't want its
-  // components polluting the tweakpane UI).
+  // components polluting the tweakpane UI) and premounted sequences
+  // (premountFor renders the next section early but invisible for preloading;
+  // Remotion freezes useCurrentFrame() at 0 and sets opacity: 0).
   const container = useContext(LayoutContainerContext)
   const isGhost = container === 'ghost'
+  const isPremounting = useIsPremounting()
+  const skip = isGhost || isPremounting
 
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const v: Record<string, unknown> = {}
@@ -297,8 +311,10 @@ export function useTweakpane<T extends ParamSchema>(
   const idRef = useRef(`${label}-${Math.random().toString(36).slice(2, 8)}`)
 
   useEffect(() => {
-    // SSR guard or ghost render — return defaults without registering
-    if (typeof window === 'undefined' || isGhost) return
+    // SSR guard, ghost/premount render, or globally disabled — skip all pane work.
+    // `skip` is in the dep array so the effect re-runs when premounting ends and
+    // the section becomes active (registers tweakpane) or vice versa (tears down).
+    if (typeof window === 'undefined' || skip || TWEAKPANE_DISABLED) return
 
     const id = idRef.current
     // Mutable params object that tweakpane binds to
@@ -370,7 +386,7 @@ export function useTweakpane<T extends ParamSchema>(
         disposePane()
       }
     }
-  }, [label])
+  }, [label, skip])
 
   return values as ResolvedValues<T>
 }
