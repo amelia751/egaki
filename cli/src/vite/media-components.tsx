@@ -86,8 +86,7 @@ function useReportMediaDuration(props: {
   trimBefore?: number
   trimAfter?: number
   playbackRate?: number
-  gapBefore?: number
-  gapAfter?: number
+  startInFrames?: number
 }, skip?: boolean): number | null {
   const instanceId = useId()
   const sectionIndex = useSectionIndex()
@@ -111,8 +110,7 @@ function useReportMediaDuration(props: {
         trimBefore: props.trimBefore,
         trimAfter: props.trimAfter,
         playbackRate: props.playbackRate,
-        gapBefore: props.gapBefore,
-        gapAfter: props.gapAfter,
+        startInFrames: props.startInFrames,
       })
       if (effective != null && effective > 0) {
         reportSectionDuration(sectionIndex, instanceId, effective)
@@ -125,8 +123,7 @@ function useReportMediaDuration(props: {
       trimBefore: props.trimBefore,
       trimAfter: props.trimAfter,
       playbackRate: props.playbackRate,
-      gapBefore: props.gapBefore,
-      gapAfter: props.gapAfter,
+      startInFrames: props.startInFrames,
     })
     if (effectiveFromProps != null) {
       reportSectionDuration(sectionIndex, instanceId, effectiveFromProps)
@@ -183,7 +180,7 @@ function useReportMediaDuration(props: {
         delayHandle = null
       }
     }
-  }, [props.src, skip, sectionIndex, instanceId, fps, props.trimBefore, props.trimAfter, props.playbackRate, props.gapBefore, props.gapAfter, isExporting])
+   }, [props.src, skip, sectionIndex, instanceId, fps, props.trimBefore, props.trimAfter, props.playbackRate, props.startInFrames, isExporting])
 
   return rawDuration
 }
@@ -237,17 +234,21 @@ export function Img(props: ImgProps) {
   return <RemotionImg src={src} style={{ display: 'block', ...style }} {...rest} />
 }
 
-/** Extra gap props accepted by egaki's Audio and Video wrappers. */
-type GapProps = {
-  /** Empty frames before the media starts playing. Delays playback start
-   *  and adds to the section's auto-duration. In frames. */
-  gapBefore?: number
-  /** Empty frames after the media finishes. Adds to the section's
-   *  auto-duration. In frames. */
-  gapAfter?: number
+/** Extra props accepted by egaki's Audio and Video wrappers. */
+type MediaOffsetProps = {
+  /**
+   * Frame offset for when the media starts playing.
+   *
+   * Positive or zero: delays playback from section start.
+   *   `startInFrames={1 * FPS}` waits 1 second then starts.
+   *
+   * Negative: offset from section end.
+   *   `startInFrames={-2 * FPS}` starts playing 2 seconds before the section ends.
+   */
+  startInFrames?: number
 }
 
-type AudioProps = Omit<ComponentProps<typeof MediaAudio>, 'src'> & GapProps & {
+type AudioProps = Omit<ComponentProps<typeof MediaAudio>, 'src'> & MediaOffsetProps & {
   src?: string | Promise<string>
 }
 
@@ -256,9 +257,21 @@ function ResolvedAudio({ srcPromise, ...rest }: { srcPromise: Promise<string> } 
   return <Audio src={src} {...rest} />
 }
 
+/**
+ * Resolve startInFrames to a Sequence `from` value.
+ * Positive: use directly. Negative: offset from section end.
+ * Returns 0 (no wrapping needed) when startInFrames is 0 or undefined.
+ */
+function resolveMediaStartFrame(startInFrames: number | undefined, durationInFrames: number): number {
+  if (startInFrames == null || startInFrames === 0) return 0
+  if (startInFrames < 0) return Math.max(0, durationInFrames + startInFrames)
+  return startInFrames
+}
+
 export function Audio(props: AudioProps) {
-  const { gapBefore, gapAfter, src, ...mediaProps } = props
+  const { startInFrames, src, ...mediaProps } = props
   const container = useContext(LayoutContainerContext)
+  const { durationInFrames } = useVideoConfig()
   // Skip duration reporting when src is a promise (not yet resolved)
   useReportMediaDuration(
     { ...props, src: typeof src === 'string' ? src : undefined },
@@ -269,18 +282,19 @@ export function Audio(props: AudioProps) {
   if (src instanceof Promise) {
     return (
       <Suspense fallback={<ExportDelayFallback />}>
-        <ResolvedAudio srcPromise={src} gapBefore={gapBefore} gapAfter={gapAfter} {...mediaProps} />
+        <ResolvedAudio srcPromise={src} startInFrames={startInFrames} {...mediaProps} />
       </Suspense>
     )
   }
 
-  if (gapBefore) {
-    return <Sequence from={gapBefore} layout="none"><MediaAudio src={src} {...mediaProps} /></Sequence>
+  const resolvedFrom = resolveMediaStartFrame(startInFrames, durationInFrames)
+  if (resolvedFrom) {
+    return <Sequence from={resolvedFrom} layout="none"><MediaAudio src={src} {...mediaProps} /></Sequence>
   }
   return <MediaAudio src={src} {...mediaProps} />
 }
 
-type VideoProps = Omit<ComponentProps<typeof MediaVideo>, 'src'> & GapProps & {
+type VideoProps = Omit<ComponentProps<typeof MediaVideo>, 'src'> & MediaOffsetProps & {
   src?: string | Promise<string>
 }
 
@@ -290,15 +304,16 @@ function ResolvedVideo({ srcPromise, ...rest }: { srcPromise: Promise<string> } 
 }
 
 export function Video(props: VideoProps) {
-  const { gapBefore, gapAfter, src, ...mediaProps } = props
+  const { startInFrames, src, ...mediaProps } = props
   const container = useContext(LayoutContainerContext)
   const isExporting = useIsExporting()
+  const { durationInFrames } = useVideoConfig()
 
   // Promise src: wrap in Suspense, resolve, then re-render with string src
   if (src instanceof Promise) {
     return (
       <Suspense fallback={<ExportDelayFallback />}>
-        <ResolvedVideo srcPromise={src} gapBefore={gapBefore} gapAfter={gapAfter} {...mediaProps} />
+        <ResolvedVideo srcPromise={src} startInFrames={startInFrames} {...mediaProps} />
       </Suspense>
     )
   }
@@ -316,30 +331,25 @@ export function Video(props: VideoProps) {
     style: { width: '100%', height: '100%', ...mediaProps.style },
   }
 
-  const wrapWithGap = (el: ReactNode) =>
-    gapBefore ? <Sequence from={gapBefore} layout="none">{el}</Sequence> : el
+  const resolvedFrom = resolveMediaStartFrame(startInFrames, durationInFrames)
+  const wrapWithOffset = (el: ReactNode) =>
+    resolvedFrom ? <Sequence from={resolvedFrom} layout="none">{el}</Sequence> : el
 
   if (container === 'ghost') {
-    // Render a lightweight placeholder instead of a real <MediaVideo>.
-    // The ghost is visibility:hidden + opacity:0, so no content is visible.
-    // FLIP only needs accurate geometry (width/height), which the filled
-    // style already provides. Loading an actual video here is expensive:
-    // the browser fetches, decodes, and buffers the previous section's
-    // video file even though it's never displayed.
-    return wrapWithGap(<div style={filledProps.style} />)
+    return wrapWithOffset(<div style={filledProps.style} />)
   }
 
   // During export, report duration but skip tweakpane UI
   if (isExporting) {
-    return wrapWithGap(<VideoExportDuration {...filledProps} gapBefore={gapBefore} gapAfter={gapAfter} />)
+    return wrapWithOffset(<VideoExportDuration {...filledProps} startInFrames={startInFrames} />)
   }
 
-  return wrapWithGap(<VideoWithTweakpane {...filledProps} gapBefore={gapBefore} gapAfter={gapAfter} />)
+  return wrapWithOffset(<VideoWithTweakpane {...filledProps} startInFrames={startInFrames} />)
 }
 
 /** Export mode: reports duration to section store, renders plain MediaVideo. */
-function VideoExportDuration(props: ComponentProps<typeof MediaVideo> & GapProps) {
-  const { gapBefore, gapAfter, ...mediaProps } = props
+function VideoExportDuration(props: ComponentProps<typeof MediaVideo> & MediaOffsetProps) {
+  const { startInFrames, ...mediaProps } = props
   useReportMediaDuration(props)
   return <MediaVideo {...mediaProps} />
 }
@@ -349,9 +359,9 @@ function VideoExportDuration(props: ComponentProps<typeof MediaVideo> & GapProps
  * to VideoTrimControls for tweakpane trim sliders. Until duration is known,
  * renders the video without trim controls.
  */
-function VideoWithTweakpane(props: ComponentProps<typeof MediaVideo> & GapProps) {
+function VideoWithTweakpane(props: ComponentProps<typeof MediaVideo> & MediaOffsetProps) {
   const rawDuration = useReportMediaDuration(props)
-  const { gapBefore, gapAfter, ...mediaProps } = props
+  const { startInFrames, ...mediaProps } = props
 
   if (rawDuration === null) {
     return <MediaVideo {...mediaProps} />

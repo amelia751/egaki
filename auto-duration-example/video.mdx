@@ -31,12 +31,12 @@ Duration is computed from the trim range (3s) without any metadata fetch.
 
 <Video src="/arrakis.mp4" trimBefore={0} trimAfter={90} style={{ width: '80%', borderRadius: 12, objectFit: 'cover' }} />
 
-# Video with Gaps
+# Video with Offset
 
-This section uses `gapBefore` and `gapAfter` to add 1s of empty space
-before and after the trimmed video. Total auto-duration = 1s + 3s + 1s = 5s.
+This section uses `startInFrames` to delay the trimmed video by 1s.
+Total auto-duration = 1s delay + 3s video = 4s.
 
-<Video src="/arrakis.mp4" trimBefore={0} trimAfter={90} gapBefore={1 * FPS} gapAfter={1 * FPS} style={{ width: '80%', borderRadius: 12, objectFit: 'cover' }} />
+<Video src="/arrakis.mp4" trimBefore={0} trimAfter={90} startInFrames={1 * FPS} style={{ width: '80%', borderRadius: 12, objectFit: 'cover' }} />
 
 # Outro duration=2s
 

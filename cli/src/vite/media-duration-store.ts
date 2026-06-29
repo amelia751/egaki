@@ -113,8 +113,10 @@ export function cacheRawDuration(src: string, seconds: number) {
  * When both trimBefore and trimAfter are set, rawSeconds is not needed.
  *
  * trimBefore/trimAfter are in FRAMES (Remotion convention).
- * gapBefore/gapAfter are in FRAMES — empty timeline padding before/after
- * the media plays. They add to the total effective duration.
+ * startInFrames offsets playback start: positive delays from section start,
+ * negative counts from section end. Only positive values add to auto-duration
+ * (negative values anchor to section end, so the section must have an explicit
+ * duration or another media element determining length).
  * playbackRate defaults to 1.
  *
  * Returns null when duration cannot be determined (missing bounds and
@@ -126,16 +128,14 @@ export function computeEffectiveDuration({
   trimBefore,
   trimAfter,
   playbackRate,
-  gapBefore,
-  gapAfter,
+  startInFrames,
 }: {
   rawSeconds?: number
   fps: number
   trimBefore?: number
   trimAfter?: number
   playbackRate?: number
-  gapBefore?: number
-  gapAfter?: number
+  startInFrames?: number
 }): number | null {
   const rate = playbackRate ?? 1
   if (rate <= 0) return null
@@ -145,7 +145,10 @@ export function computeEffectiveDuration({
   if (endFrame == null) return null
   const mediaFrames = endFrame - startFrame
   if (mediaFrames <= 0) return null
-  const totalFrames = mediaFrames + (gapBefore ?? 0) + (gapAfter ?? 0)
+  // Only positive startInFrames adds to effective duration (delay before media).
+  // Negative startInFrames anchors to section end and doesn't extend auto-duration.
+  const offset = startInFrames != null && startInFrames > 0 ? startInFrames : 0
+  const totalFrames = mediaFrames + offset
   return totalFrames / fps / rate
 }
 

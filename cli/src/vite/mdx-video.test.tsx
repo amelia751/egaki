@@ -1317,7 +1317,7 @@ before <Server><Stat /></Server> after
   })
 
   test('Server inside other wrapper elements is found', () => {
-    const mdx = `<Opacity from={0} to={1} duration={15}>
+    const mdx = `<Opacity from={0} to={1} duration={15} label="test">
   <Server>
     <AsyncStats />
   </Server>
@@ -1433,7 +1433,7 @@ text before
 
 # B duration=1s
 
-<Opacity from={0} to={1} duration={15}>
+<Opacity from={0} to={1} duration={15} label="test">
   <Server><Inline /></Server>
 </Opacity>
 `
@@ -1666,7 +1666,7 @@ describe('wrapGenerateNodes', () => {
   })
 
   test('wraps inside other wrapper elements', () => {
-    const mdx = `<Opacity from={0} to={1} duration={15}>
+    const mdx = `<Opacity from={0} to={1} duration={15} label="test">
   <GeneratedImage prompt="nested" seed={1} />
 </Opacity>
 `
@@ -1947,39 +1947,34 @@ describe('promptPrefix', () => {
   })
 })
 
-describe('computeEffectiveDuration with gap props', () => {
+describe('computeEffectiveDuration with startInFrames', () => {
 
-  test('no gaps returns media-only duration', () => {
+  test('no offset returns media-only duration', () => {
     expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30 })).toBe(3)
   })
 
-  test('gapBefore adds frames to total duration', () => {
-    // 3s media + 30 frames (1s) gapBefore = 4s
-    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, gapBefore: 30 })).toBe(4)
+  test('positive startInFrames adds delay to total duration', () => {
+    // 3s media + 30 frames (1s) delay = 4s
+    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, startInFrames: 30 })).toBe(4)
   })
 
-  test('gapAfter adds frames to total duration', () => {
-    // 3s media + 60 frames (2s) gapAfter = 5s
-    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, gapAfter: 60 })).toBe(5)
+  test('negative startInFrames does not add to duration', () => {
+    // negative anchors to section end, doesn't extend auto-duration
+    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, startInFrames: -60 })).toBe(3)
   })
 
-  test('both gaps add to total duration', () => {
-    // 3s media + 30 frames (1s) before + 60 frames (2s) after = 6s
-    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, gapBefore: 30, gapAfter: 60 })).toBe(6)
+  test('startInFrames works with trim props', () => {
+    // trim: frames 0-90 = 3s, + 30 frames delay = 4s
+    expect(computeEffectiveDuration({ fps: 30, trimBefore: 0, trimAfter: 90, startInFrames: 30 })).toBe(4)
   })
 
-  test('gaps work with trim props', () => {
-    // trim: frames 0-90 = 3s, + 30 frames gap = 4s
-    expect(computeEffectiveDuration({ fps: 30, trimBefore: 0, trimAfter: 90, gapBefore: 30 })).toBe(4)
-  })
-
-  test('gaps work with playbackRate', () => {
-    // 3s media at 2x = 1.5s, + 30 gap frames → (90 media + 30 gap) / 30fps / 2 = 2s
-    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, playbackRate: 2, gapBefore: 30 })).toBe(2)
+  test('startInFrames works with playbackRate', () => {
+    // 3s media at 2x = 1.5s, + 30 delay frames → (90 media + 30 delay) / 30fps / 2 = 2s
+    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, playbackRate: 2, startInFrames: 30 })).toBe(2)
   })
 
   test('returns null when duration cannot be determined', () => {
-    expect(computeEffectiveDuration({ fps: 30, gapBefore: 30 })).toBeNull()
+    expect(computeEffectiveDuration({ fps: 30, startInFrames: 30 })).toBeNull()
   })
 })
 

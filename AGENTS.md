@@ -14,7 +14,7 @@ multiplied by `FPS`. In MDX files use the `FPS` scope variable (`0.5 * FPS`). In
 TSX files import `FPS` from `egaki/video` or derive from `useVideoConfig().fps`.
 Raw frame literals like `duration={20}` break when the export fps changes (e.g.
 30fps preview vs 60fps final render). This applies to all animation props:
-`duration`, `startInFrames`, `gapBefore`, `gapAfter`, and any frame-based value.
+`duration`, `startInFrames`, and any frame-based value.
 
 ```mdx
 <!-- correct -->
@@ -418,7 +418,7 @@ bpm: 120
 
 When a heading does **not** set an explicit `duration`, the section uses the
 maximum duration of any `<Audio>` or `<Video>` element inside it (including
-`gapBefore`/`gapAfter` padding). Media components report their duration to
+positive `startInFrames` offset). Media components report their duration to
 the section via `MediaDurationContext`; the longest one wins. If no media is
 present and no duration is set, the section falls back to a default frame count.
 
@@ -733,10 +733,18 @@ These are injected via safe-mdx's `scope` prop in `mdx-client.tsx`. Imported
 `.mdx` files also receive the same scope from the entry MDX's frontmatter.
 
 **Media components**: `<Video>` and `<Audio>` from `@remotion/media` are available in MDX.
-Both accept `gapBefore` and `gapAfter` props (in frames) to add empty timeline
-padding before/after the media. `gapBefore` delays playback start; both gaps are
-included in auto-duration computation. Use `FPS`/`BEAT` scope variables for
-readable values: `<Video src="/clip.mp4" gapBefore={1 * FPS} gapAfter={2 * BEAT} />`.
+Both accept a `startInFrames` prop (in frames) to offset when the media begins playing.
+
+- **Positive** `startInFrames`: delays playback from the section start. Adds to
+  auto-duration (delay + media length).
+  `<Video src="/clip.mp4" startInFrames={1 * FPS} />` — plays after 1 second.
+
+- **Negative** `startInFrames`: offsets from the section end. Does not extend
+  auto-duration (the section must have an explicit duration or another media
+  element determining length).
+  `<Audio src="/sfx.mp3" startInFrames={-2 * FPS} />` — plays 2 seconds before the section ends.
+
+Use `FPS`/`BEAT` scope variables for readable values.
 
 ## `useAbsoluteCurrentFrame` — global frame across the whole video
 
