@@ -362,7 +362,7 @@ export const LiquidGradientShader = defineShader({
       type: 'array',
       control: { type: 'color' },
       maxCount: 8,
-      maxVisible: 4,
+      maxVisible: 8,
       defaultValue: ['#00001A', '#2962FF', '#40BCFF', '#FFB8B5', '#FFC14F'],
     },
     seed: {
