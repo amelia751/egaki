@@ -1,5 +1,65 @@
 ## Code style
 
+**Never use `textShadow`.** It looks bad in video. This applies to all components,
+examples, and MDX content.
+
+**Never use raw frame numbers.** Always express durations and delays as seconds
+multiplied by `FPS`. In MDX files use the `FPS` scope variable (`0.5 * FPS`). In
+TSX files import `FPS` from `egaki/video` or derive from `useVideoConfig().fps`.
+Raw frame literals like `duration={20}` break when the export fps changes (e.g.
+30fps preview vs 60fps final render). This applies to all animation props:
+`duration`, `startInFrames`, `gapBefore`, `gapAfter`, and any frame-based value.
+
+```mdx
+<!-- correct -->
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+
+<!-- wrong, breaks at different fps -->
+<TranslateX from={-140} to={0} duration={15}>
+```
+
+**Use cut-in-motion as the default animation pattern.** When adding
+text slide animations, always use the cut-in-motion style: the scene cuts
+while the text is still in motion, and the next scene's text appears
+already mid-slide. This creates a conveyor belt flow that looks much nicer
+than text that fully enters, sits still, then fully exits.
+
+Use `cutInMotion` (0-1) to control how much of the animation is clipped by
+the scene boundary. For enter animations it shifts the start earlier; for
+exit animations (negative `startInFrames`) it extends past the scene end.
+
+Pattern:
+- **First scene**: enter with no `cutInMotion`, exit with `cutInMotion={0.3}`
+  so it's still moving at the cut.
+- **Middle scenes**: enter with `cutInMotion={0.1}` so text appears mid-slide
+  from the previous cut. Exit with `cutInMotion={0.2}`.
+- **Last scene**: exit with small `cutInMotion={0.1}` so it exits cleanly.
+
+```mdx
+# First Scene duration=3s
+<TranslateX from={-140} to={0} duration={0.7 * FPS}>
+  <TranslateX from={0} to={140} duration={0.7 * FPS} startInFrames={-0.7 * FPS} cutInMotion={0.3}>
+    <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Title</div>
+  </TranslateX>
+</TranslateX>
+
+# Middle Scene duration=3s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Title</div>
+  </TranslateX>
+</TranslateX>
+
+# Last Scene duration=3s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.1}>
+    <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Title</div>
+  </TranslateX>
+</TranslateX>
+```
+
+See `cut-in-motion-example/` and `shader-example/` for working demos.
+
 **Inline single-use values.** Do not extract constants for objects, numbers, strings, or
 expressions that are only used once. Inline them at the usage site. Named constants should
 only exist when the value is used in multiple places or when the name carries important
@@ -44,7 +104,7 @@ Jitter extraction that has no matching egaki preset.
 ## MDX LSP autocomplete for built-in components
 
 Every egaki video project must have MDX LSP support so built-in components
-(`FadeIn`, `SlideIn`, `BlurReveal`, etc.) get autocomplete with prop types
+(`Opacity`, `TranslateX`, `BlurReveal`, etc.) get autocomplete with prop types
 in `.mdx` files. This requires three things:
 
 1. **`@mdx-js/typescript-plugin`** installed as a devDependency.
@@ -403,12 +463,12 @@ import { TextToSpeech } from 'egaki/text-to-speech'
 
 # Analytics duration=6s
 
-<FadeIn duration={15}>
+<Opacity from={0} to={1} duration={15}>
   <Server>
     <AsyncStats />
     <TextToSpeech text="Analytics that build themselves." />
   </Server>
-</FadeIn>
+</Opacity>
 ```
 
 How it works:
@@ -424,7 +484,7 @@ Conventions and rules:
 
 - Files referenced inside `<Server>` execute in the RSC env. They do NOT need a special filename — but **`*.server.{ts,tsx}` remains a hard override**: such files are excluded from the client/ssr module maps and never bundled to the browser. Use the postfix for files with API keys or node-only imports.
 - Each `<Server>` must start on its **own line** (slots are keyed by line; duplicates warn and only the first renders).
-- Inside `<Server>` normal RSC rules apply: no function props into client refs, no Remotion hooks (built-ins like `FadeIn` are client refs and work fine as slot children).
+- Inside `<Server>` normal RSC rules apply: no function props into client refs, no Remotion hooks (built-ins like `Opacity` are client refs and work fine as slot children).
 - Editing a file referenced inside `<Server>` triggers `rsc:update` → flight refetch → fresh slots. The refetch **remounts the Player** (frame resets to 0) — a spiceflow payload-swap behavior; regular file edits intentionally do NOT send rsc:update for this reason. Moving components in/out of `<Server>` is just an entry-MDX edit — no reload needed.
 - v1 limitations: `<Server>` inside imported `.mdx` files is ignored (warns); imported `.mdx` files inside `<Server>` are not supported; components reaching `<Server>` only through element variables (not JSX names) are not detected.
 
@@ -432,7 +492,17 @@ Conventions and rules:
 
 **Components** (`components.tsx`): ported from [remocn](https://github.com/kapishdima/remocn). Includes `MeshGradientBg`, `BlurReveal`, `MaskedSlideReveal`, `StaggeredFadeUp`, `TerminalSimulator`, `GlassCodeBlock`, `ShimmerSweep`, `SpringPopIn`, `AnimatedChart`, `FeaturePill`. All use Remotion hooks (`useCurrentFrame`, `useVideoConfig`, `spring`, `interpolate`).
 
-**Animation wrappers** (`mdx-video.tsx`): `FadeIn`, `FadeOut`, `ZoomIn`, `ZoomOut`, `SlideIn`, `SlideOut`, `BlurIn`, `BlurOut`, and `<Animate enter="fadeIn" exit="zoomOut">` shorthand. Enter animations use ease-out by default (decelerate into place); exit animations use ease-in (accelerate away). `SlideIn`/`SlideOut` use a `from` prop (not `direction`): `from="left"` on SlideIn means the element enters from the left; `from="left"` on SlideOut means it exits to the right (opposite of where it came from). All wrappers accept a `delay` prop (frames) instead of `offset`: positive delays the start, negative starts earlier.
+**Animation primitives** (`mdx-video.tsx`): `Opacity`, `Scale`, `TranslateX`, `TranslateY`, `Blur`. Each animates one CSS property from `from` to `to` over `duration` frames. Enter vs exit is inferred from `startInFrames`: positive or zero = enter (offset from section start), negative = exit (offset from section end). `cutInMotion` (0-1) clips the animation at the scene boundary for conveyor-belt transitions. By default, all primitives use `<Fill>` wrapper (full-frame AbsoluteFill). Pass `inline` to wrap in a plain `<div>` instead, so the element stays in flow layout (flex, grid, etc.) instead of covering the full frame. Pass `style` to add extra CSS to the wrapper. Opacity is never implicit; compose by nesting (e.g. wrap `<TranslateX>` in `<Opacity>` for a fade+slide). Enter animations default to ease-out; exit animations default to ease-in.
+
+Use `inline` when animating elements **inside** a layout (cards, list items, flex children). Without `inline`, the `<Fill>` wrapper takes the full composition frame, which is correct for scene-level animations but breaks flow positioning. Nest multiple `inline` primitives to compose animations on the same element:
+
+```tsx
+<Scale from={0.8} to={1} duration={30} easing={impulseOvershoot(71)} inline>
+  <Opacity from={0} to={0.5} duration={20} easing={(t) => t} inline>
+    <div style={{ width: 100 }}>Content</div>
+  </Opacity>
+</Scale>
+```
 
 **`<Fill>`** (`mdx-video.tsx`): a full-frame layer like Remotion's `AbsoluteFill` but with better defaults for video content. Children **stretch horizontally** to fill the frame and **center vertically**. Available in MDX without imports (part of `MDX_BUILTIN_COMPONENTS`). Also exported from `egaki/video`. Accepts the same `style` and HTML attributes as a `div`; pass `style` to override alignment when needed. Prefer `<Fill>` over raw `<AbsoluteFill>` in egaki components and MDX files. The scene content wrapper in `player-page.tsx` uses `<Fill>` internally.
 
@@ -480,19 +550,19 @@ No manual `<Server>` block is needed in the MDX.
 ```tsx
 // hero-scene.server.tsx
 import { GeneratedImage } from 'egaki/generate-media'
-import { FadeIn, Fill } from 'egaki/video'
+import { Opacity, Fill } from 'egaki/video'
 
 export async function HeroScene() {
   return (
     <Fill>
-      <FadeIn duration={20}>
+      <Opacity from={0} to={1} duration={20}>
         <GeneratedImage
           prompt="a magical forest with glowing mushrooms"
           seed={99}
           model="imagen-4.0-generate-001"
           style={{ width: '80%', margin: 'auto', borderRadius: 16 }}
         />
-      </FadeIn>
+      </Opacity>
     </Fill>
   )
 }
@@ -506,7 +576,7 @@ import { HeroScene } from './hero-scene.server'
 <HeroScene />
 ```
 
-Client-only imports like `FadeIn` and `Fill` from `egaki/video` are fine
+Client-only imports like `Opacity` and `Fill` from `egaki/video` are fine
 inside `.server.tsx` files. They have `'use client'` directives, so the RSC
 module runner treats them as client references and they render correctly in
 the browser.
@@ -533,7 +603,7 @@ MDX
  │      ├── GeneratedImage from egaki/generate-media
  │      │     └── checks cache ► generates image ► returns GeneratedImageClient
  │      │
- │      └── FadeIn, Fill from egaki/video
+  │      └── Opacity, Fill from egaki/video
  │            └── 'use client' ► client references, render in browser
  │
  └── Client receives RSC flight with streamed slot content
@@ -558,17 +628,17 @@ bpm: 120
 
 # Intro duration=2s
 
-<SlideIn from="left" delay={0.3 * FPS}>
-  <SlideOut from="left" delay={-0.5 * FPS}>
+<TranslateX from={-140} to={0} duration={0.5 * FPS} startInFrames={0.3 * FPS}>
+  <TranslateX from={0} to={140} duration={0.5 * FPS} startInFrames={-0.5 * FPS}>
     <TextSlide text="Hello" />
-  </SlideOut>
-</SlideIn>
+  </TranslateX>
+</TranslateX>
 
 # Verse duration={8 * BEAT}
 
-<FadeIn duration={2 * BEAT}>
+<Opacity from={0} to={1} duration={2 * BEAT}>
   Content appears over 2 beats
-</FadeIn>
+</Opacity>
 ```
 
 These are injected via safe-mdx's `scope` prop in `mdx-client.tsx`. Imported
@@ -1857,6 +1927,94 @@ These are documented here to prevent future regressions:
   for a new animation, read the nearest `data-egaki-motion-scope-id` ancestor,
   then immediately sample at the current local section time. Preamble and section
   scopes stay isolated even though they share one registry.
+
+## Porting Framer shader components
+
+Framer shader modules (`defineShader()` from `framer`) can be ported to egaki
+as built-in components using `defineShader()` from `cli/src/vite/shader-renderer.tsx`.
+
+### Workflow
+
+1. **Fetch the Framer module source.** The URL looks like
+   `https://framerusercontent.com/modules/.../ComponentName.js`.
+   Read it in full to understand the GLSL, property controls, and defaults.
+
+2. **Create a new file** in `cli/src/vite/` named after the component
+   (e.g. `bands-shader.tsx`). Add `'use client'` at the top. Include the
+   **original Framer URL as a comment** at the top of the file so the source
+   is always traceable.
+
+3. **Extract the GLSL fragment body.** Copy only the shader code after the
+   header (uniforms, `#version`, `v_uv`, `fragColor` are auto-generated by
+   `defineShader`). Store it as a `const FRAGMENT_SOURCE` string.
+
+4. **Map property controls to `defineShader` config.** Use exact same
+   defaults, ranges, and step values from the original:
+
+   | Framer ControlType | defineShader type | Tweakpane UI |
+   |---|---|---|
+   | `ControlType.Number` | `{ type: 'number', defaultValue, min, max, step }` | Slider |
+   | `ControlType.Number` with `hidden: true` | Same + `hidden: true` | Props only, no slider |
+   | `ControlType.Color` | Not yet supported as standalone | — |
+   | `ControlType.Array` of `ControlType.Color` | `{ type: 'array', control: { type: 'color' }, maxCount, maxVisible?, defaultValue }` | Individual color pickers + count slider |
+
+5. **Export a typed props interface** and the component:
+
+   ```tsx
+   export interface MyShaderProps {
+     colors?: string[]
+     speed?: number
+     // ... all control keys as optional props
+     style?: CSSProperties
+   }
+
+   export const MyShader = defineShader({
+     title: 'MyShader',
+     fragment: FRAGMENT_SOURCE,
+     propertyControls: { ... },
+   }) as React.FC<MyShaderProps>
+   ```
+
+6. **Wire into MDX built-ins.** In `mdx-video.tsx`: import the component,
+   add to the re-export block, and add to `MDX_BUILTIN_COMPONENTS`.
+
+7. **Update the snapshot.** Run `cd cli && npx vitest run -u` to update the
+   `MDX_BUILTIN_COMPONENTS` inline snapshot in `mdx-video.test.tsx`.
+
+8. **Create an example project** in a `{name}-example/` folder with
+   `package.json`, `vite.config.ts`, `tsconfig.json`, `egaki-env.d.ts`,
+   and `video.mdx` showing the component in use.
+
+### Rules
+
+- **All props in tweakpane.** Every prop must be exposed in the tweakpane
+  UI; never leave props as "accepted via JSX only". Number controls become
+  sliders. Color arrays become individual color pickers with a count slider.
+  Use `maxVisible` to cap how many color slots show in the UI (default: 4).
+
+- **Preserve original defaults exactly.** Do not change default values,
+  ranges, or step sizes from the original Framer module.
+
+- **No Framer dependency.** Never import from `framer`. Use
+  `defineShader()` from `shader-renderer.tsx` which handles WebGL2 setup,
+  uniform management, and Remotion frame-based time.
+
+- **Source URL in comments.** The original `framerusercontent.com` URL must
+  appear in a comment at the top of the shader file, and any reference to
+  internal Framer functions should cite the unframer source line numbers.
+
+- **Time is frame-based.** `u_time = frame / fps` from Remotion hooks. No
+  `requestAnimationFrame`, `setTimeout`, or `performance.now()`. The shader
+  must be deterministic and seekable.
+
+- **`preserveDrawingBuffer: true`** is already set by `defineShader()` for
+  `@remotion/web-renderer` HtmlInCanvas compatibility. Do not override it.
+
+### Reference implementation
+
+`cli/src/vite/bands-shader.tsx` is the canonical example of a ported Framer
+shader. `cli/src/vite/shader-renderer.tsx` contains the `defineShader()`
+engine with full source references to the original Framer code in unframer.
 
 ## Key files
 

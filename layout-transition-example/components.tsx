@@ -9,7 +9,7 @@
 'use client'
 
 import { interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
-import { EASE, FadeIn, Fill } from 'egaki/video'
+import { EASE, Opacity, Fill } from 'egaki/video'
 
 /** Blue indicator dot that animates between list items via LayoutTransition. */
 export function Dot() {

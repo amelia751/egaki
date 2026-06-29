@@ -663,211 +663,222 @@ const FONT_MONO =
   '"SF Mono", ui-monospace, SFMono-Regular, "Cascadia Code", monospace'
 
 // ---------------------------------------------------------------------------
-// Enter/exit animation components
+// Animation primitives — composable, single-responsibility wrappers.
 //
-// Each reads useCurrentFrame() and useVideoConfig().durationInFrames
-// to animate at the start (enter) or end (exit) of a section.
+// Each animates ONE CSS property from `from` to `to` over `duration` frames.
+// Enter vs exit is inferred from `startInFrames`: positive = enter (offset
+// from section start), negative = exit (offset from section end).
 //
-// These use plain <div> wrappers (not AbsoluteFill) so they work both
-// as full-section overlays AND inline inside flex layouts. The div
-// inherits the parent's sizing naturally.
+// All use <Fill> so they're full-frame absolute layers. Compose by nesting:
+//   <Opacity from={0} to={1} duration={15}>
+//     <TranslateX from={-140} to={0} duration={20}>
+//       content
+//     </TranslateX>
+//   </Opacity>
+//
+// Opacity is never implicit. TranslateX doesn't auto-fade; wrap in <Opacity>.
 // ---------------------------------------------------------------------------
 
-interface EnterExitProps {
+interface AnimateProps {
   children: ReactNode
-  /** Animation duration in frames */
-  duration?: number
-  /** Custom easing function. */
+  /** Start value of the animated property. */
+  from: number
+  /** End value of the animated property. */
+  to: number
+  /** Animation duration in frames. */
+  duration: number
+  /** Custom easing function. Defaults to ease-out for enter, ease-in for exit. */
   easing?: (t: number) => number
   /**
-   * Delay in frames before the animation starts.
+   * Frame offset for when the animation starts.
    *
-   * Positive values delay the start: `delay={10}` waits 10 frames.
-   * Negative values start earlier: `delay={-5}` means the animation is
-   * already 5 frames in when the scene begins (enter) or starts 5 frames
-   * sooner than the default end-aligned position (exit).
+   * Positive or zero: offset from section start (enter animation).
+   *   `startInFrames={10}` waits 10 frames then starts.
+   *
+   * Negative: offset from section end (exit animation).
+   *   `startInFrames={-30}` means the animation starts 30 frames before the
+   *   section ends.
    */
-  delay?: number
-}
-
-interface SlideProps extends EnterExitProps {
-  /** Where the element comes from. SlideIn from="left" enters from the left.
-   *  SlideOut from="left" exits to the right (opposite of where it came from). */
-  from?: 'up' | 'down' | 'left' | 'right'
-  /** Slide distance in pixels. Default 140 (visible at 1080p). */
-  distance?: number
+  startInFrames?: number
+  /**
+   * Fraction (0-1) of the animation clipped by the scene boundary.
+   *
+   * For enter (startInFrames >= 0): shifts animation earlier so it starts
+   * before the scene — element appears mid-motion at the cut point.
+   *   cutInMotion={0.1} on a 20-frame animation: starts 2 frames before scene.
+   *
+   * For exit (startInFrames < 0): shifts animation later so it extends past
+   * the scene end — element is still moving at the cut point.
+   *   cutInMotion={0.2} on a 20-frame exit: extends 4 frames past scene end.
+   */
+  cutInMotion?: number
+  /**
+   * When true, wraps children in a plain `<div>` instead of `<Fill>`.
+   * Use this when the animated element is inside a flex/grid/flow layout
+   * and should not take the full frame. Without `inline`, the wrapper is
+   * an AbsoluteFill that covers the entire composition.
+   */
+  inline?: boolean
+  /** Extra styles applied to the wrapper element (both inline and Fill modes). */
+  style?: React.CSSProperties
 }
 
 // Ease-out for enters: arrives with momentum, decelerates into place.
-// Elements settle naturally like an object coming to rest.
 const ENTER_EASING = Easing.bezier(0.5, 0, 0, 1)
 
 // Ease-in for exits: starts slow, accelerates away.
-// Elements pick up speed as they leave, like being pulled offscreen.
 const EXIT_EASING = Easing.bezier(1, 0, 1, 1)
 
-// Slide distance in px. 140px+ needed for visible motion at 1080p.
-const SLIDE_DISTANCE = 140
-
-export function FadeIn({ children, duration = 15, easing, delay = 0 }: EnterExitProps) {
-  const frame = useCurrentFrame()
-  const start = delay
-  const opacity = interpolate(frame, [start, start + duration], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? ENTER_EASING,
-  })
-  return <div style={{ opacity }}>{children}</div>
-}
-
-export function FadeOut({ children, duration = 15, easing, delay = 0 }: EnterExitProps) {
-  const frame = useCurrentFrame()
-  const { durationInFrames } = useVideoConfig()
-  const start = durationInFrames - duration + delay
-  const opacity = interpolate(frame, [start, start + duration], [1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? EXIT_EASING,
-  })
-  return <div style={{ opacity }}>{children}</div>
-}
-
-export function ZoomIn({ children, duration = 20, easing, delay = 0 }: EnterExitProps) {
-  const frame = useCurrentFrame()
-  const start = delay
-  const progress = interpolate(frame, [start, start + duration], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? ENTER_EASING,
-  })
-  const scale = interpolate(progress, [0, 1], [0.5, 1])
-  return (
-    <div style={{ opacity: progress, transform: `scale(${scale})` }}>
-      {children}
-    </div>
-  )
-}
-
-export function ZoomOut({ children, duration = 20, easing, delay = 0 }: EnterExitProps) {
-  const frame = useCurrentFrame()
-  const { durationInFrames } = useVideoConfig()
-  const start = durationInFrames - duration + delay
-  const progress = interpolate(frame, [start, start + duration], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? EXIT_EASING,
-  })
-  const scale = interpolate(progress, [0, 1], [1, 0.5])
-  return (
-    <div style={{ opacity: 1 - progress, transform: `scale(${scale})` }}>
-      {children}
-    </div>
-  )
-}
-
-export function SlideIn({ children, duration = 20, from = 'up', distance = SLIDE_DISTANCE, easing, delay = 0 }: SlideProps) {
-  const frame = useCurrentFrame()
-  const start = delay
-  const progress = interpolate(frame, [start, start + duration], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? ENTER_EASING,
-  })
-  // Opacity uses a simple linear ramp over a short window so the element
-  // becomes visible quickly regardless of the motion easing. Overshoot and
-  // elastic easings start near zero for many frames which makes the element
-  // invisible if opacity is tied to the same curve.
-  const fadeFrames = Math.min(duration, 8)
-  const opacity = interpolate(frame, [start, start + fadeFrames], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  })
-  const d = distance
-  // from = where the element comes FROM.
-  // "right" means starts offset to the right, slides to center.
-  const transforms: Record<string, string> = {
-    up: `translateY(${-(1 - progress) * d}px)`,
-    down: `translateY(${(1 - progress) * d}px)`,
-    left: `translateX(${-(1 - progress) * d}px)`,
-    right: `translateX(${(1 - progress) * d}px)`,
+/** Resolve the effective start frame and default easing from AnimateProps. */
+function resolveAnimateStart(
+  startInFrames: number,
+  duration: number,
+  cutInMotion: number,
+  durationInFrames: number,
+): { effectiveStart: number; isExit: boolean } {
+  if (startInFrames < 0) {
+    // Exit: negative delay counts from section end
+    const resolvedStart = durationInFrames + startInFrames
+    return {
+      effectiveStart: resolvedStart + cutInMotion * duration,
+      isExit: true,
+    }
   }
-  return (
-    <div style={{ opacity, transform: transforms[from] }}>
-      {children}
-    </div>
-  )
+  // Enter: positive delay counts from section start
+  return {
+    effectiveStart: startInFrames - cutInMotion * duration,
+    isExit: false,
+  }
 }
 
-export function SlideOut({ children, duration = 20, from = 'up', distance = SLIDE_DISTANCE, easing, delay = 0 }: SlideProps) {
+export function Opacity({
+  children,
+  from,
+  to,
+  duration,
+  easing,
+  startInFrames = 0,
+  cutInMotion = 0,
+  inline,
+  style,
+}: AnimateProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
-  const start = durationInFrames - duration + delay
-  const progress = interpolate(frame, [start, start + duration], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? EXIT_EASING,
-  })
-  // Fade out quickly at the end so elastic/overshoot easings don't keep
-  // the element visible while it oscillates near the end.
-  const fadeFrames = Math.min(duration, 8)
-  const opacity = interpolate(frame, [start + duration - fadeFrames, start + duration], [1, 0], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  })
-  const d = distance
-  // from = where the element originally came from.
-  // Exit goes the OPPOSITE direction: from="left" exits to the right.
-  const OPPOSITE: Record<string, string> = {
-    up: 'down',
-    down: 'up',
-    left: 'right',
-    right: 'left',
-  }
-  const exitDir = OPPOSITE[from] ?? 'down'
-  const transforms: Record<string, string> = {
-    up: `translateY(${-progress * d}px)`,
-    down: `translateY(${progress * d}px)`,
-    left: `translateX(${-progress * d}px)`,
-    right: `translateX(${progress * d}px)`,
-  }
-  return (
-    <div style={{ opacity, transform: transforms[exitDir] }}>
-      {children}
-    </div>
+  const { effectiveStart, isExit } = resolveAnimateStart(
+    startInFrames, duration, cutInMotion, durationInFrames,
   )
+  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
+  })
+  const animStyle = { opacity: value, ...style }
+  if (inline) return <div style={animStyle}>{children}</div>
+  return <Fill style={animStyle}>{children}</Fill>
 }
 
-export function BlurIn({ children, duration = 20, easing, delay = 0 }: EnterExitProps) {
-  const frame = useCurrentFrame()
-  const start = delay
-  const progress = interpolate(frame, [start, start + duration], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-    easing: easing ?? ENTER_EASING,
-  })
-  const blur = interpolate(progress, [0, 1], [24, 0])
-  return (
-    <div style={{ opacity: progress, filter: `blur(${blur}px)` }}>
-      {children}
-    </div>
-  )
-}
-
-export function BlurOut({ children, duration = 20, easing, delay = 0 }: EnterExitProps) {
+export function Scale({
+  children,
+  from,
+  to,
+  duration,
+  easing,
+  startInFrames = 0,
+  cutInMotion = 0,
+  inline,
+  style,
+}: AnimateProps) {
   const frame = useCurrentFrame()
   const { durationInFrames } = useVideoConfig()
-  const start = durationInFrames - duration + delay
-  const progress = interpolate(frame, [start, start + duration], [0, 1], {
+  const { effectiveStart, isExit } = resolveAnimateStart(
+    startInFrames, duration, cutInMotion, durationInFrames,
+  )
+  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
-    easing: easing ?? EXIT_EASING,
+    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
   })
-  const blur = interpolate(progress, [0, 1], [0, 24])
-  return (
-    <div style={{ opacity: 1 - progress, filter: `blur(${blur}px)` }}>
-      {children}
-    </div>
+  const animStyle = { transform: `scale(${value})`, willChange: 'transform' as const, ...style }
+  if (inline) return <div style={animStyle}>{children}</div>
+  return <Fill style={animStyle}>{children}</Fill>
+}
+
+export function TranslateX({
+  children,
+  from,
+  to,
+  duration,
+  easing,
+  startInFrames = 0,
+  cutInMotion = 0,
+  inline,
+  style,
+}: AnimateProps) {
+  const frame = useCurrentFrame()
+  const { durationInFrames } = useVideoConfig()
+  const { effectiveStart, isExit } = resolveAnimateStart(
+    startInFrames, duration, cutInMotion, durationInFrames,
   )
+  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
+  })
+  const animStyle = { transform: `translateX(${value}px)`, willChange: 'transform' as const, ...style }
+  if (inline) return <div style={animStyle}>{children}</div>
+  return <Fill style={animStyle}>{children}</Fill>
+}
+
+export function TranslateY({
+  children,
+  from,
+  to,
+  duration,
+  easing,
+  startInFrames = 0,
+  cutInMotion = 0,
+  inline,
+  style,
+}: AnimateProps) {
+  const frame = useCurrentFrame()
+  const { durationInFrames } = useVideoConfig()
+  const { effectiveStart, isExit } = resolveAnimateStart(
+    startInFrames, duration, cutInMotion, durationInFrames,
+  )
+  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
+  })
+  const animStyle = { transform: `translateY(${value}px)`, willChange: 'transform' as const, ...style }
+  if (inline) return <div style={animStyle}>{children}</div>
+  return <Fill style={animStyle}>{children}</Fill>
+}
+
+export function Blur({
+  children,
+  from,
+  to,
+  duration,
+  easing,
+  startInFrames = 0,
+  cutInMotion = 0,
+  inline,
+  style,
+}: AnimateProps) {
+  const frame = useCurrentFrame()
+  const { durationInFrames } = useVideoConfig()
+  const { effectiveStart, isExit } = resolveAnimateStart(
+    startInFrames, duration, cutInMotion, durationInFrames,
+  )
+  const value = interpolate(frame, [effectiveStart, effectiveStart + duration], [from, to], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+    easing: easing ?? (isExit ? EXIT_EASING : ENTER_EASING),
+  })
+  const animStyle = { filter: `blur(${value}px)`, ...style }
+  if (inline) return <div style={animStyle}>{children}</div>
+  return <Fill style={animStyle}>{children}</Fill>
 }
 
 // ---------------------------------------------------------------------------
@@ -963,14 +974,11 @@ export const MDX_BUILTIN_COMPONENTS = {
   Img,
   Audio,
   Video,
-  FadeIn,
-  FadeOut,
-  ZoomIn,
-  ZoomOut,
-  SlideIn,
-  SlideOut,
-  BlurIn,
-  BlurOut,
+  Opacity,
+  Scale,
+  TranslateX,
+  TranslateY,
+  Blur,
   GeneratedImage,
   GeneratedVideo,
   GeneratedSpeech,

@@ -3,14 +3,23 @@ fps: 30
 bpm: 120
 ---
 
-# Bands Default duration=5s
+# Bands Default duration=3s
 
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <BandsShader />
 </Background>
 
-# Bands Neon duration=5s
+<TranslateX from={-140} to={0} duration={0.7 * FPS}>
+  <TranslateX from={0} to={140} duration={0.7 * FPS} startInFrames={-0.7 * FPS} cutInMotion={0.3}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Bands</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Bands Neon duration=3s
+
+<Scale from={1.3} to={1} duration={3 * FPS}>
 <Background>
   <BandsShader
     colors={["#ff0055", "#aa00ff", "#00aaff", "#00ffaa"]}
@@ -20,8 +29,16 @@ bpm: 120
   />
 </Background>
 
-# Bands Warm duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Bands Neon</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Bands Warm duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <BandsShader
     colors={["#f59e0b", "#ef4444", "#8b5cf6"]}
@@ -32,14 +49,30 @@ bpm: 120
   />
 </Background>
 
-# Wave Gradient Default duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Bands Warm</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Wave Gradient Default duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <WaveGradientShader />
 </Background>
 
-# Wave Gradient Cool duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Wave Gradient</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Wave Gradient Cool duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <WaveGradientShader
     colors={["#0055ff", "#00ccff", "#aa00ff", "#ff00aa"]}
@@ -49,8 +82,16 @@ bpm: 120
   />
 </Background>
 
-# Wave Gradient Slow duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Wave Gradient Cool</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Wave Gradient Slow duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <WaveGradientShader
     colors={["#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"]}
@@ -61,14 +102,30 @@ bpm: 120
   />
 </Background>
 
-# Liquid Gradient Default duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Wave Gradient Slow</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Liquid Gradient Default duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <LiquidGradientShader />
 </Background>
 
-# Liquid Gradient Warm duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Liquid Gradient</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Liquid Gradient Warm duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <LiquidGradientShader
     colors={["#1a0033", "#ff4500", "#ff8c00", "#ffd700", "#fff5e6"]}
@@ -80,8 +137,16 @@ bpm: 120
   />
 </Background>
 
-# Liquid Gradient Jellify duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Liquid Gradient Warm</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Liquid Gradient Jellify duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <LiquidGradientShader
     colors={["#0a0a2e", "#00bcd4", "#e040fb", "#76ff03"]}
@@ -94,14 +159,30 @@ bpm: 120
   />
 </Background>
 
-# Rings Default duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Liquid Gradient Jellify</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Rings Default duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <DispersionRingsShader />
 </Background>
 
-# Rings Neon duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Dispersion Rings</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Rings Neon duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <DispersionRingsShader
     colors={["#ff0055", "#aa00ff", "#00aaff", "#00ffaa"]}
@@ -112,8 +193,16 @@ bpm: 120
   />
 </Background>
 
-# Rings Warm duration=5s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Dispersion Rings Neon</div>
+  </TranslateX>
+</TranslateX>
+</Scale>
 
+# Rings Warm duration=3s
+
+<Scale from={1} to={1.3} duration={3 * FPS}>
 <Background>
   <DispersionRingsShader
     colors={["#f59e0b", "#ef4444", "#8b5cf6"]}
@@ -124,3 +213,10 @@ bpm: 120
     seed={99}
   />
 </Background>
+
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.1}>
+    <div style={{ fontSize: 48, fontWeight: 700, color: 'white', textAlign: 'center', fontFamily: '"SF Pro Display", "Helvetica Neue", system-ui, sans-serif', letterSpacing: '-0.02em' }}>Dispersion Rings Warm</div>
+  </TranslateX>
+</TranslateX>
+</Scale>

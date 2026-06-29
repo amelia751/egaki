@@ -1,5 +1,5 @@
-// Vite config for the cut-in-motion example — text scenes with offset-based
-// SlideOut/SlideIn in the same direction to demonstrate "cut on motion" transitions.
+// Vite config for the cut-in-motion example — text scenes using TranslateX
+// with cutInMotion to demonstrate "cut on motion" transitions.
 import { video } from 'egaki/vite'
 import { defineConfig } from 'vite'
 

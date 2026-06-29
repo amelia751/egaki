@@ -19,43 +19,45 @@ import { Dot, ListItem } from './components'
   <LayoutTransition id="hero" duration={20}>
     <span style={{ fontSize: 160, fontWeight: 700, color: '#fafafa', letterSpacing: '-0.04em', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>egaki</span>
   </LayoutTransition>
-  <SlideIn duration={20} from="right" distance={300}>
+  <TranslateX from={300} to={0} duration={20} inline>
     <span style={{ fontSize: 160, fontWeight: 700, color: '#818cf8', letterSpacing: '-0.04em', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>video</span>
-  </SlideIn>
+  </TranslateX>
 </div>
 
 # Blur Reveal duration=3s
 
-<BlurIn duration={30}>
-  <BlurReveal text="Create videos from code" fontSize={72} />
-</BlurIn>
+<Blur from={24} to={0} duration={30}>
+  <Opacity from={0} to={1} duration={30}>
+    <BlurReveal text="Create videos from code" fontSize={72} />
+  </Opacity>
+</Blur>
 
 # Shimmer duration=3s
 
-<FadeIn duration={15}>
+<Opacity from={0} to={1} duration={15}>
   <ShimmerSweep text="egaki" fontSize={120} fontWeight={700} baseColor="#3f3f46" shineColor="#fafafa" />
-</FadeIn>
+</Opacity>
 
 # Masked Reveal duration=3s
 
-<FadeIn duration={12}>
-  <FadeOut duration={15}>
+<Opacity from={0} to={1} duration={12}>
+  <Opacity from={1} to={0} duration={15} startInFrames={-15}>
     <MaskedSlideReveal text="MDX powered video framework" fontSize={64} />
-  </FadeOut>
-</FadeIn>
+  </Opacity>
+</Opacity>
 
 # Staggered duration=3s
 
-<FadeIn duration={12}>
-  <FadeOut duration={15}>
+<Opacity from={0} to={1} duration={12}>
+  <Opacity from={1} to={0} duration={15} startInFrames={-15}>
     <StaggeredFadeUp text="Write components. Render frames. Export video." fontSize={44} color="#a1a1aa" />
-  </FadeOut>
-</FadeIn>
+  </Opacity>
+</Opacity>
 
 # Code Block duration=5s
 
-<FadeIn duration={12}>
-  <FadeOut duration={15}>
+<Opacity from={0} to={1} duration={12}>
+  <Opacity from={1} to={0} duration={15} startInFrames={-15}>
     <CodeBlock title="video.mdx" language="mdx" theme="vercel" width={800} staggerFrames={2}>
 {`---
 fps: 30
@@ -68,14 +70,14 @@ bpm: 120
 
 # Scene duration=5s
 
-<SlideIn from="left">
+<TranslateX from={-140} to={0} duration={20}>
   <CodeBlock title="app.tsx">
     {'export default () => <h1>egaki</h1>'}
   </CodeBlock>
-</SlideIn>`}
+</TranslateX>`}
     </CodeBlock>
-  </FadeOut>
-</FadeIn>
+  </Opacity>
+</Opacity>
 
 # Bands duration=4s
 
@@ -83,30 +85,30 @@ bpm: 120
   <BandsShader colors={['#6366f1', '#8b5cf6', '#06b6d4', '#3b82f6']} speed={0.2} />
 </Background>
 
-<FadeIn duration={20}>
+<Opacity from={0} to={1} duration={20}>
   <BlurReveal text="Shader backgrounds" fontSize={64} color="#ffffff" />
-</FadeIn>
+</Opacity>
 
 # Slide Animations duration=4s
 
-<SlideIn from="left" duration={20} distance={200}>
-  <FadeOut duration={15}>
+<TranslateX from={-200} to={0} duration={20}>
+  <Opacity from={1} to={0} duration={15} startInFrames={-15}>
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
       <span style={{ fontSize: 56, fontWeight: 700, color: '#fafafa', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>Slide from any direction</span>
-      <SlideIn from="up" duration={25} delay={10} distance={80}>
+      <TranslateY from={-80} to={0} duration={25} startInFrames={10} inline>
         <span style={{ fontSize: 32, color: '#a1a1aa', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>up, down, left, right</span>
-      </SlideIn>
+      </TranslateY>
     </div>
-  </FadeOut>
-</SlideIn>
+  </Opacity>
+</TranslateX>
 
 # Zoom duration=3s
 
-<ZoomIn duration={25}>
-  <FadeOut duration={15}>
+<Scale from={1} to={1.8} duration={25}>
+  <Opacity from={1} to={0} duration={15} startInFrames={-15}>
     <span style={{ fontSize: 72, fontWeight: 700, color: '#fafafa', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>Zoom In</span>
-  </FadeOut>
-</ZoomIn>
+  </Opacity>
+</Scale>
 
 # Active List duration=6s
 
@@ -132,9 +134,9 @@ bpm: 120
 
 # Closing duration=3s
 
-<FadeIn duration={20}>
+<Opacity from={0} to={1} duration={20}>
   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
     <span style={{ fontSize: 120, fontWeight: 700, color: '#fafafa', letterSpacing: '-0.04em', fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif' }}>egaki</span>
     <StaggeredFadeUp text="MDX to video, in the browser" fontSize={32} color="#71717a" staggerDelay={3} />
   </div>
-</FadeIn>
+</Opacity>

@@ -28,13 +28,10 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "Audio",
         "Background",
         "BandsShader",
-        "BlurIn",
-        "BlurOut",
+        "Blur",
         "BlurReveal",
         "CodeBlock",
         "DispersionRingsShader",
-        "FadeIn",
-        "FadeOut",
         "Fill",
         "GeneratedImage",
         "GeneratedSpeech",
@@ -43,14 +40,14 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "LayoutTransition",
         "LiquidGradientShader",
         "MaskedSlideReveal",
+        "Opacity",
+        "Scale",
         "ShimmerSweep",
-        "SlideIn",
-        "SlideOut",
         "StaggeredFadeUp",
+        "TranslateX",
+        "TranslateY",
         "Video",
         "WaveGradientShader",
-        "ZoomIn",
-        "ZoomOut",
       ]
     `)
   })
@@ -1320,11 +1317,11 @@ before <Server><Stat /></Server> after
   })
 
   test('Server inside other wrapper elements is found', () => {
-    const mdx = `<FadeIn duration={15}>
+    const mdx = `<Opacity from={0} to={1} duration={15}>
   <Server>
     <AsyncStats />
   </Server>
-</FadeIn>
+</Opacity>
 `
     const nodes = findServerNodes(mdxParse(mdx))
     expect(nodes.map((n) => n.key)).toMatchInlineSnapshot(`
@@ -1436,9 +1433,9 @@ text before
 
 # B duration=1s
 
-<FadeIn>
+<Opacity from={0} to={1} duration={15}>
   <Server><Inline /></Server>
-</FadeIn>
+</Opacity>
 `
     const originalNodes = findServerNodes(mdxParse(mdx))
     const blanked = blankServerContents(mdx, originalNodes)
@@ -1669,9 +1666,9 @@ describe('wrapGenerateNodes', () => {
   })
 
   test('wraps inside other wrapper elements', () => {
-    const mdx = `<FadeIn duration={15}>
+    const mdx = `<Opacity from={0} to={1} duration={15}>
   <GeneratedImage prompt="nested" seed={1} />
-</FadeIn>
+</Opacity>
 `
     const ast = mdxParse(mdx)
     wrapGenerateNodes(ast)
