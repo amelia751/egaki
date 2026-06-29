@@ -346,7 +346,7 @@ export function defineShader(config: ShaderConfig) {
       const activeCount = Math.min(propColors?.length ?? defaults.length, tpKeys.length)
       tpSchema[countKey] = { value: activeCount, min: 1, max: tpKeys.length, step: 1 }
       for (let i = 0; i < tpKeys.length; i++) {
-        tpSchema[tpKeys[i]] = propColors?.[i] ?? defaults[i] ?? '#000000'
+        tpSchema[tpKeys[i]!] = propColors?.[i] ?? defaults[i] ?? '#000000'
       }
     }
     const tp = useTweakpane(config.title, tpSchema)
@@ -487,7 +487,7 @@ export function defineShader(config: ShaderConfig) {
       // Number control uniforms (from tweakpane for visible, props for hidden)
       for (const m of numberMetas) {
         const l = loc[m.uniformName]
-        if (l === null) continue
+        if (l == null) continue
         const value = m.hidden
           ? (props[m.key] ?? m.defaultValue)
           : ((tp as any)[m.key] ?? m.defaultValue)
@@ -501,15 +501,15 @@ export function defineShader(config: ShaderConfig) {
         const flat: number[] = []
         for (let i = 0; i < m.maxCount; i++) {
           if (i < tpKeys.length) {
-            flat.push(...parseHexColor((tp as any)[tpKeys[i]] ?? '#000000'))
+            flat.push(...parseHexColor((tp as any)[tpKeys[i]!] ?? '#000000'))
           } else {
             flat.push(0, 0, 0, 0)
           }
         }
         const uLoc = loc[m.uniformName]
-        if (uLoc !== null) gl.uniform4fv(uLoc, flat)
+        if (uLoc != null) gl.uniform4fv(uLoc, flat)
         const lLoc = loc[m.lengthName]
-        if (lLoc !== null) gl.uniform1i(lLoc, count)
+        if (lLoc != null) gl.uniform1i(lLoc, count)
       }
 
       // Draw the fullscreen quad
