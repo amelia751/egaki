@@ -1,0 +1,76 @@
+---
+fps: 30
+bpm: 103
+width: 1080
+height: 1920
+---
+
+import { ImageMontage, Caption, DimOverlay } from './components'
+
+<Audio src="/music.mp3" trimBefore={Math.round(60.74 * FPS)} volume={0.45} />
+<Video src="/bg-video.mp4" objectFit="cover" muted loop />
+
+# Intro duration=8beats
+
+<Audio src="/voice-intro.mp3" />
+
+<Caption words={[
+  { word: "Just", delay: 0 },
+  { word: "quit", delay: 0.26 * FPS },
+  { word: "your", delay: 0.26 * FPS },
+  { word: "job", delay: 0.48 * FPS },
+  { word: "and", delay: 0.88 * FPS },
+  { word: "praise", delay: 1.92 * FPS },
+  { word: "the", delay: 2.32 * FPS },
+  { word: "Lord", delay: 2.56 * FPS },
+  { word: "Jesus", delay: 2.78 * FPS },
+  { word: "every", delay: 3.18 * FPS },
+  { word: "day.", delay: 3.64 * FPS },
+]} />
+
+# Montage duration=19s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+    <DimOverlay darkness={0.8} duration={44} />
+  </div>
+</Background>
+
+<ImageMontage
+  beat={BEAT}
+  images={[
+    '/image-01.jpeg',
+    '/image-02.jpeg',
+    '/image-03.jpeg',
+    '/image-04.jpeg',
+    '/image-05.jpeg',
+    '/image-06.jpeg',
+    '/image-07.jpeg',
+    '/image-08.jpeg',
+    '/image-09.jpeg',
+    '/image-10.jpeg',
+    '/image-11.jpeg',
+    '/image-12.jpeg',
+    '/image-13.jpeg',
+    '/image-14.jpeg',
+    '/image-15.jpeg',
+    '/image-16.jpeg',
+    '/image-17.jpeg',
+    '/image-18.jpeg',
+    '/image-19.jpeg',
+    '/image-20.jpeg',
+    '/image-21.jpeg',
+    '/image-22.jpeg',
+    '/image-23.jpeg',
+    '/image-24.jpeg',
+    '/image-25.jpeg',
+    '/image-26.jpeg',
+    '/image-27.jpeg',
+    '/image-28.jpeg',
+    '/image-29.jpeg',
+    '/image-30.jpeg',
+    '/image-31.jpeg',
+    '/image-32.jpeg',
+    '/image-33.jpeg',
+  ]}
+/>

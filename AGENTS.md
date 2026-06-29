@@ -878,14 +878,24 @@ support them.
 
 ### Computing frame delays from timestamps
 
-Convert each word's `startSecond` to a frame number. `Math.round()` is not
-available in safe-mdx scope, so pre-compute and hardcode frame values.
+Use each word's `startSecond` directly with the `FPS` scope variable.
+Never hardcode pre-computed frame numbers; use `seconds * FPS` so delays
+stay readable and portable across different fps values.
 
-```ts
-// At 30fps: frame = Math.round(startSecond * 30)
-// "quit" at 0.26s → frame 8
-// "your" at 0.48s → frame 14
+```mdx
+<Caption words={[
+  { word: "Just", delay: 0 },
+  { word: "quit", delay: 0.26 * FPS },
+  { word: "your", delay: 0.48 * FPS },
+]} />
 ```
+
+**Re-transcribe after regenerating TTS.** Caption word delays come from
+transcription timestamps. When you regenerate a TTS audio file (e.g. with
+`egaki speech`), the timing of every word changes. Always re-run
+`egaki transcribe` on the new audio and update all `delay` values in the
+`<Caption>` to match. Stale delays from a previous audio file will cause
+words to appear out of sync with the spoken audio.
 
 ### Default caption style
 
