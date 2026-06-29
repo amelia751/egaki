@@ -1190,6 +1190,56 @@ The walk renderer (used when `allowHtmlInCanvas` is false) has these CSS limitat
 - Filters (`blur`, `brightness`, etc.) do not work in Safari/WebKit
 </details>
 
+## Premounting video sequences to prevent stutter
+
+When building a montage or slideshow of multiple videos/images, always use
+`<Series>` with `<Series.Sequence>` instead of swapping `src` on a single
+`<Video>` or `<Img>` via `useState`/`useCurrentFrame()`. Swapping `src`
+forces the browser to fetch the new asset from scratch at the exact cut frame,
+causing a visible stutter or black frame. With `<Series>`, each clip is a
+separate mounted component, and `premountFor` lets the next clip start loading
+**before** the cut.
+
+**In MDX sections** this is handled automatically. egaki's `player-page.tsx`
+adds `premountFor={Math.round(fps * 1)}` (1 second) to every `Series.Sequence`
+generated from headings. No action needed for MDX authors.
+
+**In TSX components** that build their own `<Series>`, you must add
+`premountFor` manually to each `Series.Sequence` (except the first, which
+plays immediately). Set it to at least 1 second worth of frames (e.g. 30
+frames at 30fps, 60 at 60fps).
+
+```tsx
+import { Series } from 'remotion'
+import { Video, Fill } from 'egaki/video'
+
+// 60 frames = 1 second premount at 60fps (or 2s at 30fps). Adjust to taste.
+<Series>
+  <Series.Sequence durationInFrames={45}>
+    <Fill>
+      <Video src="/videos/clip-01.mp4" muted loop objectFit="cover" />
+    </Fill>
+  </Series.Sequence>
+  <Series.Sequence premountFor={60} durationInFrames={45}>
+    <Fill>
+      <Video src="/videos/clip-02.mp4" muted loop objectFit="cover" />
+    </Fill>
+  </Series.Sequence>
+  <Series.Sequence premountFor={60} durationInFrames={45}>
+    <Fill>
+      <Video src="/videos/clip-03.mp4" muted loop objectFit="cover" />
+    </Fill>
+  </Series.Sequence>
+</Series>
+```
+
+How it works internally: Remotion's `Sequence` component checks
+`frame < from && frame >= from - premountFor`. When true, it wraps children in
+`<Freeze frame={from}>` with `opacity: 0` and `pointerEvents: 'none'`. The
+component tree is mounted and effects run (triggering video preload), but
+nothing is visible. Each Sequence handles this independently; the Series
+parent just computes `from` values, no cross-scene awareness is needed.
+
 ## Making images and videos fill the frame (cover)
 
 `<Video>` and `<Img>` from `egaki/video` support an `objectFit` prop that controls
