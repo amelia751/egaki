@@ -12,7 +12,7 @@
  * hooks execute on the client inside Remotion's Player render loop.
  */
 
-import { createContext, useId, useInsertionEffect, useLayoutEffect, type ReactNode } from 'react'
+import { createContext, useContext, useId, useInsertionEffect, useLayoutEffect, type ReactNode } from 'react'
 import type { SafeMdxError } from 'safe-mdx'
 import type { EagerModules } from 'safe-mdx/parse'
 import {
@@ -38,11 +38,12 @@ import {
 } from './components.tsx'
 import { AngledScreen } from './angled-screen.tsx'
 import { CodeBlock, CODE_THEMES } from './code-block.tsx'
+import { BandsShader } from './bands-shader.tsx'
 
 
 export { splitIntoSections, calculateTotalDuration, resolveAutoDurations }
-import { useTweakpane } from './tweakpane-hook.tsx'
-export { useTweakpane }
+import { useTweakpane, TWEAKPANE_DISABLED } from './tweakpane-hook.tsx'
+export { useTweakpane, TWEAKPANE_DISABLED }
 export type { MdxSection, SplitResult, VideoFrontmatter, EagerModules, SafeMdxError }
 
 // ExportContext and useIsExporting are defined in media-components.tsx and
@@ -116,6 +117,7 @@ export const ServerSlotsContext = createContext<ServerSlots>({})
 import {
   AbsoluteFill,
   Easing,
+  Internals,
   interpolate,
   spring,
   useCurrentFrame,
@@ -185,6 +187,50 @@ export {
   overshootElasticSamples,
   overshootBouncySamples,
   lerpSamples,
+}
+
+// ---------------------------------------------------------------------------
+// useAbsoluteCurrentFrame() — absolute composition frame hook
+//
+// Remotion's useCurrentFrame() returns the frame relative to the current
+// Series.Sequence (resets to 0 at each section). This hook returns the
+// absolute frame across the entire composition, useful for global timing,
+// syncing elements across sections, or computing total elapsed time.
+// Uses Remotion's internal useTimelinePosition which is what useCurrentFrame
+// reads before subtracting the sequence offset.
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the absolute frame number across the entire composition.
+ *
+ * Unlike `useCurrentFrame()` which resets to 0 at each section boundary
+ * (Series.Sequence), this returns the global frame from 0 to totalDuration.
+ *
+ * ```tsx
+ * const absoluteFrame = useAbsoluteCurrentFrame()
+ * const elapsedSeconds = absoluteFrame / fps
+ * ```
+ */
+export function useAbsoluteCurrentFrame(): number {
+  return Internals.Timeline.useTimelinePosition()
+}
+
+/**
+ * Returns `true` when the component is being rendered inside a premounted
+ * `<Series.Sequence premountFor={…}>` — i.e. the sequence is mounted early
+ * for preloading but invisible (opacity 0, pointer-events none, frozen at
+ * its start frame).
+ *
+ * Use this to skip expensive side effects (tweakpane registration, heavy
+ * canvas work, etc.) that shouldn't run during premount.
+ *
+ * Uses Remotion's internal `SequenceContext.premounting` flag — the same
+ * mechanism Remotion's own `<Video>`, `<Audio>`, and `<Img>` use to skip
+ * buffering during premount.
+ */
+export function useIsPremounting(): boolean {
+  const ctx = useContext(Internals.SequenceContext)
+  return ctx?.premounting ?? false
 }
 
 // ---------------------------------------------------------------------------
@@ -939,6 +985,7 @@ export {
   AngledScreen,
   CodeBlock,
   CODE_THEMES,
+  BandsShader,
 }
 
 /** Built-in JSX names available in MDX without user imports. Shared by
@@ -962,6 +1009,7 @@ export const MDX_BUILTIN_COMPONENTS = {
   Background,
   LayoutTransition,
   AngledScreen,
+  BandsShader,
   MeshGradientBg,
   BlurReveal,
   MaskedSlideReveal,

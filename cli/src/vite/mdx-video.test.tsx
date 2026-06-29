@@ -13,7 +13,7 @@ import { SafeMdxRenderer } from 'safe-mdx'
 import { mdxParse, extractImports, resolveModulePath } from 'safe-mdx/parse'
 import type { EagerModules } from 'safe-mdx/parse'
 import { MdastToJsx } from 'safe-mdx'
-import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter, aspectRatioFromDimensions } from './mdx-parse.ts'
+import { splitIntoSections, calculateTotalDuration, resolveAutoDurations, parseFrontmatter, aspectRatioFromDimensions, buildMdxScope } from './mdx-parse.ts'
 import { findChangedSectionIndex } from './vite-plugin.ts'
 import { computeEffectiveDuration } from './media-duration-store.ts'
 import { findServerNodes, blankServerContents, collectServerImportSources, wrapGenerateNodes, collectServerFileImportNames } from './server-mdx.ts'
@@ -29,6 +29,7 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "AnimatedChart",
         "Audio",
         "Background",
+        "BandsShader",
         "BlurIn",
         "BlurOut",
         "BlurReveal",
@@ -371,6 +372,31 @@ describe('parseFrontmatter and MDX scope (FPS, BEAT)', () => {
     const html = renderToStaticMarkup(result)
     // 0.5 * 30 = 15
     expect(html).toMatchInlineSnapshot(`"<div data-delay="15"></div>"`)
+    expect(visitor.errors).toMatchInlineSnapshot(`[]`)
+  })
+
+  test('Math.round and other JS globals available in scope via buildMdxScope', () => {
+    const fps = 30
+    const bpm = 120
+    const mdxScope = buildMdxScope(fps, bpm)
+
+    function Box({ trimBefore, trimAfter }: { trimBefore: number; trimAfter: number }) {
+      return <div data-trim-before={trimBefore} data-trim-after={trimAfter} />
+    }
+    const code = `<Box trimBefore={Math.round(1.47 * FPS)} trimAfter={Math.round(4.87 * FPS)} />`
+    const ast = mdxParse(code)
+    const visitor = new MdastToJsx({
+      markdown: code,
+      mdast: ast,
+      components: { Box },
+      scope: mdxScope,
+      baseUrl: './',
+      evaluateOptions: { functions: true },
+    })
+    const result = visitor.run()
+    const html = renderToStaticMarkup(result)
+    // Math.round(1.47 * 30) = 44, Math.round(4.87 * 30) = 146
+    expect(html).toMatchInlineSnapshot(`"<div data-trim-before="44" data-trim-after="146"></div>"`)
     expect(visitor.errors).toMatchInlineSnapshot(`[]`)
   })
 
@@ -1146,7 +1172,7 @@ describe('LayoutTransition', () => {
       </LayoutTransitionProvider>,
     )
     expect(html).toMatchInlineSnapshot(
-      `"<div data-layout-id="title" style="transform-origin:0 0"><span>Hello</span></div><div data-layout-id="title" style="transform-origin:0 0"><span>Hello</span></div>"`,
+      `"<div data-layout-id="title" style="transform-origin:0 0;width:fit-content"><span>Hello</span></div><div data-layout-id="title" style="transform-origin:0 0;width:fit-content"><span>Hello</span></div>"`,
     )
   })
 
@@ -1158,7 +1184,7 @@ describe('LayoutTransition', () => {
       </LayoutTransition>,
     )
     expect(html).toMatchInlineSnapshot(
-      `"<div data-layout-id="solo" style="transform-origin:0 0"><span>Alone</span></div>"`,
+      `"<div data-layout-id="solo" style="transform-origin:0 0;width:fit-content"><span>Alone</span></div>"`,
     )
   })
 
