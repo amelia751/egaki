@@ -259,12 +259,14 @@ function ResolvedAudio({ srcPromise, ...rest }: { srcPromise: Promise<string> } 
 
 /**
  * Resolve startInFrames to a Sequence `from` value.
- * Positive: use directly. Negative: offset from section end.
+ * Positive: use directly. Negative: offset from section end (can resolve to
+ * a negative `from`, which Remotion handles as pre-roll — the media starts
+ * mid-playback at the section's first frame).
  * Returns 0 (no wrapping needed) when startInFrames is 0 or undefined.
  */
 function resolveMediaStartFrame(startInFrames: number | undefined, durationInFrames: number): number {
   if (startInFrames == null || startInFrames === 0) return 0
-  if (startInFrames < 0) return Math.max(0, durationInFrames + startInFrames)
+  if (startInFrames < 0) return durationInFrames + startInFrames
   return startInFrames
 }
 

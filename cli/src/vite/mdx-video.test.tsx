@@ -1969,8 +1969,8 @@ describe('computeEffectiveDuration with startInFrames', () => {
   })
 
   test('startInFrames works with playbackRate', () => {
-    // 3s media at 2x = 1.5s, + 30 delay frames → (90 media + 30 delay) / 30fps / 2 = 2s
-    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, playbackRate: 2, startInFrames: 30 })).toBe(2)
+    // 3s media at 2x = 1.5s, + 30 delay frames (1s, not affected by rate) = 2.5s
+    expect(computeEffectiveDuration({ rawSeconds: 3, fps: 30, playbackRate: 2, startInFrames: 30 })).toBe(2.5)
   })
 
   test('returns null when duration cannot be determined', () => {

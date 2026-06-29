@@ -147,9 +147,9 @@ export function computeEffectiveDuration({
   if (mediaFrames <= 0) return null
   // Only positive startInFrames adds to effective duration (delay before media).
   // Negative startInFrames anchors to section end and doesn't extend auto-duration.
-  const offset = startInFrames != null && startInFrames > 0 ? startInFrames : 0
-  const totalFrames = mediaFrames + offset
-  return totalFrames / fps / rate
+  // The delay is timeline-fixed (not affected by playbackRate), so add it separately.
+  const positiveOffsetFrames = startInFrames != null && startInFrames > 0 ? startInFrames : 0
+  return mediaFrames / fps / rate + positiveOffsetFrames / fps
 }
 
 // ---------------------------------------------------------------------------
