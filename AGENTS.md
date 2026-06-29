@@ -3,6 +3,12 @@
 **Never use `textShadow`.** It looks bad in video. This applies to all components,
 examples, and MDX content.
 
+**Never use viewport-relative units** (`vw`, `vh`, `vmin`, `vmax`). Remotion
+compositions have a fixed pixel size (e.g. 1920×1080) and are scaled to fit the
+player viewport. Viewport units resolve against the browser window, not the
+composition, so they produce different results depending on browser size and break
+during export. Use `%` (relative to parent), `px`, or `em` instead.
+
 **Never use raw frame numbers.** Always express durations and delays as seconds
 multiplied by `FPS`. In MDX files use the `FPS` scope variable (`0.5 * FPS`). In
 TSX files import `FPS` from `egaki/video` or derive from `useVideoConfig().fps`.
@@ -494,7 +500,7 @@ Conventions and rules:
 
 **Animation primitives** (`mdx-video.tsx`): `Opacity`, `Scale`, `TranslateX`, `TranslateY`, `Blur`. Each animates one CSS property from `from` to `to` over `duration` frames. Enter vs exit is inferred from `startInFrames`: positive or zero = enter (offset from section start), negative = exit (offset from section end). `cutInMotion` (0-1) clips the animation at the scene boundary for conveyor-belt transitions. By default, all primitives use `<Fill>` wrapper (full-frame AbsoluteFill). Pass `inline` to wrap in a plain `<div>` instead, so the element stays in flow layout (flex, grid, etc.) instead of covering the full frame. Pass `style` to add extra CSS to the wrapper. Opacity is never implicit; compose by nesting (e.g. wrap `<TranslateX>` in `<Opacity>` for a fade+slide). Enter animations default to ease-out; exit animations default to ease-in.
 
-Use `inline` when animating elements **inside** a layout (cards, list items, flex children). Without `inline`, the `<Fill>` wrapper takes the full composition frame, which is correct for scene-level animations but breaks flow positioning. Nest multiple `inline` primitives to compose animations on the same element:
+Use `inline` when animating elements **inside** a layout (cards, list items, flex children). Without `inline`, the `<Fill>` wrapper takes the full composition frame, which is correct for scene-level animations but breaks flow positioning. **Never use `%` widths/heights on children of `inline` primitives.** The `inline` wrapper is a plain `<div>` with no intrinsic size, so percentage values resolve to 0 and the element disappears. Use `px` or `em` instead. Nest multiple `inline` primitives to compose animations on the same element:
 
 ```tsx
 <Scale from={0.8} to={1} duration={30} easing={impulseOvershoot(71)} inline>
@@ -504,7 +510,89 @@ Use `inline` when animating elements **inside** a layout (cards, list items, fle
 </Scale>
 ```
 
+**Sequential animations on the same element.** When an element has two
+animations that run at different times (e.g. a shrink-in followed by a
+pulse), nest two `<Scale inline>` wrappers. Each applies its own transform
+independently; the browser composes them. This replaces manually multiplying
+interpolated values.
+
+```tsx
+{/* Card shrinks in over 0-1490ms, then pulses 1→1.1 starting at 1632ms */}
+<Scale from={1.7} to={1} duration={msToFrame(1490, fps)} easing={EASE.smooth} inline>
+  <Scale from={1} to={1.1} duration={msToFrame(3572 - 1632, fps)}
+         startInFrames={msToFrame(1632, fps)} easing={impulseOvershoot(96)} inline>
+    <div style={{ width: '38%', aspectRatio: '675 / 392' }}>Card</div>
+  </Scale>
+</Scale>
+```
+
+**Use `style` for layout integration.** The `style` prop on `inline`
+primitives is essential for flex/grid participation. Use it to set
+dimensions, overflow, border-radius, and other layout properties on the
+animation wrapper itself:
+
+```tsx
+<Scale from={0} to={1} duration={24} easing={EASE.smooth} inline
+  style={{ width: '100%', height: '100%', borderRadius: '20%', overflow: 'hidden' }}>
+  <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Scale>
+```
+
+**Frosted glass with `backdrop-filter`.** When a card needs a blurred
+background, prefer `backdrop-filter: blur()` with a semi-transparent
+`backgroundColor` over duplicating and blurring the background image.
+This is simpler and works because egaki uses HtmlInCanvas which supports
+all CSS features.
+
+```tsx
+<div style={{
+  backdropFilter: 'blur(54.5px)',
+  WebkitBackdropFilter: 'blur(54.5px)',
+  backgroundColor: 'rgba(255, 255, 255, 0.13)',
+  borderRadius: '6%',
+}} />
+```
+
 **`<Fill>`** (`mdx-video.tsx`): a full-frame layer like Remotion's `AbsoluteFill` but with better defaults for video content. Children **stretch horizontally** to fill the frame and **center vertically**. Available in MDX without imports (part of `MDX_BUILTIN_COMPONENTS`). Also exported from `egaki/video`. Accepts the same `style` and HTML attributes as a `div`; pass `style` to override alignment when needed. Prefer `<Fill>` over raw `<AbsoluteFill>` in egaki components and MDX files. The scene content wrapper in `player-page.tsx` uses `<Fill>` internally.
+
+**Masked word-by-word text reveal.** A staggered slide-up animation where
+each word is clipped by an `overflow: hidden` container and slides into view
+with `translateY`. Two nested `<span>`s per word: the outer one is the mask
+(`overflow: hidden`), the inner one moves from `translateY(100%)` (hidden
+below) to `translateY(0%)` (visible). Stagger each word by a small delay
+(e.g. 0.061s) so they cascade. The animation duration per word (e.g. 0.607s)
+is much longer than the stagger, so multiple words animate simultaneously.
+
+```tsx
+function MaskedWordsText({ text, startSec }: { text: string; startSec: number }) {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
+  return (
+    <>
+      {text.split(' ').map((word, i) => {
+        const wordStart = (startSec + i * 0.061) * fps
+        const progress = interpolate(frame, [wordStart, wordStart + 0.607 * fps], [0, 1], {
+          easing: EASE.smooth,
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        })
+        return (
+          <span key={i}>
+            <span style={{ display: 'inline-block', overflow: 'hidden', verticalAlign: 'top' }}>
+              <span style={{ display: 'inline-block', transform: `translateY(${(1 - progress) * 100}%)` }}>
+                {word}
+              </span>
+            </span>
+            {i < text.split(' ').length - 1 ? ' ' : null}
+          </span>
+        )
+      })}
+    </>
+  )
+}
+```
+
+See `testimonial-example/components.tsx` for a working implementation.
 
 ## `resolveAssetPath` — server-side file resolution
 

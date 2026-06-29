@@ -6,16 +6,16 @@
  * Uses egaki animation primitives (Opacity, Scale with inline mode) and
  * flexbox for all layout. No hardcoded pixel positions for element placement.
  *
- * Operations timeline (ms):
- *   0-1490     bg image scale 1.5→1, card resize (smooth:50)
- *   500-...    quote textIn, words slide up masked (607ms/word, 61ms stagger)
- *   752-982    quote mark " fades in (linear)
- *   1262-2062  portrait mask scale 0→1 (smooth:50)
- *   1262-1772  outline heart opacity 0→50% (linear)
- *   1490-...   author textIn, same word params
- *   1632-3572  card scale 1→1.1 (impulseAndOvershoot:96)
- *   1732-3672  heart group scale 0.8→1 (impulseAndOvershoot:71)
- *   2125-3210  filling-heart circular mask scale 0→1 (smooth:50)
+ * Operations timeline (seconds):
+ *   0-1.49     bg image scale 1.5→1, card resize (smooth:50)
+ *   0.5-...    quote textIn, words slide up masked (0.607s/word, 0.061s stagger)
+ *   0.752-0.982  quote mark " fades in (linear)
+ *   1.262-2.062  portrait mask scale 0→1 (smooth:50)
+ *   1.262-1.772  outline heart opacity 0→50% (linear)
+ *   1.49-...   author textIn, same word params
+ *   1.632-3.572  card scale 1→1.1 (impulseAndOvershoot:96)
+ *   1.732-3.672  heart group scale 0.8→1 (impulseAndOvershoot:71)
+ *   2.125-3.21   filling-heart circular mask scale 0→1 (smooth:50)
  */
 
 import { interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
@@ -28,50 +28,13 @@ const impulseOvershoot96 = impulseOvershoot(96)
 const impulseOvershoot71 = impulseOvershoot(71)
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function msToFrame(ms: number, fps: number) {
-  return (ms / 1000) * fps
-}
-
-function interpClamp({
-  frame,
-  startMs,
-  endMs,
-  from,
-  to,
-  fps,
-  easing,
-}: {
-  frame: number
-  startMs: number
-  endMs: number
-  from: number
-  to: number
-  fps: number
-  easing: (t: number) => number
-}) {
-  return interpolate(frame, [msToFrame(startMs, fps), msToFrame(endMs, fps)], [from, to], {
-    easing,
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  })
-}
-
-// ---------------------------------------------------------------------------
-// Card scale pulse — animates 1→1.1 with impulseOvershoot
-// Applied via transform so the card content scales with it.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // Background visual — full-bleed image with zoom-out animation
 // ---------------------------------------------------------------------------
 
 function BackgroundVisual({ src }: { src: string }) {
   const { fps } = useVideoConfig()
   return (
-    <Scale from={1.5} to={1} duration={msToFrame(1490, fps)} easing={EASE.smooth}>
+    <Scale from={1.5} to={1} duration={1.49 * fps} easing={EASE.smooth} label="bg-zoom">
       <Img
         src={src}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
@@ -88,13 +51,13 @@ function FrostedCard() {
   const { fps } = useVideoConfig()
   return (
     <Fill style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Scale from={1150 / 675} to={1} duration={msToFrame(1490, fps)} easing={EASE.smooth} inline>
-        <Scale from={1} to={1.1} duration={msToFrame(3572 - 1632, fps)} startInFrames={msToFrame(1632, fps)} easing={impulseOvershoot96} inline>
-          <div
+      <Scale from={1150 / 675} to={1} duration={1.49 * fps} easing={EASE.smooth} inline label="card-resize">
+        <Scale from={1} to={1.1} duration={1.94 * fps} startInFrames={1.632 * fps} easing={impulseOvershoot96} inline label="card-pulse">
+           <div
             style={{
-              width: '38vw',
-              aspectRatio: '675 / 392',
-              borderRadius: '6%',
+              width: 675,
+              height: 392,
+              borderRadius: 40,
               backdropFilter: 'blur(54.5px)',
               WebkitBackdropFilter: 'blur(54.5px)',
               backgroundColor: 'rgba(255, 255, 255, 0.13)',
@@ -111,15 +74,19 @@ function FrostedCard() {
 // Per-word animation, stays as a custom helper.
 // ---------------------------------------------------------------------------
 
-function MaskedWordsText({ text, startMs }: { text: string; startMs: number }) {
+function MaskedWordsText({ text, startSec }: { text: string; startSec: number }) {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
   const words = text.split(' ')
   return (
     <>
       {words.map((word, i) => {
-        const wordStartMs = startMs + i * 61
-        const progress = interpClamp({ frame, startMs: wordStartMs, endMs: wordStartMs + 607, from: 0, to: 1, fps, easing: EASE.smooth })
+        const wordStart = (startSec + i * 0.061) * fps
+        const progress = interpolate(frame, [wordStart, wordStart + 0.607 * fps], [0, 1], {
+          easing: EASE.smooth,
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        })
         return (
           <span key={i}>
             <span style={{ display: 'inline-block', overflow: 'hidden', verticalAlign: 'top' }}>
@@ -142,7 +109,11 @@ function MaskedWordsText({ text, startMs }: { text: string; startMs: number }) {
 function Heart() {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
-  const maskP = interpClamp({ frame, startMs: 2125, endMs: 3210, from: 0, to: 1, fps, easing: EASE.smooth })
+  const maskP = interpolate(frame, [2.125 * fps, 3.21 * fps], [0, 1], {
+    easing: EASE.smooth,
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  })
 
   const heartSvg = (fill: string) => (
     <svg width="100%" height="100%" viewBox="0 0 34 32" style={{ display: 'block' }}>
@@ -154,20 +125,22 @@ function Heart() {
     <Scale
       from={0.8}
       to={1}
-      duration={msToFrame(3672 - 1732, fps)}
-      startInFrames={msToFrame(1732, fps)}
+      duration={1.94 * fps}
+      startInFrames={1.732 * fps}
       easing={impulseOvershoot71}
       inline
+      label="heart-pop"
       style={{ width: '2.5em', height: '2.5em', position: 'relative', flexShrink: 0 }}
     >
       {/* Outline heart, fades 0 → 50% */}
       <Opacity
         from={0}
         to={0.5}
-        duration={msToFrame(1772 - 1262, fps)}
-        startInFrames={msToFrame(1262, fps)}
+        duration={0.51 * fps}
+        startInFrames={1.262 * fps}
         easing={(t) => t}
         inline
+        label="heart-outline"
         style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         {heartSvg('#ffffff')}
@@ -200,10 +173,11 @@ function PortraitBubble({ src }: { src: string }) {
       <Scale
         from={0}
         to={1}
-        duration={msToFrame(2062 - 1262, fps)}
-        startInFrames={msToFrame(1262, fps)}
+        duration={0.8 * fps}
+        startInFrames={1.262 * fps}
         easing={EASE.smooth}
         inline
+        label="portrait-reveal"
         style={{ width: '100%', height: '100%', borderRadius: '20%', overflow: 'hidden' }}
       >
         <img
@@ -298,34 +272,34 @@ export function TestimonialCard({
 
       {/* Card content — flexbox centered, matches frosted card size */}
       <Fill style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Scale from={1150 / 675} to={1} duration={msToFrame(1490, fps)} easing={EASE.smooth} inline>
-          <Scale from={1} to={1.1} duration={msToFrame(3572 - 1632, fps)} startInFrames={msToFrame(1632, fps)} easing={impulseOvershoot96} inline>
+        <Scale from={1150 / 675} to={1} duration={1.49 * fps} easing={EASE.smooth} inline label="content-resize">
+          <Scale from={1} to={1.1} duration={1.94 * fps} startInFrames={1.632 * fps} easing={impulseOvershoot96} inline label="content-pulse">
             <div
               style={{
-                width: '38vw',
-                aspectRatio: '675 / 392',
+                width: 675,
+                height: 392,
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
-                padding: '0 5%',
-                gap: '0.5em',
+                padding: '0 40px',
+                gap: 16,
                 fontSize: 32,
                 lineHeight: 1.09,
               }}
             >
               {/* Quote text */}
               <div style={{ color: '#FFEFFB' }}>
-                <Opacity from={0} to={1} duration={msToFrame(982 - 752, fps)} startInFrames={msToFrame(752, fps)} easing={(t) => t} inline style={{ display: 'inline', color: '#ffffff' }}>
+                <Opacity from={0} to={1} duration={0.23 * fps} startInFrames={0.752 * fps} easing={(t) => t} inline label="quote-mark" style={{ display: 'inline', color: '#ffffff' }}>
                   {'\u201C'}
                 </Opacity>
-                <MaskedWordsText text={`${quote}\u201D`} startMs={500} />
+                <MaskedWordsText text={`${quote}\u201D`} startSec={0.5} />
               </div>
 
               {/* Author row: portrait + name + heart */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em' }}>
                 <PortraitBubble src={portraitSrc} />
                 <div style={{ color: '#ffffff80', flex: 1 }}>
-                  <MaskedWordsText text={author} startMs={1490} />
+                  <MaskedWordsText text={author} startSec={1.49} />
                 </div>
                 <Heart />
               </div>
