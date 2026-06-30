@@ -1,0 +1,205 @@
+---
+fps: 30
+bpm: 120
+width: 1080
+height: 1920
+---
+
+import { RapidMontage, Caption, WordFlash, BlackScreen } from './components'
+
+<Audio src="/locrian.mp3" startFrom={65 * FPS} volume={0.3} />
+<RapidMontage clipDuration={45} />
+
+# P1
+
+<Audio src="/narration.wav" trimBefore={3} trimAfter={44} />
+<Caption words={[
+  { word: "You", delay: 0 },
+  { word: "will", delay: 7 },
+  { word: "rest,", delay: 12 },
+]} />
+
+# P2a
+
+<Audio src="/narration.wav" trimBefore={44} trimAfter={78} />
+<Caption words={[
+  { word: "and", delay: 0 },
+  { word: "you", delay: 5 },
+  { word: "will", delay: 5 },
+  { word: "stand", delay: 12 },
+  { word: "in", delay: 27 },
+  { word: "your", delay: 29 },
+]} />
+
+# P2b
+
+<Audio src="/narration.wav" trimBefore={78} trimAfter={109} />
+<Caption words={[
+  { word: "place", delay: 0 },
+  { word: "at", delay: 14 },
+  { word: "the", delay: 17 },
+  { word: "end", delay: 19 },
+  { word: "of", delay: 29 },
+  { word: "the", delay: 31 },
+]} />
+
+# P2c
+
+<Audio src="/narration.wav" trimBefore={109} trimAfter={146} />
+<Caption words={[
+  { word: "days.", delay: 0 },
+]} />
+
+# P3
+
+<Audio src="/narration.wav" trimBefore={146} trimAfter={238} />
+<Caption words={[
+  { word: "Not", delay: 0 },
+  { word: "here", delay: 14 },
+  { word: "is", delay: 38 },
+  { word: "what", delay: 45 },
+  { word: "the", delay: 47 },
+  { word: "numbers", delay: 52 },
+  { word: "mean.", delay: 64 },
+]} />
+
+# P4
+
+<Audio src="/narration.wav" trimBefore={238} trimAfter={324} />
+<Caption words={[
+  { word: "Not", delay: 0 },
+  { word: "here", delay: 13 },
+  { word: "is", delay: 34 },
+  { word: "the", delay: 42 },
+  { word: "timeline.", delay: 42 },
+]} />
+
+# P5a
+
+<Audio src="/narration.wav" trimBefore={324} trimAfter={385} />
+<Caption words={[
+  { word: "Not", delay: 0 },
+  { word: "here", delay: 11 },
+  { word: "is", delay: 34 },
+  { word: "the", delay: 42 },
+  { word: "answer", delay: 47 },
+  { word: "you", delay: 59 },
+]} />
+
+# P5b
+
+<Audio src="/narration.wav" trimBefore={385} trimAfter={423} />
+<Caption words={[
+  { word: "asked", delay: 0 },
+  { word: "for.", delay: 12 },
+]} />
+
+# P6
+
+<Audio src="/narration.wav" trimBefore={423} trimAfter={461} />
+<BlackScreen>
+  <WordFlash words={["Just", "this:"]} />
+</BlackScreen>
+
+# P7
+
+<Audio src="/narration.wav" trimBefore={461} trimAfter={542} />
+<BlackScreen>
+  <WordFlash words={["you", "will", "stand", "in", "your", "place."]} />
+</BlackScreen>
+
+# P8a
+
+<Audio src="/narration.wav" trimBefore={542} trimAfter={596} />
+<Caption words={[
+  { word: "The", delay: 0 },
+  { word: "only", delay: 11 },
+  { word: "man", delay: 23 },
+  { word: "in", delay: 30 },
+  { word: "scripture", delay: 33 },
+  { word: "who", delay: 52 },
+]} />
+
+# P8b
+
+<Audio src="/narration.wav" trimBefore={596} trimAfter={647} />
+<Caption words={[
+  { word: "received", delay: 0 },
+  { word: "a", delay: 14 },
+  { word: "direct", delay: 17 },
+  { word: "answer", delay: 29 },
+  { word: "about", delay: 43 },
+  { word: "the", delay: 50 },
+]} />
+
+# P8c
+
+<Audio src="/narration.wav" trimBefore={647} trimAfter={704} />
+<Caption words={[
+  { word: "end", delay: 0 },
+  { word: "of", delay: 9 },
+  { word: "the", delay: 12 },
+  { word: "world", delay: 14 },
+  { word: "was", delay: 36 },
+  { word: "told", delay: 45 },
+]} />
+
+# P8d
+
+<Audio src="/narration.wav" trimBefore={704} trimAfter={755} />
+<Caption words={[
+  { word: "by", delay: 0 },
+  { word: "God", delay: 5 },
+  { word: "to", delay: 24 },
+  { word: "stop", delay: 31 },
+  { word: "trying", delay: 38 },
+  { word: "to", delay: 50 },
+]} />
+
+# P8e
+
+<Audio src="/narration.wav" trimBefore={755} trimAfter={815} />
+<Caption words={[
+  { word: "decode", delay: 0 },
+  { word: "it", delay: 19 },
+  { word: "and", delay: 31 },
+  { word: "rest.", delay: 36 },
+]} />
+
+# P9a
+
+<Audio src="/narration.wav" trimBefore={815} trimAfter={881} />
+<Caption words={[
+  { word: "Because", delay: 0 },
+  { word: "knowing", delay: 10 },
+  { word: "exactly", delay: 17 },
+  { word: "when", delay: 39 },
+  { word: "it", delay: 43 },
+  { word: "ends", delay: 44 },
+]} />
+
+# P9b
+
+<Audio src="/narration.wav" trimBefore={881} trimAfter={936} />
+<Caption words={[
+  { word: "was", delay: 0 },
+  { word: "never", delay: 3 },
+  { word: "the", delay: 15 },
+  { word: "thing", delay: 20 },
+  { word: "he", delay: 25 },
+  { word: "needed.", delay: 32 },
+]} />
+
+# P10
+
+<Audio src="/narration.wav" trimBefore={936} trimAfter={997} />
+<BlackScreen>
+  <WordFlash words={["Knowing", "his", "place", "was", "secured."]} />
+</BlackScreen>
+
+# P11
+
+<Audio src="/narration.wav" trimBefore={997} trimAfter={1021} />
+<BlackScreen>
+  <WordFlash words={["was."]} />
+</BlackScreen>

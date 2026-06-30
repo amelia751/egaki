@@ -1,0 +1,540 @@
+[
+  {
+    "text": "You will rest,",
+    "start": 0.112,
+    "end": 1.24,
+    "duration": 1.128,
+    "words": [
+      {
+        "word": "You",
+        "start": 0.112,
+        "end": 0.28
+      },
+      {
+        "word": "will",
+        "start": 0.36,
+        "end": 0.52
+      },
+      {
+        "word": "rest,",
+        "start": 0.524,
+        "end": 1.24
+      }
+    ]
+  },
+  {
+    "text": "and you will stand in your place at the end of the days.",
+    "start": 1.47,
+    "end": 4.2,
+    "duration": 2.73,
+    "words": [
+      {
+        "word": "and",
+        "start": 1.47,
+        "end": 1.56
+      },
+      {
+        "word": "you",
+        "start": 1.64,
+        "end": 1.64
+      },
+      {
+        "word": "will",
+        "start": 1.64,
+        "end": 1.8
+      },
+      {
+        "word": "stand",
+        "start": 1.882,
+        "end": 2.28
+      },
+      {
+        "word": "in",
+        "start": 2.36,
+        "end": 2.44
+      },
+      {
+        "word": "your",
+        "start": 2.44,
+        "end": 2.52
+      },
+      {
+        "word": "place",
+        "start": 2.607,
+        "end": 3
+      },
+      {
+        "word": "at",
+        "start": 3.08,
+        "end": 3.08
+      },
+      {
+        "word": "the",
+        "start": 3.16,
+        "end": 3.24
+      },
+      {
+        "word": "end",
+        "start": 3.244,
+        "end": 3.48
+      },
+      {
+        "word": "of",
+        "start": 3.56,
+        "end": 3.56
+      },
+      {
+        "word": "the",
+        "start": 3.64,
+        "end": 3.64
+      },
+      {
+        "word": "days.",
+        "start": 3.642,
+        "end": 4.2
+      }
+    ]
+  },
+  {
+    "text": "Not here is what the numbers mean.",
+    "start": 4.871,
+    "end": 7.4,
+    "duration": 2.529,
+    "words": [
+      {
+        "word": "Not",
+        "start": 4.871,
+        "end": 5.32
+      },
+      {
+        "word": "here",
+        "start": 5.331,
+        "end": 5.88
+      },
+      {
+        "word": "is",
+        "start": 6.132,
+        "end": 6.28
+      },
+      {
+        "word": "what",
+        "start": 6.36,
+        "end": 6.44
+      },
+      {
+        "word": "the",
+        "start": 6.44,
+        "end": 6.52
+      },
+      {
+        "word": "numbers",
+        "start": 6.601,
+        "end": 7
+      },
+      {
+        "word": "mean.",
+        "start": 7.001,
+        "end": 7.4
+      }
+    ]
+  },
+  {
+    "text": "Not here is the timeline.",
+    "start": 7.918,
+    "end": 10.12,
+    "duration": 2.202,
+    "words": [
+      {
+        "word": "Not",
+        "start": 7.918,
+        "end": 8.28
+      },
+      {
+        "word": "here",
+        "start": 8.367,
+        "end": 8.84
+      },
+      {
+        "word": "is",
+        "start": 9.038,
+        "end": 9.24
+      },
+      {
+        "word": "the",
+        "start": 9.32,
+        "end": 9.32
+      },
+      {
+        "word": "timeline.",
+        "start": 9.325,
+        "end": 10.12
+      }
+    ]
+  },
+  {
+    "text": "Not here is the answer you asked for.",
+    "start": 10.785,
+    "end": 13.64,
+    "duration": 2.855,
+    "words": [
+      {
+        "word": "Not",
+        "start": 10.785,
+        "end": 11.16
+      },
+      {
+        "word": "here",
+        "start": 11.168,
+        "end": 11.72
+      },
+      {
+        "word": "is",
+        "start": 11.921,
+        "end": 12.12
+      },
+      {
+        "word": "the",
+        "start": 12.2,
+        "end": 12.28
+      },
+      {
+        "word": "answer",
+        "start": 12.363,
+        "end": 12.68
+      },
+      {
+        "word": "you",
+        "start": 12.76,
+        "end": 12.84
+      },
+      {
+        "word": "asked",
+        "start": 12.842,
+        "end": 13.16
+      },
+      {
+        "word": "for.",
+        "start": 13.241,
+        "end": 13.64
+      }
+    ]
+  },
+  {
+    "text": "Just this:",
+    "start": 14.114,
+    "end": 15.24,
+    "duration": 1.126,
+    "words": [
+      {
+        "word": "Just",
+        "start": 14.114,
+        "end": 14.52
+      },
+      {
+        "word": "this:",
+        "start": 14.604,
+        "end": 15.24
+      }
+    ]
+  },
+  {
+    "text": "you will stand in your place.",
+    "start": 15.371,
+    "end": 17.32,
+    "duration": 1.949,
+    "words": [
+      {
+        "word": "you",
+        "start": 15.371,
+        "end": 15.56
+      },
+      {
+        "word": "will",
+        "start": 15.64,
+        "end": 15.72
+      },
+      {
+        "word": "stand",
+        "start": 15.725,
+        "end": 16.36
+      },
+      {
+        "word": "in",
+        "start": 16.44,
+        "end": 16.44
+      },
+      {
+        "word": "your",
+        "start": 16.52,
+        "end": 16.6
+      },
+      {
+        "word": "place.",
+        "start": 16.605,
+        "end": 17.32
+      }
+    ]
+  },
+  {
+    "text": "The only man in scripture who received a direct answer about the end of the world was told by God to stop trying to decode it and rest.",
+    "start": 18.065,
+    "end": 27,
+    "duration": 8.935,
+    "words": [
+      {
+        "word": "The",
+        "start": 18.065,
+        "end": 18.44
+      },
+      {
+        "word": "only",
+        "start": 18.442,
+        "end": 18.76
+      },
+      {
+        "word": "man",
+        "start": 18.84,
+        "end": 19
+      },
+      {
+        "word": "in",
+        "start": 19.08,
+        "end": 19.16
+      },
+      {
+        "word": "scripture",
+        "start": 19.161,
+        "end": 19.72
+      },
+      {
+        "word": "who",
+        "start": 19.801,
+        "end": 19.88
+      },
+      {
+        "word": "received",
+        "start": 19.881,
+        "end": 20.28
+      },
+      {
+        "word": "a",
+        "start": 20.36,
+        "end": 20.36
+      },
+      {
+        "word": "direct",
+        "start": 20.442,
+        "end": 20.84
+      },
+      {
+        "word": "answer",
+        "start": 20.848,
+        "end": 21.24
+      },
+      {
+        "word": "about",
+        "start": 21.32,
+        "end": 21.48
+      },
+      {
+        "word": "the",
+        "start": 21.56,
+        "end": 21.56
+      },
+      {
+        "word": "end",
+        "start": 21.566,
+        "end": 21.8
+      },
+      {
+        "word": "of",
+        "start": 21.88,
+        "end": 21.88
+      },
+      {
+        "word": "the",
+        "start": 21.96,
+        "end": 21.96
+      },
+      {
+        "word": "world",
+        "start": 22.041,
+        "end": 22.44
+      },
+      {
+        "word": "was",
+        "start": 22.778,
+        "end": 23.08
+      },
+      {
+        "word": "told",
+        "start": 23.081,
+        "end": 23.4
+      },
+      {
+        "word": "by",
+        "start": 23.48,
+        "end": 23.56
+      },
+      {
+        "word": "God",
+        "start": 23.645,
+        "end": 24.04
+      },
+      {
+        "word": "to",
+        "start": 24.287,
+        "end": 24.44
+      },
+      {
+        "word": "stop",
+        "start": 24.521,
+        "end": 24.76
+      },
+      {
+        "word": "trying",
+        "start": 24.762,
+        "end": 25.08
+      },
+      {
+        "word": "to",
+        "start": 25.16,
+        "end": 25.16
+      },
+      {
+        "word": "decode",
+        "start": 25.166,
+        "end": 25.72
+      },
+      {
+        "word": "it",
+        "start": 25.801,
+        "end": 25.96
+      },
+      {
+        "word": "and",
+        "start": 26.188,
+        "end": 26.36
+      },
+      {
+        "word": "rest.",
+        "start": 26.363,
+        "end": 27
+      }
+    ]
+  },
+  {
+    "text": "Because knowing exactly when it ends was never the thing he needed.",
+    "start": 27.156,
+    "end": 30.92,
+    "duration": 3.764,
+    "words": [
+      {
+        "word": "Because",
+        "start": 27.156,
+        "end": 27.4
+      },
+      {
+        "word": "knowing",
+        "start": 27.481,
+        "end": 27.72
+      },
+      {
+        "word": "exactly",
+        "start": 27.727,
+        "end": 28.36
+      },
+      {
+        "word": "when",
+        "start": 28.44,
+        "end": 28.52
+      },
+      {
+        "word": "it",
+        "start": 28.6,
+        "end": 28.6
+      },
+      {
+        "word": "ends",
+        "start": 28.628,
+        "end": 29.24
+      },
+      {
+        "word": "was",
+        "start": 29.376,
+        "end": 29.48
+      },
+      {
+        "word": "never",
+        "start": 29.48,
+        "end": 29.8
+      },
+      {
+        "word": "the",
+        "start": 29.88,
+        "end": 29.96
+      },
+      {
+        "word": "thing",
+        "start": 30.04,
+        "end": 30.2
+      },
+      {
+        "word": "he",
+        "start": 30.201,
+        "end": 30.36
+      },
+      {
+        "word": "needed.",
+        "start": 30.441,
+        "end": 30.92
+      }
+    ]
+  },
+  {
+    "text": "Knowing his place was secured...",
+    "start": 31.193,
+    "end": 33,
+    "duration": 1.807,
+    "words": [
+      {
+        "word": "Knowing",
+        "start": 31.193,
+        "end": 31.64
+      },
+      {
+        "word": "his",
+        "start": 31.72,
+        "end": 31.8
+      },
+      {
+        "word": "place",
+        "start": 31.801,
+        "end": 32.12
+      },
+      {
+        "word": "was",
+        "start": 32.2,
+        "end": 32.28
+      },
+      {
+        "word": "secured...",
+        "start": 32.281,
+        "end": 33
+      }
+    ]
+  },
+  {
+    "text": "was.",
+    "start": 33.219,
+    "end": 34.04,
+    "duration": 0.821,
+    "words": [
+      {
+        "word": "was.",
+        "start": 33.219,
+        "end": 34.04
+      }
+    ]
+  }
+]

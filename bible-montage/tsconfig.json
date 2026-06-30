@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": "dist",
+    "noImplicitAny": false,
+    "noEmit": true,
+    "plugins": [
+      { "name": "@mdx-js/typescript-plugin" }
+    ]
+  },
+  "mdx": {
+    "checkMdx": true
+  },
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.mdx"],
+  "exclude": ["node_modules", "dist"]
+}
