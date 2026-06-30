@@ -10,7 +10,7 @@
  * - User logged into midjourney.com
  */
 
-export { Midjourney, MidjourneyNotLoggedInError, MidjourneyConnectionError } from './midjourney.ts'
+export { Midjourney, MidjourneyNotLoggedInError, MidjourneyConnectionError, MidjourneySoftbanError } from './midjourney.ts'
 export type { MidjourneyOptions } from './midjourney.ts'
 
 export {

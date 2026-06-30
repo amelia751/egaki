@@ -60,7 +60,7 @@ async function main() {
     console.log('Job type:', genResult.job_type)
     console.log('Prompt:', genResult.prompt)
     console.log('Meta:', JSON.stringify(genResult.meta))
-    console.log('Image URL (grid 0):', getImageUrl({ id: genResult.job_id } as any))
+    console.log('Image URL (grid 0):', getImageUrl(genResult.job_id))
     console.log('✓ generate works, job submitted')
 
     // -----------------------------------------------------------------------
@@ -127,7 +127,7 @@ async function main() {
       let binary = ''
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!)
       return btoa(binary)
-    }, getImageUrl({ id: genResult.job_id } as any))
+    }, getImageUrl(genResult.job_id))
     const testImageBuffer = Buffer.from(base64, 'base64')
     console.log('Downloaded test image:', testImageBuffer.length, 'bytes')
     const uploadResult = await mj.uploadFile(testImageBuffer, 'test-upload.jpeg')

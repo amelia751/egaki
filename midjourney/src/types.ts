@@ -247,18 +247,21 @@ export interface GenerateVideoOptions {
   startingFrame?: string
   /**
    * Image URL for the ending frame. Combined with `startingFrame`, MJ
-   * creates a video that transitions from start to end.
+   * creates a video that transitions from start to end. Any public URL
+   * works. Mutually exclusive with `loop` (loop takes priority).
    */
   endingFrame?: string
   /**
    * `"manual"` = you provide starting/ending frames and MJ animates between
    * them. `"auto"` = MJ decides the motion from just the prompt text.
-   * Default: `"manual"`.
+   * Default: `"manual"` when `startingFrame` or `endingFrame` is set,
+   * `"auto"` when neither is provided.
    */
   animateMode?: 'manual' | 'auto'
   /**
    * If true, appends `--end loop` so the video loops seamlessly
-   * (last frame connects back to first frame).
+   * (last frame connects back to first frame). Takes priority over
+   * `endingFrame` if both are set.
    */
   loop?: boolean
   /** Aspect ratio as `"W:H"`. See {@link GenerateOptions.aspectRatio}. */
@@ -357,6 +360,8 @@ export function filterByAspectRatio(options: {
 /**
  * Constructs the full-res CDN URL for a Midjourney job image.
  *
+ * Accepts either a `MidjourneyJob` object or a plain job ID string.
+ *
  * Midjourney CDN URL patterns (reverse-engineered from their website):
  *   Full-res:   `https://cdn.midjourney.com/<id>/0_N.jpeg`  (job detail page)
  *   Thumbnail:  `https://cdn.midjourney.com/<id>/0_N_384_N.webp` (~17KB, 384px wide)
@@ -364,18 +369,22 @@ export function filterByAspectRatio(options: {
  *
  * N is the grid index (0-3 for a 4-image grid).
  */
-export function getImageUrl(job: MidjourneyJob, gridIndex = 0): string {
-  return `https://cdn.midjourney.com/${job.id}/0_${gridIndex}.jpeg`
+export function getImageUrl(jobOrId: MidjourneyJob | string, gridIndex = 0): string {
+  const id = typeof jobOrId === 'string' ? jobOrId : jobOrId.id
+  return `https://cdn.midjourney.com/${id}/0_${gridIndex}.jpeg`
 }
 
 /**
  * Constructs a smaller webp preview URL.
  *
+ * Accepts either a `MidjourneyJob` object or a plain job ID string.
+ *
  * Midjourney CDN supports these widths: 384, 640, 1024, 2048.
  * Default is 1024 (~76KB vs ~5MB for the original).
  */
-export function getPreviewUrl(job: MidjourneyJob, gridIndex = 0, width = 1024): string {
-  return `https://cdn.midjourney.com/${job.id}/0_${gridIndex}_${width}_N.webp`
+export function getPreviewUrl(jobOrId: MidjourneyJob | string, gridIndex = 0, width = 1024): string {
+  const id = typeof jobOrId === 'string' ? jobOrId : jobOrId.id
+  return `https://cdn.midjourney.com/${id}/0_${gridIndex}_${width}_N.webp`
 }
 
 /**

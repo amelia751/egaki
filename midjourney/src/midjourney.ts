@@ -26,6 +26,13 @@ import type {
 } from './types.ts'
 import { filterByAspectRatio, PAN_DIRECTION_MAP } from './types.ts'
 
+export class MidjourneySoftbanError extends Error {
+  constructor(public jobId: string) {
+    super(`Midjourney softbanned the prompt (job ${jobId}). The prompt may violate content policy.`)
+    this.name = 'MidjourneySoftbanError'
+  }
+}
+
 export class MidjourneyNotLoggedInError extends Error {
   constructor() {
     super(
@@ -43,6 +50,21 @@ export class MidjourneyConnectionError extends Error {
 }
 
 const MIDJOURNEY_ORIGIN = 'https://www.midjourney.com'
+
+/** Extract the first successful job from a submit response, checking for failures and softbans. */
+function firstSubmittedJob(response: SubmitJobsResponse, label: string): SubmitJobResult {
+  if (response.failure.length) {
+    throw new Error(`Midjourney ${label} failed: ${JSON.stringify(response.failure)}`)
+  }
+  const job = response.success[0]
+  if (!job) {
+    throw new Error(`Midjourney ${label} returned no jobs`)
+  }
+  if (job.softban) {
+    throw new MidjourneySoftbanError(job.job_id)
+  }
+  return job
+}
 
 type ApiResult =
   | { ok: false; error: 'not_logged_in'; status: number }
@@ -274,7 +296,7 @@ export class Midjourney {
    *   styleRef: ['https://example.com/style.jpg'],
    * })
    * const completed = await mj.waitForJob(result.job_id)
-   * const url = getImageUrl({ id: result.job_id } as any, 0)
+   * const url = getImageUrl(result.job_id, 0)
    * ```
    */
   async generate(prompt: string, options: GenerateOptions = {}): Promise<SubmitJobResult> {
@@ -320,11 +342,7 @@ export class Midjourney {
       body,
     })) as SubmitJobsResponse
 
-    if (!response.success.length) {
-      throw new Error(`Midjourney generation failed: ${JSON.stringify(response.failure)}`)
-    }
-
-    return response.success[0]!
+    return firstSubmittedJob(response, 'generation')
   }
 
   /**
@@ -356,12 +374,23 @@ export class Midjourney {
     let fullPrompt = prompt
     if (options.aspectRatio) fullPrompt += ` --ar ${options.aspectRatio}`
     fullPrompt += ' --video 1'
-    if (options.loop) fullPrompt += ' --end loop'
+
+    // Ending frame: either "loop" for seamless looping, or a URL for a specific end frame.
+    // --end is appended to the prompt string (discovered from MJ source: v5(Q, "end", w.endingFrame)).
+    if (options.loop) {
+      fullPrompt += ' --end loop'
+    } else if (options.endingFrame) {
+      fullPrompt += ` --end ${options.endingFrame}`
+    }
 
     // Prepend starting frame URL if provided
     if (options.startingFrame) {
       fullPrompt = `${options.startingFrame} ${fullPrompt}`
     }
+
+    // Default animateMode: "manual" when frames are provided, "auto" for prompt-only video
+    const hasFrames = Boolean(options.startingFrame || options.endingFrame)
+    const animateMode = options.animateMode ?? (hasFrames ? 'manual' : 'auto')
 
     const body: Record<string, unknown> = {
       f: { mode: options.mode ?? 'fast', private: options.private ?? false },
@@ -378,7 +407,7 @@ export class Midjourney {
       videoType: 'vid_1.1_i2v_start_end_480',
       newPrompt: fullPrompt,
       parentJob: null,
-      animateMode: options.animateMode ?? 'manual',
+      animateMode,
     }
 
     const response = (await this.apiFetch('/api/submit-jobs', {
@@ -386,11 +415,7 @@ export class Midjourney {
       body,
     })) as SubmitJobsResponse
 
-    if (!response.success.length) {
-      throw new Error(`Midjourney video generation failed: ${JSON.stringify(response.failure)}`)
-    }
-
-    return response.success[0]!
+    return firstSubmittedJob(response, 'video generation')
   }
 
   /**
@@ -425,11 +450,7 @@ export class Midjourney {
       body,
     })) as SubmitJobsResponse
 
-    if (!response.success.length) {
-      throw new Error(`Midjourney upscale failed: ${JSON.stringify(response.failure)}`)
-    }
-
-    return response.success[0]!
+    return firstSubmittedJob(response, 'upscale')
   }
 
   /**
@@ -476,11 +497,7 @@ export class Midjourney {
       body,
     })) as SubmitJobsResponse
 
-    if (!response.success.length) {
-      throw new Error(`Midjourney pan failed: ${JSON.stringify(response.failure)}`)
-    }
-
-    return response.success[0]!
+    return firstSubmittedJob(response, 'pan')
   }
 
   /**
