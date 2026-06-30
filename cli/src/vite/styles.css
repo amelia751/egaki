@@ -8,4 +8,14 @@ body,
   margin: 0;
   background: #000;
   color: #fafafa;
+  overflow: clip;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Tweakpane sidebar: remove rounded corners and shadow so it sits flush */
+.egaki-sidebar .tp-rotv {
+  border-radius: 0;
+  box-shadow: none;
+  background-color: transparent;
 }

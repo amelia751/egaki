@@ -30,7 +30,7 @@ import { egakiStore } from './store.ts'
 import { useGenerationStatus, useGenerationErrors, type GenerationStatus } from './store-hooks.ts'
 import { egakiSDK } from './sdk.ts'
 import { LayoutEditor, type SectionMeta } from './layout-editor.tsx'
-import { TweakpaneRoot } from './tweakpane-hook.tsx'
+import { TweakpaneRoot, SIDEBAR_WIDTH } from './tweakpane-hook.tsx'
 import {
   Fill,
   LayoutAnimationLayer,
@@ -613,8 +613,9 @@ export function PlayerPage({
   const hasPrevScene = currentSectionIdx > 0 || currentFrame > 0
   const hasNextScene = currentSectionIdx < sections.length - 1
 
-  // Double-tap prev: first tap seeks to current section start, second tap
-  // within 400ms jumps to the previous section (like music player track skip).
+  // Single tap: seek to start of current section.
+  // Double tap (within 400ms): jump to previous section start. Each
+  // additional rapid tap keeps going one section further back.
   const lastPrevTapRef = useRef<{ time: number; targetFrame: number }>({ time: 0, targetFrame: -1 })
 
   const goToPrevScene = useCallback(() => {
@@ -623,31 +624,37 @@ export function PlayerPage({
     const wasPlaying = player.isPlaying()
     if (wasPlaying) player.pause()
     const frame = player.getCurrentFrame()
-    // Find the section start strictly before the current frame
-    let target = 0
+
+    // Find the start of the current section (largest sectionStart <= frame)
+    let currentStart = 0
     for (let i = sectionStarts.length - 1; i >= 0; i--) {
-      if (sectionStarts[i]! < frame) {
-        target = sectionStarts[i]!
+      if (sectionStarts[i]! <= frame) {
+        currentStart = sectionStarts[i]!
         break
       }
     }
-    // Double-tap: if we just seeked to this same target within 400ms,
-    // go one section further back
+
     const now = Date.now()
     const last = lastPrevTapRef.current
-    if (now - last.time < 400 && last.targetFrame === target && target > 0) {
-      // Find the section start before the current target
-      let deeperTarget = 0
+
+    // Double-tap: if pressed again within 400ms, go to the section before
+    // the last target (so repeated taps keep stepping backwards)
+    if (now - last.time < 400) {
+      let prevTarget = 0
       for (let i = sectionStarts.length - 1; i >= 0; i--) {
-        if (sectionStarts[i]! < target) {
-          deeperTarget = sectionStarts[i]!
+        if (sectionStarts[i]! < last.targetFrame) {
+          prevTarget = sectionStarts[i]!
           break
         }
       }
-      target = deeperTarget
+      lastPrevTapRef.current = { time: now, targetFrame: prevTarget }
+      player.seekTo(prevTarget)
+    } else {
+      // Single tap: go to start of current section
+      lastPrevTapRef.current = { time: now, targetFrame: currentStart }
+      player.seekTo(currentStart)
     }
-    lastPrevTapRef.current = { time: now, targetFrame: target }
-    player.seekTo(target)
+
     if (wasPlaying) player.play()
   }, [sectionStarts])
 
@@ -682,9 +689,10 @@ export function PlayerPage({
   // Keyboard shortcuts — modeled after After Effects / Premiere / DaVinci.
   // Disabled when the layout editor is active (it may use arrow keys).
   //
+  //   Space             play/pause
   //   Left/Right        ±1 frame
   //   Shift+Left/Right  ±10 frames
-  //   Up/Down           prev/next section
+  //   Down/Up           section start (×2 = prev) / next section
   //   , / .             ±1 frame (Premiere convention)
   //   Home / End        first / last frame
   //   J / K / L         rewind 2s / pause / play (L×2=2x, ×3=4x, ×4=8x)
@@ -743,16 +751,24 @@ export function PlayerPage({
         return
       }
 
-      // --- Section navigation (Up/Down) — delegates to goToPrev/NextScene
+      // --- Section navigation (Down/Up) — delegates to goToPrev/NextScene
       //     which preserve playback state and support double-tap prev ---
-      if (e.key === 'ArrowUp') {
+      if (e.key === 'ArrowDown') {
         e.preventDefault()
         goToPrevScene()
         return
       }
-      if (e.key === 'ArrowDown') {
+      if (e.key === 'ArrowUp') {
         e.preventDefault()
         goToNextScene()
+        return
+      }
+
+      // --- Space: play/pause ---
+      if (e.key === ' ') {
+        e.preventDefault()
+        if (player.isPlaying()) player.pause()
+        else player.play()
         return
       }
 
@@ -855,95 +871,107 @@ export function PlayerPage({
   }, [])
 
   return (
-    <div className='flex flex-col items-center justify-center min-h-screen bg-black'
-      style={{ paddingBottom: 96, paddingTop: 24 }}>
-      <TweakpaneRoot playerRef={playerRef} fps={fps} sections={sections} entryPath={entryPath} />
-      {/* Player — fills page width, but capped so the 16:9 height never
-          exceeds the viewport height minus toolbar space (bottom-6 padding +
-          toolbar height ≈ 96px). The same 96px is applied as padding-bottom
-          on the outer container so the player centers in the remaining space. */}
+    <div className='flex gap-3 min-h-screen bg-black'>
+      {/* Main area — player centered vertically, takes remaining space */}
       <div
-        ref={playerContainerRef}
-        style={{ maxWidth: `calc((100vh - 120px) * ${width / height})` }}
-        className='w-full overflow-hidden'
+        className='flex flex-col items-center justify-center flex-1 min-w-0'
+        style={{ paddingBottom: 96, paddingTop: 24 }}
       >
-        {mounted ? (
-          <Player
-            key={resetKey}
-            ref={playerRef}
-            component={Component}
-            durationInFrames={totalDuration}
-            fps={fps}
-            compositionWidth={width}
-            compositionHeight={height}
-            loop
-            controls
-            clickToPlay={!editing}
-            spaceKeyToPlayOrPause
-            playbackRate={playbackRate}
-            style={{ width: '100%' }}
-            errorFallback={({ error }) => (
-              <AbsoluteFill
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: '#050505',
-                  padding: '5% 8%',
-                }}
-              >
-                <div
+        {/* Player — fills available width, but capped so the aspect ratio height
+            never exceeds the viewport height minus toolbar space (bottom-6 padding +
+            toolbar height ≈ 96px). */}
+        <div
+          ref={playerContainerRef}
+          style={{ maxWidth: `calc((100vh - 120px) * ${width / height})` }}
+          className='w-full overflow-hidden'
+        >
+          {mounted ? (
+            <Player
+              key={resetKey}
+              ref={playerRef}
+              component={Component}
+              durationInFrames={totalDuration}
+              fps={fps}
+              compositionWidth={width}
+              compositionHeight={height}
+              loop
+              controls
+              clickToPlay={!editing}
+              spaceKeyToPlayOrPause
+              playbackRate={playbackRate}
+              style={{ width: '100%' }}
+              errorFallback={({ error }) => (
+                <AbsoluteFill
                   style={{
                     display: 'flex',
-                    flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '1rem',
-                    maxWidth: '80%',
-                    textAlign: 'center',
+                    justifyContent: 'center',
+                    background: '#050505',
+                    padding: '5% 8%',
                   }}
                 >
-                  <span
+                  <div
                     style={{
-                      fontSize: 48,
-                      fontWeight: 600,
-                      color: '#ef4444',
-                      fontFamily:
-                        '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif',
-                      letterSpacing: '-0.02em',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      maxWidth: '80%',
+                      textAlign: 'center',
                     }}
                   >
-                    Render Error
-                  </span>
-                  <pre
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 400,
-                      color: '#a1a1aa',
-                      fontFamily:
-                        'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      textAlign: 'left',
-                      maxHeight: '50%',
-                      overflow: 'auto',
-                      width: '100%',
-                      margin: 0,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {error.stack || error.message}
-                  </pre>
-                </div>
-              </AbsoluteFill>
-            )}
-          />
-        ) : (
-          <div className='aspect-video bg-[#050505]' />
-        )}
+                    <span
+                      style={{
+                        fontSize: 48,
+                        fontWeight: 600,
+                        color: '#ef4444',
+                        fontFamily:
+                          '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif',
+                        letterSpacing: '-0.02em',
+                      }}
+                    >
+                      Render Error
+                    </span>
+                    <pre
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 400,
+                        color: '#a1a1aa',
+                        fontFamily:
+                          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        textAlign: 'left',
+                        maxHeight: '50%',
+                        overflow: 'auto',
+                        width: '100%',
+                        margin: 0,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {error.stack || error.message}
+                    </pre>
+                  </div>
+                </AbsoluteFill>
+              )}
+            />
+          ) : (
+            <div className='aspect-video bg-[#050505]' />
+          )}
+        </div>
       </div>
 
-      {/* Floating toolbar — fixed at bottom center */}
-      <div className='fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-[#1c1c1c] border border-white/10 px-2 py-1.5 shadow-2xl'>
+      {/* Right sidebar — always visible, hosts tweakpane controls */}
+      <TweakpaneRoot playerRef={playerRef} fps={fps} sections={sections} entryPath={entryPath} />
+
+      {/* Floating toolbar — fixed at bottom, offset left to account for sidebar */}
+      <div
+        className='fixed bottom-6 flex items-center gap-1.5 rounded-full bg-[#1c1c1c] border border-white/10 px-2 py-1.5 shadow-2xl'
+        style={{
+          left: `calc((100% - ${SIDEBAR_WIDTH}px - 0.75rem) / 2)`,
+          transform: 'translateX(-50%)',
+        }}
+      >
         {/* Entry selector — only shown when multiple MDX files exist */}
         {availableEntries.length > 1 && (
           <>
@@ -1018,23 +1046,23 @@ export function PlayerPage({
 
         <ToolbarSeparator />
 
-        {/* Scene navigation — prev (Up) / next (Down) */}
+        {/* Scene navigation — prev (Down) / next (Up) */}
         <div className='flex items-center'>
           <button
             onClick={goToPrevScene}
             disabled={!hasPrevScene}
             className='flex items-center justify-center rounded-full w-7 h-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-zinc-400'
-            title='Previous scene (↑)'
+            title='Previous scene (↓)'
           >
-            <ChevronUpIcon />
+            <ChevronDownIcon />
           </button>
           <button
             onClick={goToNextScene}
             disabled={!hasNextScene}
             className='flex items-center justify-center rounded-full w-7 h-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-zinc-400'
-            title='Next scene (↓)'
+            title='Next scene (↑)'
           >
-            <ChevronDownIcon />
+            <ChevronUpIcon />
           </button>
         </div>
 
