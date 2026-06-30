@@ -416,16 +416,15 @@ function VideoTrimControls(
   const defaultEnd = props.trimAfter != null ? props.trimAfter / fps : mediaDuration
 
   const tp = useTweakpane(label, {
-    start: { value: defaultStart, min: 0, max: mediaDuration, step: 0.1 },
-    end: { value: defaultEnd, min: 0, max: mediaDuration, step: 0.1 },
+    trim: { type: 'range' as const, value: { min: defaultStart, max: defaultEnd }, min: 0, max: mediaDuration, step: 0.1 },
   })
 
   // Debounced seek: pause the player and seek to the trim point so the
   // user sees the exact frame they're cutting to. Debounce at 50ms so
   // continuous slider dragging doesn't flood the player with seeks.
   const seekTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const prevTrimStartRef = useRef(tp.start)
-  const prevTrimEndRef = useRef(tp.end)
+  const prevTrimStartRef = useRef(tp.trim.min)
+  const prevTrimEndRef = useRef(tp.trim.max)
 
   useEffect(() => {
     const sdk = window.egakiSDK
@@ -434,19 +433,19 @@ function VideoTrimControls(
     const offset = sectionOffsetRef.current ?? 0
     let targetFrame: number | null = null
 
-    if (tp.start !== prevTrimStartRef.current) {
+    if (tp.trim.min !== prevTrimStartRef.current) {
       // start changed → seek to section start (where source shows start)
       targetFrame = offset
-      prevTrimStartRef.current = tp.start
-    } else if (tp.end !== prevTrimEndRef.current) {
+      prevTrimStartRef.current = tp.trim.min
+    } else if (tp.trim.max !== prevTrimEndRef.current) {
       // end changed → seek to the section-relative frame where source
       // shows the end point: F = (end - start) * fps - 1
       // Seek away from the cut. Browser/media decoders are often
       // flaky at the exact final decodable frame of a trimmed range, and this
       // seek is only preview feedback; trimAfter itself remains exact.
-      const endRelative = Math.round((tp.end - tp.start) * fps) - Math.round(fps * 0.25)
+      const endRelative = Math.round((tp.trim.max - tp.trim.min) * fps) - Math.round(fps * 0.25)
       targetFrame = offset + Math.max(0, Math.min(endRelative, sectionDuration - 1))
-      prevTrimEndRef.current = tp.end
+      prevTrimEndRef.current = tp.trim.max
     }
 
     if (targetFrame === null) return
@@ -464,11 +463,11 @@ function VideoTrimControls(
     return () => {
       if (seekTimerRef.current) clearTimeout(seekTimerRef.current)
     }
-  }, [tp.start, tp.end, fps, sectionDuration])
+  }, [tp.trim.min, tp.trim.max, fps, sectionDuration])
 
   // Convert seconds back to frames for Remotion
-  const trimBefore = tp.start > 0 ? Math.round(tp.start * fps) : undefined
-  const trimAfter = tp.end < mediaDuration ? Math.round(tp.end * fps) : undefined
+  const trimBefore = tp.trim.min > 0 ? Math.round(tp.trim.min * fps) : undefined
+  const trimAfter = tp.trim.max < mediaDuration ? Math.round(tp.trim.max * fps) : undefined
 
   return <MediaVideo {...videoProps} trimBefore={trimBefore} trimAfter={trimAfter} />
 }

@@ -9,17 +9,18 @@
  * removed from the UI. This means only currently-visible components show
  * their parameters.
  *
- * The Pane is mounted into a container managed by <TweakpaneRoot />,
- * rendered once in player-page.tsx. A single "Copy changes" button at
- * the top of the pane serializes all active component parameters as a
- * structured prompt for AI agents.
+ * The Pane is mounted into a sidebar container managed by <TweakpaneRoot />,
+ * rendered once in player-page.tsx. The sidebar is always visible on the
+ * right side of the page and takes its own space in the layout (no floating
+ * overlay). A single "Copy changes" button at the top of the pane serializes
+ * all active component parameters as a structured prompt for AI agents.
  *
  * Tweakpane is pure DOM (no React dependency), so there are no dual-React
  * or SSR issues. During SSR (typeof window === 'undefined') the hook
  * returns the raw default values and skips all DOM work.
  */
 
-import { useEffect, useRef, useState, createContext, useContext } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, createContext, useContext } from 'react'
 import type { PlayerRef } from '@remotion/player'
 import { LayoutContainerContext, useIsPremounting } from './mdx-video.tsx'
 
@@ -41,20 +42,39 @@ interface SelectParam {
   options: string[]
 }
 
+/** Cubic bezier config: four control points [x1, y1, x2, y2]. */
+export interface CubicBezierParam {
+  type: 'cubicBezier'
+  value: [number, number, number, number]
+}
+
+/** Range config: min/max pair displayed as a single range slider (plugin-essentials). */
+interface RangeParam {
+  type: 'range'
+  value: { min: number; max: number }
+  min: number
+  max: number
+  step?: number
+}
+
 /**
  * A param value is either:
  * - a bare primitive (number, boolean, string) — auto-inferred control
  * - a SliderParam object with explicit range
  * - a SelectParam object with a dropdown of string options
+ * - a CubicBezierParam for a visual bezier curve editor
+ * - a RangeParam for a min/max range slider (plugin-essentials)
  */
-type ParamValue = number | boolean | string | SliderParam | SelectParam
+type ParamValue = number | boolean | string | SliderParam | SelectParam | CubicBezierParam | RangeParam
 
 type ParamSchema = Record<string, ParamValue>
 
-/** Resolved values: SliderParam becomes number, SelectParam becomes string, everything else stays. */
+/** Resolved values: SliderParam becomes number, SelectParam becomes string, CubicBezierParam becomes tuple, RangeParam becomes {min, max}, everything else stays. */
 type ResolvedValues<T extends ParamSchema> = {
   [K in keyof T]: T[K] extends SliderParam ? number
     : T[K] extends SelectParam ? string
+    : T[K] extends CubicBezierParam ? [number, number, number, number]
+    : T[K] extends RangeParam ? { min: number; max: number }
     : T[K] extends number ? number
     : T[K] extends boolean ? boolean
     : T[K] extends string ? string
@@ -88,10 +108,14 @@ export let TWEAKPANE_DISABLED = false
 // Singleton pane state (module-level, not React state)
 // ---------------------------------------------------------------------------
 
-/** Lazily imported tweakpane Pane class. */
+/** Lazily imported tweakpane Pane class and essentials plugin module. */
 let PaneClass: typeof import('tweakpane').Pane | null = null
+let EssentialsPlugin: any = null
 let paneInstance: import('tweakpane').Pane | null = null
-let paneContainer: HTMLElement | null = null
+
+/** External container element set by TweakpaneRoot. The Pane mounts into
+ *  this DOM node instead of creating its own floating div. */
+let externalContainer: HTMLElement | null = null
 
 /** Persisted expanded state for the root pane across destroy/recreate cycles. */
 let paneExpandedState = true
@@ -112,44 +136,73 @@ function notifyFolderListeners() {
   folderListeners.forEach((fn) => fn())
 }
 
-function resolveDefault(v: ParamValue): number | boolean | string {
+/** Shallow-clone arrays and plain objects so tweakpane's in-place mutations
+ *  don't leak between params and defaults references. */
+function cloneValue<T>(value: T): T {
+  if (Array.isArray(value)) return [...value] as T
+  if (typeof value === 'object' && value !== null) return { ...value } as T
+  return value
+}
+
+function resolveDefault(v: ParamValue): number | boolean | string | [number, number, number, number] | { min: number; max: number } {
+  if (isCubicBezierParam(v)) return [...v.value]
+  if (isRangeParam(v)) return { ...v.value }
   if (typeof v === 'object' && v !== null && 'value' in v) return v.value
   return v
 }
 
 function isSliderParam(v: ParamValue): v is SliderParam {
-  return typeof v === 'object' && v !== null && 'value' in v && !('options' in v)
+  return typeof v === 'object' && v !== null && 'value' in v && !('options' in v) && !('type' in v)
 }
 
 function isSelectParam(v: ParamValue): v is SelectParam {
   return typeof v === 'object' && v !== null && 'options' in v
 }
 
-async function ensurePane(): Promise<import('tweakpane').Pane> {
+function isCubicBezierParam(v: ParamValue): v is CubicBezierParam {
+  return typeof v === 'object' && v !== null && 'type' in v && (v as any).type === 'cubicBezier'
+}
+
+function isRangeParam(v: ParamValue): v is RangeParam {
+  return typeof v === 'object' && v !== null && 'type' in v && (v as any).type === 'range'
+}
+
+/** Guard against concurrent ensurePane() calls during the async import. */
+let panePromise: Promise<import('tweakpane').Pane | null> | null = null
+
+async function ensurePane(): Promise<import('tweakpane').Pane | null> {
   if (paneInstance) return paneInstance
-  if (!PaneClass) {
-    const mod = await import('tweakpane')
-    PaneClass = mod.Pane
-  }
-  if (!paneContainer) {
-    paneContainer = document.createElement('div')
-    paneContainer.id = 'egaki-tweakpane'
-    // Position top-right, above everything
-    Object.assign(paneContainer.style, {
-      position: 'fixed',
-      top: '8px',
-      right: '8px',
-      zIndex: '99999',
-      maxHeight: 'calc(100vh - 16px)',
-      overflow: 'hidden',
+  if (panePromise) return panePromise
+
+  panePromise = (async () => {
+    if (!PaneClass) {
+      // Load tweakpane and the essentials plugin (cubic bezier blade) together.
+      // Both are cached at module level so subsequent pane re-creations (after
+      // disposePane on scene change) register the plugin synchronously, avoiding
+      // a race where concurrent ensurePane() callers get a pane without the
+      // plugin registered.
+      const [mod, essentials] = await Promise.all([
+        import('tweakpane'),
+        import('@tweakpane/plugin-essentials').catch(() => null),
+      ])
+      PaneClass = mod.Pane
+      EssentialsPlugin = essentials
+    }
+    if (!externalContainer) {
+      console.warn('[egaki] TweakpaneRoot not mounted — tweakpane has no container')
+      return null
+    }
+    paneInstance = new PaneClass!({ container: externalContainer, title: 'Parameters', expanded: paneExpandedState })
+    if (EssentialsPlugin) paneInstance.registerPlugin(EssentialsPlugin)
+    paneInstance.on('fold', (ev) => {
+      paneExpandedState = ev.expanded
     })
-    document.body.appendChild(paneContainer)
-  }
-  paneInstance = new PaneClass!({ container: paneContainer, title: 'Parameters', expanded: paneExpandedState })
-  paneInstance.on('fold', (ev) => {
-    paneExpandedState = ev.expanded
-  })
-  return paneInstance
+    return paneInstance
+  })()
+
+  const pane = await panePromise
+  panePromise = null
+  return pane
 }
 
 function disposePane() {
@@ -157,10 +210,8 @@ function disposePane() {
     paneInstance.dispose()
     paneInstance = null
   }
-  if (paneContainer?.parentElement) {
-    paneContainer.parentElement.removeChild(paneContainer)
-    paneContainer = null
-  }
+  // Don't remove the container — it's owned by TweakpaneRoot (React).
+  // The Pane's dispose() already removes its own element from the container.
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +231,16 @@ function getCurrentSection(
 }
 
 function formatValue(v: unknown): string {
+  if (Array.isArray(v) && v.length === 4 && v.every((x) => typeof x === 'number')) {
+    // Cubic bezier control points — format as cubicBezier() call so agents
+    // can paste it directly as an easing prop value.
+    return `cubicBezier(${v.join(', ')})`
+  }
+  if (typeof v === 'object' && v !== null && 'min' in v && 'max' in v) {
+    const r = v as { min: number; max: number }
+    const fmtNum = (n: number) => Number.isInteger(n) ? String(n) : n.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
+    return `{ min: ${fmtNum(r.min)}, max: ${fmtNum(r.max)} }`
+  }
   if (typeof v === 'number') {
     return Number.isInteger(v) ? String(v) : v.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
   }
@@ -211,8 +272,9 @@ function serializeTweakpanePrompt(
     }
   }
 
+  let hasAnyChanges = false
   for (const [id, entry] of activeFolders) {
-      const changed: string[] = []
+    const changed: string[] = []
     for (const [key, current] of Object.entries(entry.params)) {
       const def = entry.defaults[key]
       if (current !== def) {
@@ -220,6 +282,7 @@ function serializeTweakpanePrompt(
       }
     }
     if (changed.length > 0) {
+      hasAnyChanges = true
       parts.push(`**${entry.label}**`)
       parts.push(changed.join('\n'))
       parts.push('')
@@ -227,7 +290,7 @@ function serializeTweakpanePrompt(
   }
 
   // If nothing changed from defaults, still show all current values
-  if (parts.length <= 2) {
+  if (!hasAnyChanges) {
     parts.push('No parameters changed from defaults.\n')
     for (const [id, entry] of activeFolders) {
       parts.push(`**${entry.label}** (current values)`)
@@ -247,20 +310,56 @@ function serializeTweakpanePrompt(
 // tweakpane button click handler.
 let contextRef: TweakpaneContextValue | null = null
 
-let copyButtonAdded = false
+// Stable module-level callbacks for useSyncExternalStore in CopyChangesButton.
+function subscribeFolders(cb: () => void) {
+  folderListeners.add(cb)
+  return () => { folderListeners.delete(cb) }
+}
+const getHasActiveFolders = () => activeFolders.size > 0
+const getServerHasActiveFolders = () => false
 
-async function ensureCopyButton() {
-  if (copyButtonAdded) return
-  // Set flag synchronously before awaiting to prevent concurrent calls
-  // from adding duplicate buttons
-  copyButtonAdded = true
-  const pane = await ensurePane()
-  pane.addButton({ title: '📋 Copy changes' }).on('click', () => {
-    const text = serializeTweakpanePrompt(contextRef)
-    if (!text) return
-    navigator.clipboard.writeText(text).catch(() => {})
-  })
-  pane.addBlade({ view: 'separator' })
+/** React component: copy button rendered above the tweakpane pane. */
+function CopyChangesButton() {
+  const [copied, setCopied] = useState(false)
+  const hasActiveFolders = useSyncExternalStore(
+    subscribeFolders,
+    getHasActiveFolders,
+    getServerHasActiveFolders,
+  )
+
+  if (!hasActiveFolders) return null
+
+  return (
+    <button
+      onClick={() => {
+        const text = serializeTweakpanePrompt(contextRef)
+        if (!text) return
+        navigator.clipboard.writeText(text).catch(() => {})
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        margin: '8px 8px 4px',
+        width: 'calc(100% - 16px)',
+        padding: '7px 12px',
+        background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 6,
+        color: copied ? '#4ade80' : '#a1a1aa',
+        fontSize: 12,
+        fontWeight: 500,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
+        cursor: 'pointer',
+        transition: 'background 0.15s, color 0.15s',
+      }}
+    >
+      {copied ? '✓ Copied prompt' : '📋 Copy changes'}
+    </button>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -322,22 +421,56 @@ export function useTweakpane<T extends ParamSchema>(
     const defaults: Record<string, unknown> = {}
     for (const [key, param] of Object.entries(schemaRef.current)) {
       const def = resolveDefault(param)
-      params[key] = def
-      defaults[key] = def
+      // Clone object/array values so tweakpane's in-place mutations on params
+      // don't corrupt the defaults (used by "Copy changes" diffing).
+      params[key] = cloneValue(def)
+      defaults[key] = cloneValue(def)
     }
 
     let folder: import('tweakpane').FolderApi | null = null
     let disposed = false
 
     void (async () => {
-      await ensureCopyButton()
-      if (disposed) return
       const pane = await ensurePane()
-      if (disposed) return
+      if (disposed || !pane) return
 
       folder = pane.addFolder({ title: label, expanded: true })
 
       for (const [key, param] of Object.entries(schemaRef.current)) {
+        if (isCubicBezierParam(param)) {
+          // Cubic bezier blade — visual curve editor
+          const blade = folder.addBlade({
+            view: 'cubicbezier',
+            value: param.value,
+            expanded: true,
+            label: key,
+            picker: 'inline',
+          } as any)
+          ;(blade as any).on('change', (ev: any) => {
+            const val = ev.value
+            const tuple: [number, number, number, number] = [
+              Math.round(val.x1 * 1000) / 1000,
+              Math.round(val.y1 * 1000) / 1000,
+              Math.round(val.x2 * 1000) / 1000,
+              Math.round(val.y2 * 1000) / 1000,
+            ]
+            params[key] = tuple
+            setValues((prev) => ({ ...prev, [key]: tuple }))
+          })
+          continue
+        }
+        if (isRangeParam(param)) {
+          // Range slider from plugin-essentials — min/max pair as one control
+          folder.addBinding(params, key, {
+            min: param.min,
+            max: param.max,
+            step: param.step,
+          }).on('change', (ev) => {
+            const val = ev.value as { min: number; max: number }
+            setValues((prev) => ({ ...prev, [key]: { min: val.min, max: val.max } }))
+          })
+          continue
+        }
         const opts: Record<string, unknown> = {}
         if (isSelectParam(param)) {
           // Build { Label: value } map for tweakpane list binding
@@ -382,7 +515,6 @@ export function useTweakpane<T extends ParamSchema>(
 
       // If no more folders, tear down the pane entirely
       if (activeFolders.size === 0) {
-        copyButtonAdded = false
         disposePane()
       }
     }
@@ -392,12 +524,16 @@ export function useTweakpane<T extends ParamSchema>(
 }
 
 // ---------------------------------------------------------------------------
-// TweakpaneRoot — mounts nothing visible, just provides context
+// TweakpaneRoot — sidebar container for the tweakpane pane
 // ---------------------------------------------------------------------------
 
+/** Sidebar width constant shared with player-page layout. */
+export const SIDEBAR_WIDTH = 280
+
 /**
- * Mount once in the player page. Provides player metadata (frame, fps,
- * sections) to the copy prompt button via module-level ref.
+ * Right sidebar that hosts the tweakpane Pane. Always visible in the page
+ * layout; the Pane mounts into the scrollable inner div. Also provides
+ * player metadata (frame, fps, sections) to the copy prompt button.
  */
 export function TweakpaneRoot({
   playerRef,
@@ -410,6 +546,18 @@ export function TweakpaneRoot({
   sections: { heading: string | null; durationInFrames: number }[]
   entryPath: string
 }) {
+  // Ref callback sets the container synchronously when the DOM node mounts,
+  // before any child useEffect (where useTweakpane calls ensurePane). On
+  // unmount the callback receives null, so we clean up the pane.
+  const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      externalContainer = node
+    } else {
+      disposePane()
+      externalContainer = null
+    }
+  }, [])
+
   // Keep module-level ref in sync for the copy button handler
   useEffect(() => {
     contextRef = { playerRef, fps, sections, entryPath }
@@ -418,5 +566,28 @@ export function TweakpaneRoot({
     }
   }, [playerRef, fps, sections, entryPath])
 
-  return null
+  return (
+    <div
+      className='egaki-sidebar'
+      style={{
+        width: SIDEBAR_WIDTH,
+        minWidth: SIDEBAR_WIDTH,
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        background: '#111',
+        borderLeft: '1px solid rgba(255,255,255,0.08)',
+        flexShrink: 0,
+      }}
+    >
+      <CopyChangesButton />
+      <div
+        ref={containerRefCallback}
+        id='egaki-tweakpane'
+        style={{ width: '100%' }}
+      />
+    </div>
+  )
 }
