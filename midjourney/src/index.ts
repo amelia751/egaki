@@ -13,11 +13,31 @@
 export { Midjourney, MidjourneyNotLoggedInError, MidjourneyConnectionError } from './midjourney.ts'
 export type { MidjourneyOptions } from './midjourney.ts'
 
-export { getImageUrl, getPreviewUrl, toPreviewUrl, getPromptText, simplifyJob, parseAspectRatio, filterByAspectRatio } from './types.ts'
+export {
+  getImageUrl,
+  getPreviewUrl,
+  toPreviewUrl,
+  getPromptText,
+  simplifyJob,
+  parseAspectRatio,
+  filterByAspectRatio,
+  getVideoUrl,
+  getVideoThumbnailUrl,
+  PAN_DIRECTION_MAP,
+} from './types.ts'
 export type {
   MidjourneyJob,
   MidjourneyJobItem,
   MidjourneyPrompt,
   MidjourneySearchOptions,
   CachedSearchResult,
+  SubmitJobResult,
+  SubmitJobsResponse,
+  JobStatus,
+  UploadFileResponse,
+  StorageFile,
+  GenerateOptions,
+  GenerateVideoOptions,
+  UpscaleOptions,
+  PanOptions,
 } from './types.ts'
