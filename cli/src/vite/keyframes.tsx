@@ -2,7 +2,7 @@
  * keyframes() — evaluate a keyframed animation at a given frame.
  *
  * Accepts an array of typed keyframe descriptors with bezier easing, hold,
- * and per-dimension control. Wraps Remotion's interpolate() + Easing.bezier()
+ * and per-dimension control. Wraps Remotion's interpolate() + cubicBezier()
  * so you get the full Lottie/After Effects easing model with clean parameters.
  *
  * Also includes fromLottieProperty() for converting raw Lottie animated
@@ -12,7 +12,8 @@
  * See docs/lottie-to-remotion.md for the Lottie field mapping.
  */
 
-import { Easing, interpolate } from 'remotion'
+import { interpolate } from 'remotion'
+import { cubicBezier } from './easing-curves.ts'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,7 +67,7 @@ function stepEasing(t: number): number {
 
 function buildEasingFn(curve: BezierCurve | undefined): (t: number) => number {
   if (!curve) return (t: number) => t // linear
-  return Easing.bezier(curve[0], curve[1], curve[2], curve[3])
+  return cubicBezier(curve[0], curve[1], curve[2], curve[3])
 }
 
 // ---------------------------------------------------------------------------

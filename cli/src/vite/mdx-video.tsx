@@ -112,7 +112,6 @@ export const ServerSlotsContext = createContext<ServerSlots>({})
 
 import {
   AbsoluteFill,
-  Easing,
   Internals,
   interpolate,
   spring,
@@ -519,14 +518,14 @@ function snapIntensity(i: number): Intensity {
 /** smooth at custom intensity. Pattern: cubic-bezier(lerp(0.3, 0.9, i/100), 0, 0, 1) */
 export function smoothEasing(intensity: number): EasingFunction {
   const x1 = 0.3 + 0.6 * (intensity / 100)
-  return Easing.bezier(x1, 0, 0, 1)
+  return cubicBezier(x1, 0, 0, 1)
 }
 
 /** natural at custom intensity. Pattern: cubic-bezier(lerp(0.5, 1, i/100), 0, lerp(0.5, 0, i/100), 1) */
 export function naturalEasing(intensity: number): EasingFunction {
   const x1 = 0.5 + 0.5 * (intensity / 100)
   const x2 = 0.5 - 0.5 * (intensity / 100)
-  return Easing.bezier(x1, 0, x2, 1)
+  return cubicBezier(x1, 0, x2, 1)
 }
 
 /** decelerate at custom intensity */
@@ -534,10 +533,10 @@ export function decelerateEasing(intensity: number): EasingFunction {
   // 0→(0, 0, 0.3, 1), 50→(0, 0, 0, 1), 75→(0, 0.45, 0, 1), 100→(0, 0.9, 0, 1)
   if (intensity <= 50) {
     const x2 = 0.3 * (1 - intensity / 50)
-    return Easing.bezier(0, 0, x2, 1)
+    return cubicBezier(0, 0, x2, 1)
   }
   const y1 = 0.9 * ((intensity - 50) / 50)
-  return Easing.bezier(0, y1, 0, 1)
+  return cubicBezier(0, y1, 0, 1)
 }
 
 /** accelerate at custom intensity */
@@ -545,10 +544,10 @@ export function accelerateEasing(intensity: number): EasingFunction {
   // 0→(0.7, 0, 1, 1), 50→(1, 0, 1, 1), 75→(1, 0, 1, 0.55), 100→(1, 0, 1, 0.1)
   if (intensity <= 50) {
     const x1 = 0.7 + 0.3 * (intensity / 50)
-    return Easing.bezier(x1, 0, 1, 1)
+    return cubicBezier(x1, 0, 1, 1)
   }
   const y2 = 1 - 0.9 * ((intensity - 50) / 50)
-  return Easing.bezier(1, 0, 1, y2)
+  return cubicBezier(1, 0, 1, y2)
 }
 
 /** elasticSnap at custom intensity (sampled) */

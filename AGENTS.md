@@ -99,13 +99,20 @@ when the derived value hasn't changed, because React compares snapshots with
 re-render loop. Cache the last snapshot at module level and shallow-compare
 before returning. See `cli/src/vite/store.ts` for the canonical pattern.
 
-**Import easings from egaki, never redefine them.** `egaki/video` exports `EASE` (preset
-curves at intensity 50), continuous preset functions like `smoothEasing(intensity)`,
-`impulseOvershoot(intensity)`, and primitives like `polybezier()`. When a component needs
-`bezier(0.5, 0, 0, 1)` that is `EASE.smooth`; `bezier(0.9, 0, 0, 1)` is
-`smoothEasing(100)`. Always check `EASE.*` and the `*Easing(intensity)` functions before
-defining a local easing constant. Only define a local curve when it is a project-specific
-Jitter extraction that has no matching egaki preset.
+**Import easings from egaki, never from Remotion.** `egaki/video` exports `cubicBezier()`,
+`EASE` (preset curves at intensity 50), continuous preset functions like
+`smoothEasing(intensity)`, `impulseOvershoot(intensity)`, and primitives like
+`polybezier()`. **Always use `cubicBezier()` from `egaki/video` instead of
+`Easing.bezier()` from `remotion`.** The egaki version attaches `BEZIER_POINTS`
+metadata to the returned function, which lets the tweakpane bezier blade show and
+edit the exact curve. `Easing.bezier()` returns an opaque function that the blade
+cannot inspect, so curves created with it fall back to a default in the UI.
+
+When a component needs `cubicBezier(0.5, 0, 0, 1)` that is `EASE.smooth`;
+`cubicBezier(0.9, 0, 0, 1)` is `smoothEasing(100)`. Always check `EASE.*` and the
+`*Easing(intensity)` functions before defining a local easing constant. Only define
+a local curve when it is a project-specific Jitter extraction that has no matching
+egaki preset.
 
 ## MDX LSP autocomplete for built-in components
 
