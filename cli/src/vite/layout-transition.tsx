@@ -512,6 +512,17 @@ export function LayoutTransition({
 
   // transformOrigin '0 0': FLIP deltas are computed from top-left corners,
   // so the scale component must also originate from the top-left.
+  //
+  // width: fit-content: prevents the wrapper from stretching to 100% width
+  // in block-layout parents. Without this, a LayoutTransition in a block
+  // parent (e.g. display:block div) measures as full-width even though the
+  // content is small. When the matching element in the next section is in a
+  // flex parent (content-sized), the FLIP scale ratio becomes enormous
+  // (e.g. 1920px / 364px ≈ 5.3x), grossly distorting text. fit-content
+  // ensures the wrapper always matches its content dimensions regardless
+  // of parent layout, so FLIP scale ratios reflect actual content size
+  // differences, not layout context differences.
+  //
   // When using time ranges, inactive instances are visibility:hidden (keeps
   // layout footprint for FLIP measurement) instead of display:none.
   return (
@@ -520,6 +531,7 @@ export function LayoutTransition({
       data-layout-id={id}
       style={{
         transformOrigin: '0 0',
+        width: 'fit-content',
         ...(hasTimeRange && !isActive
           ? { visibility: 'hidden' as const, pointerEvents: 'none' as const }
           : {}),
