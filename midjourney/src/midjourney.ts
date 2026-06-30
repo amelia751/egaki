@@ -34,9 +34,13 @@ export class MidjourneySoftbanError extends Error {
 }
 
 export class MidjourneyNotLoggedInError extends Error {
-  constructor() {
+  constructor(
+    public status?: number,
+    public responseBody?: string,
+  ) {
+    const detail = responseBody ? `: ${responseBody}` : ''
     super(
-      'Not logged in to Midjourney. Open https://www.midjourney.com in Chrome and log in, then enable the Playwriter extension on that tab.',
+      `Not logged in to Midjourney (${status ?? 'unknown'}${detail}). Open https://www.midjourney.com in Chrome and log in, then enable the Playwriter extension on that tab.`,
     )
     this.name = 'MidjourneyNotLoggedInError'
   }
@@ -67,7 +71,7 @@ function firstSubmittedJob(response: SubmitJobsResponse, label: string): SubmitJ
 }
 
 type ApiResult =
-  | { ok: false; error: 'not_logged_in'; status: number }
+  | { ok: false; error: 'not_logged_in'; status: number; body?: string }
   | { ok: false; error: 'request_failed'; status: number; statusText: string; body?: string }
   | { ok: true; data: unknown }
 
@@ -172,12 +176,13 @@ export class Midjourney {
 
         const res = await fetch(path, fetchOpts)
 
+        const body = !res.ok ? await res.text().catch(() => '') : undefined
+
         if (res.status === 401 || res.status === 403) {
-          return { ok: false as const, error: 'not_logged_in' as const, status: res.status }
+          return { ok: false as const, error: 'not_logged_in' as const, status: res.status, body }
         }
 
         if (!res.ok) {
-          const body = await res.text().catch(() => '')
           return {
             ok: false as const,
             error: 'request_failed' as const,
@@ -195,7 +200,7 @@ export class Midjourney {
 
     if (!result.ok) {
       if (result.error === 'not_logged_in') {
-        throw new MidjourneyNotLoggedInError()
+        throw new MidjourneyNotLoggedInError(result.status, result.body)
       }
       const detail = result.body ? `: ${result.body}` : ''
       throw new Error(`Midjourney API error ${result.status} ${result.statusText}${detail}`)
@@ -546,8 +551,10 @@ export class Midjourney {
           body: formData,
         })
 
+        const body = !res.ok ? await res.text().catch(() => '') : undefined
+
         if (res.status === 401 || res.status === 403) {
-          return { ok: false as const, error: 'not_logged_in' as const, status: res.status }
+          return { ok: false as const, error: 'not_logged_in' as const, status: res.status, body }
         }
 
         if (!res.ok) {
@@ -556,7 +563,7 @@ export class Midjourney {
             error: 'request_failed' as const,
             status: res.status,
             statusText: res.statusText,
-            body: await res.text().catch(() => ''),
+            body,
           }
         }
 
@@ -566,7 +573,7 @@ export class Midjourney {
     )
 
     if (!result.ok) {
-      if (result.error === 'not_logged_in') throw new MidjourneyNotLoggedInError()
+      if (result.error === 'not_logged_in') throw new MidjourneyNotLoggedInError(result.status, result.body)
       const detail = result.body ? `: ${result.body}` : ''
       throw new Error(`Upload failed ${result.status} ${result.statusText}${detail}`)
     }
