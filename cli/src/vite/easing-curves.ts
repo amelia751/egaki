@@ -61,9 +61,16 @@ function cardano(e: number, t: number, n: number, r: number, i: number): number 
 const evalCubic = (e: number, t: number, n: number, r: number) =>
   ((t * e + 3 * n) * e + r) * e
 
+/** Symbol key for attaching bezier control points to easing functions. */
+export const BEZIER_POINTS = Symbol.for('egaki:bezierPoints')
+
 /**
  * cubic-bezier(x1, y1, x2, y2) as a y(x) function. x1/x2 must be in [0, 1];
  * y values may exceed [0, 1] for overshoot.
+ *
+ * The returned function has a `[BEZIER_POINTS]` property with the original
+ * `[x1, y1, x2, y2]` tuple so the tweakpane bezier blade can show and edit
+ * the exact curve.
  */
 export function cubicBezier(
   x1: number,
@@ -74,7 +81,11 @@ export function cubicBezier(
   if (!(0 <= x1 && x1 <= 1 && 0 <= x2 && x2 <= 1)) {
     throw new Error('Bezier x values must be in [0, 1] range')
   }
-  if (x1 === y1 && x2 === y2) return identity
+  if (x1 === y1 && x2 === y2) {
+    const fn = identity as any
+    fn[BEZIER_POINTS] = [x1, y1, x2, y2] as [number, number, number, number]
+    return fn
+  }
   const i = 6 * (3 * x1 - 3 * x2 + 1)
   const o = 6 * (x2 - 2 * x1)
   const a = 3 * x1
@@ -89,8 +100,10 @@ export function cubicBezier(
   const m = y2 - 2 * y1
   const y = 3 * y1
   const solve = i ? cardano : identity
-  return (e) =>
-    0 === e || 1 === e ? e : evalCubic(solve(e, l, p, f, u), h, m, y)
+  const fn = ((e: number) =>
+    0 === e || 1 === e ? e : evalCubic(solve(e, l, p, f, u), h, m, y)) as any
+  fn[BEZIER_POINTS] = [x1, y1, x2, y2] as [number, number, number, number]
+  return fn
 }
 
 // ---------------------------------------------------------------------------

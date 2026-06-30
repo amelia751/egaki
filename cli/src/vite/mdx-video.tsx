@@ -120,6 +120,8 @@ import {
   useVideoConfig,
 } from 'remotion'
 import {
+  BEZIER_POINTS,
+  cubicBezier,
   naturalThrowSamples,
   decelerateOvershootSamples,
   decelerateElasticSamples,
@@ -144,6 +146,7 @@ export {
   type ControlPoint,
   type EasingPreset,
   type Intensity,
+  BEZIER_POINTS,
   cubicBezier,
   polybezier,
   pathPreset,
@@ -435,26 +438,26 @@ export function dspring(
 
 export const EASE = {
   /** AE 75% influence — tight S-curve, the "Apple ease" */
-  apple: Easing.bezier(0.76, 0, 0.24, 1),
+  apple: cubicBezier(0.76, 0, 0.24, 1),
   /** Fast enter, gentle settle — elements arriving with momentum */
-  enterFast: Easing.bezier(0.22, 1, 0.36, 1),
+  enterFast: cubicBezier(0.22, 1, 0.36, 1),
   /** Slow start, fast exit — elements leaving the frame */
-  exitSlow: Easing.bezier(0.55, 0, 1, 0.45),
+  exitSlow: cubicBezier(0.55, 0, 1, 0.45),
   /** Social media punch — very sharp burst */
-  snappy: Easing.bezier(0.87, 0, 0.13, 1),
+  snappy: cubicBezier(0.87, 0, 0.13, 1),
   /** Luxurious, slow cinematic feel */
-  cinematic: Easing.bezier(0.83, 0, 0.17, 1),
+  cinematic: cubicBezier(0.83, 0, 0.17, 1),
 
   // --- Bezier presets (intensity 50 defaults) ---
 
   /** Strong ease-out, snaps into place. The workhorse motion curve. */
-  smooth: Easing.bezier(0.5, 0, 0, 1),
+  smooth: cubicBezier(0.5, 0, 0, 1),
   /** Symmetric S-curve, natural feeling in-out */
-  natural: Easing.bezier(0.8, 0, 0.2, 1),
+  natural: cubicBezier(0.8, 0, 0.2, 1),
   /** Pure deceleration, no ease-in. Objects arriving at full speed. */
-  decelerate: Easing.bezier(0, 0, 0, 1),
+  decelerate: cubicBezier(0, 0, 0, 1),
   /** Pure acceleration, no ease-out. Objects leaving from rest. */
-  accelerate: Easing.bezier(1, 0, 1, 1),
+  accelerate: cubicBezier(1, 0, 1, 1),
 
   // --- Sampled presets (intensity 50, spring/bounce/overshoot) ---
   // Values can exceed 0-1 range. Use with interpolate().
@@ -730,10 +733,10 @@ export interface AnimateProps {
 }
 
 // Ease-out for enters: arrives with momentum, decelerates into place.
-const ENTER_EASING = Easing.bezier(0.5, 0, 0, 1)
+const ENTER_EASING = cubicBezier(0.5, 0, 0, 1)
 
 // Ease-in for exits: starts slow, accelerates away.
-const EXIT_EASING = Easing.bezier(1, 0, 1, 1)
+const EXIT_EASING = cubicBezier(1, 0, 1, 1)
 
 /** Resolve the effective start frame and default easing from AnimateProps. */
 function resolveAnimateStart(
@@ -758,36 +761,25 @@ function resolveAnimateStart(
 }
 
 // ---------------------------------------------------------------------------
-// Easing name ↔ function map for tweakpane dropdown.
+// Easing function → bezier control points extraction.
 //
-// Subset of EASE presets plus "linear". The function lookup happens at render
-// time so the interpolate() call always uses a real function, never a string.
+// cubicBezier() attaches a [BEZIER_POINTS] symbol property to the returned
+// function with the original [x1, y1, x2, y2] tuple. This lets the tweakpane
+// bezier blade show and edit the exact curve for any easing created with
+// cubicBezier(), including EASE presets and user-defined curves.
+// Non-bezier presets (sampled from spring/bounce physics) don't have this
+// property and fall back to a default curve.
 // ---------------------------------------------------------------------------
 
-const EASING_OPTIONS: Record<string, (t: number) => number> = {
-  smooth: EASE.smooth,
-  natural: EASE.natural,
-  decelerate: EASE.decelerate,
-  accelerate: EASE.accelerate,
-  apple: EASE.apple,
-  enterFast: EASE.enterFast,
-  exitSlow: EASE.exitSlow,
-  snappy: EASE.snappy,
-  cinematic: EASE.cinematic,
-  bounce: EASE.bounce,
-  overshoot: EASE.overshoot,
-  overshootElastic: EASE.overshootElastic,
-  elasticSnap: EASE.elasticSnap,
-  impulseOvershoot: EASE.impulseOvershoot,
-  linear: (t: number) => t,
-}
+/** Default bezier control points for enter (ease-out) and exit (ease-in). */
+const DEFAULT_ENTER_BEZIER: [number, number, number, number] = [0.5, 0, 0, 1] // smooth
+const DEFAULT_EXIT_BEZIER: [number, number, number, number] = [1, 0, 1, 1] // accelerate
 
-/** Find the EASING_OPTIONS key for a given function, or null. */
-function easingToName(fn: ((t: number) => number) | undefined): string | null {
+/** Extract bezier control points from an easing function, or null if not a bezier. */
+function easingToBezier(fn: ((t: number) => number) | undefined): [number, number, number, number] | null {
   if (!fn) return null
-  for (const [name, easeFn] of Object.entries(EASING_OPTIONS)) {
-    if (easeFn === fn) return name
-  }
+  const points = (fn as any)[BEZIER_POINTS]
+  if (Array.isArray(points) && points.length === 4) return points as [number, number, number, number]
   return null
 }
 
@@ -801,10 +793,10 @@ function useAnimateValue(
 
   const tpLabel = props.label ? `${componentName}: ${props.label}` : componentName
 
-  // Determine default easing name for the dropdown
+  // Determine default bezier control points from the easing prop
   const defaultIsExit = (props.startInFrames ?? 0) < 0
-  const propEasingName = easingToName(props.easing)
-  const defaultEasingName = propEasingName ?? (defaultIsExit ? 'accelerate' : 'smooth')
+  const propBezier = easingToBezier(props.easing)
+  const defaultBezier = propBezier ?? (defaultIsExit ? DEFAULT_EXIT_BEZIER : DEFAULT_ENTER_BEZIER)
 
   const tp = useTweakpane(tpLabel, {
     from: { value: props.from, min: -2000, max: 2000, step: 1 },
@@ -812,15 +804,19 @@ function useAnimateValue(
     duration: { value: props.duration, min: 1, max: 10 * fps, step: 1 },
     startInFrames: { value: props.startInFrames ?? 0, min: -10 * fps, max: 10 * fps, step: 1 },
     cutInMotion: { value: props.cutInMotion ?? 0, min: 0, max: 1, step: 0.01 },
-    easing: { value: defaultEasingName, options: Object.keys(EASING_OPTIONS) },
+    easing: { type: 'cubicBezier' as const, value: defaultBezier },
     inline: props.inline ?? false,
   })
 
-  const resolvedEasing = EASING_OPTIONS[tp.easing] ?? EASE.smooth
-  // If the user changed easing in tweakpane, use that. Otherwise use the
-  // prop easing function (which may be a custom function not in the dropdown).
-  const finalEasing = tp.easing !== defaultEasingName
-    ? resolvedEasing
+  const tpBezier: [number, number, number, number] = tp.easing
+  // If the user changed the bezier curve in tweakpane, use it.
+  // Otherwise use the original prop easing (which may be a non-bezier function).
+  const bezierChanged = tpBezier[0] !== defaultBezier[0]
+    || tpBezier[1] !== defaultBezier[1]
+    || tpBezier[2] !== defaultBezier[2]
+    || tpBezier[3] !== defaultBezier[3]
+  const finalEasing = bezierChanged
+    ? cubicBezier(tpBezier[0], tpBezier[1], tpBezier[2], tpBezier[3])
     : (props.easing ?? (defaultIsExit ? EXIT_EASING : ENTER_EASING))
 
   const { effectiveStart } = resolveAnimateStart(

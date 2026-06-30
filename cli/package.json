@@ -99,6 +99,7 @@
     "@remotion/web-renderer": "4.0.475",
     "@tailwindcss/vite": "^4.2.2",
     "@tweakpane/core": "^2.0.5",
+    "@tweakpane/plugin-essentials": "^0.2.1",
     "ai": "6.0.103",
     "eventsource-parser": "^3.0.6",
     "goke": "^6.12.1",
