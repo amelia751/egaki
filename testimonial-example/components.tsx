@@ -154,7 +154,7 @@ function Heart() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          clipPath: `circle(${maskP * 50}% at center)`,
+          clipPath: `circle(${maskP * 75}% at center)`,
         }}
       >
         {heartSvg('#FFEFFB')}
