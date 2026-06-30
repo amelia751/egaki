@@ -286,6 +286,16 @@ export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditing
     return null
   }, [getPlayer, isSelectable])
 
+  /** Try all elements at a screen point, skipping transparent overlays like Fill */
+  const findTargetAtPoint = useCallback((clientX: number, clientY: number): HTMLElement | null => {
+    const elements = document.elementsFromPoint(clientX, clientY)
+    for (const el of elements) {
+      const hit = findTarget(el as HTMLElement)
+      if (hit) return hit
+    }
+    return null
+  }, [findTarget])
+
   function countChanges(): number {
     let n = 0
     for (const c of changesRef.current.values()) if (hasChange(c)) n++
@@ -415,18 +425,21 @@ export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditing
     const player = getPlayer()
     if (!player?.contains(e.target as Node)) return
 
-    // For text editing, try the actual clicked element first (the leaf text
-    // node), then walk up. findTarget walks up to a selectable parent which
-    // is often a container div — that fails isTextElement because it has
-    // children. We want the innermost text-bearing element.
+    // For text editing, try all elements at this point (skipping transparent
+    // overlays like Fill), looking for the innermost text-bearing element.
     let target: HTMLElement | null = null
-    let cur: HTMLElement | null = e.target as HTMLElement
-    while (cur && player.contains(cur)) {
-      if (isTextElement(cur)) { target = cur; break }
-      cur = cur.parentElement
+    const elements = document.elementsFromPoint(e.clientX, e.clientY)
+    for (const candidate of elements) {
+      if (!player.contains(candidate)) continue
+      let cur: HTMLElement | null = candidate as HTMLElement
+      while (cur && player.contains(cur)) {
+        if (isTextElement(cur)) { target = cur; break }
+        cur = cur.parentElement
+      }
+      if (target) break
     }
     // Fall back to selectable parent if no leaf text found
-    if (!target) target = findTarget(e.target as HTMLElement)
+    if (!target) target = findTargetAtPoint(e.clientX, e.clientY)
     if (!target || !isTextElement(target)) return
 
     e.preventDefault()
@@ -465,7 +478,7 @@ export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditing
     }
     target.addEventListener('blur', finish, { once: true })
     target.addEventListener('keydown', onEscapeKey)
-  }, [editing, findTarget, finishTextEdit])
+  }, [editing, getPlayer, findTargetAtPoint, finishTextEdit])
 
   // ── Click to select ──
 
@@ -484,7 +497,7 @@ export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditing
       return
     }
 
-    const target = findTarget(e.target as HTMLElement)
+    const target = findTargetAtPoint(e.clientX, e.clientY)
     if (target) {
       e.preventDefault()
       e.stopPropagation()
@@ -495,7 +508,7 @@ export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditing
       moveableRef.current = null
       setSelectedEl(null)
     }
-  }, [editing, selectedEl, findTarget, attachMoveable, playerContainerRef])
+  }, [editing, selectedEl, findTargetAtPoint, attachMoveable, playerContainerRef])
 
   // ── Keyboard: Esc (select parent / deselect), Ctrl+Z (undo) ──
 
