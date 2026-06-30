@@ -151,3 +151,9 @@ A `clip-path` shape (circle, rounded rectangle) starts small and scales up to re
 A headline stays in a **fixed screen position** while the background rapidly cycles through different photographs every 4-8 frames. Newspaper front page, website screenshot, billboard, book cover. Hard cuts, no crossfade. The rapid pacing communicates ubiquity.
 
 **Reference:** [Dipanjan Dey / Kombai 2.0 with rapid context swaps](https://x.com/Dipanjan_Dey/status/2061825199247614316)
+
+## Fast short clips as transitions
+
+Use very short (0.3-1s) high-energy video clips as transition beats between slower scenes. Cinematic b-roll, nature close-ups, street footage, abstract motion. The clips are too fast to fully register but they inject rhythm and energy into the edit. Unlike staccato montage (which uses 2-4 frame cuts for a percussive burst), these are slightly longer and serve as breathers that carry emotional tone between content scenes.
+
+**Reference:** [Exoskeleton9001 with fast clip transitions](https://x.com/Exoskeleton9001/status/2071529382343041035)
