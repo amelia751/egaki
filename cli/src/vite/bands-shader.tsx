@@ -249,7 +249,7 @@ export const BandsShader = defineShader({
       control: { type: 'color' },
       maxCount: 8,
       maxVisible: 4,
-      defaultValue: ['#4AB7FF', '#FFC680', '#FF4040'],
+      defaultValue: ['#4AB7FF', '#000000', '#FF4040'],
     },
     seed: {
       type: 'number',

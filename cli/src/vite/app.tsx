@@ -87,7 +87,7 @@ const serverComponents: Record<string, any> = {
 }
 
 /** All route paths available for navigation, sorted. */
-const availableEntries = Object.keys(entries).sort()
+const availableEntries = Object.keys(entries ||{}).sort()
 
 /** Render a single MDX entry as a page. Shared by all route handlers. */
 async function renderMdxPage(routePath: string) {
