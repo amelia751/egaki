@@ -45,11 +45,38 @@ export interface VideoFrontmatter {
 export interface MdxScope {
   FPS: number
   BEAT: number
+  // JS globals available in MDX expressions (safe, side-effect-free)
+  Math: typeof Math
+  Number: typeof Number
+  parseInt: typeof parseInt
+  parseFloat: typeof parseFloat
+  Infinity: typeof Infinity
+  NaN: typeof NaN
+  Boolean: typeof Boolean
+  String: typeof String
+  Array: typeof Array
+  Object: typeof Object
+  JSON: typeof JSON
 }
 
-/** Build the MDX scope from frontmatter values. */
+/** Build the MDX scope from frontmatter values.
+ *  Includes JS globals so MDX expressions can use Math.round(), parseInt(), etc. */
 export function buildMdxScope(fps: number, bpm: number): MdxScope {
-  return { FPS: fps, BEAT: fps / (bpm / 60) }
+  return {
+    FPS: fps,
+    BEAT: fps / (bpm / 60),
+    Math,
+    Number,
+    parseInt,
+    parseFloat,
+    Infinity,
+    NaN,
+    Boolean,
+    String,
+    Array,
+    Object,
+    JSON,
+  }
 }
 
 /** Parse YAML frontmatter from mdast. Extracts fps, bpm, width, height, scale. */
