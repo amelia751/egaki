@@ -19,7 +19,7 @@ import { HeroScene } from './hero-scene.server'
 voice="alloy"
 />
 
-<Opacity from={0} to={1} duration={20}>
+<Opacity from={0} to={1} duration={20} label="city-fade">
   <GeneratedImage
     prompt="a futuristic neon city at night with flying cars, cyberpunk style"
     seed={42}
@@ -31,7 +31,7 @@ voice="alloy"
 ## another duration=5s
 
 
-<Opacity from={0} to={1} duration={20}>
+<Opacity from={0} to={1} duration={20} label="city-alt-fade">
   <GeneratedImage
     prompt="a non futuristic neon city at night with flying cars, cyberpunk style"
     seed={42}
@@ -49,7 +49,7 @@ voice="alloy"
   voice="NNl6r8mD7vthiJatiJt1"
 />
 
-<Opacity from={0} to={1} duration={15}>
+<Opacity from={0} to={1} duration={15} label="narration-fade">
   <div
     style={{
       display: "flex",
@@ -70,7 +70,7 @@ voice="alloy"
 
 # Second Image duration=5s
 
-<Opacity from={0} to={1} duration={20}>
+<Opacity from={0} to={1} duration={20} label="garden-fade">
   <GeneratedImage
     prompt="a serene japanese garden with cherry blossoms and a small pond, watercolor style"
     seed={7}

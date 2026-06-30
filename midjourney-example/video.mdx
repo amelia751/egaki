@@ -12,7 +12,7 @@ import { TextOverlay } from './components'
   <MidjourneyExploreImage index={4} search="ethereal clouds soft light drawing" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </Background>
 
-<Opacity from={0} to={1} duration={15}>
+<Opacity from={0} to={1} duration={15} label="imagine-fade">
   <TextOverlay text="IMAGINE" />
 </Opacity>
 
@@ -21,7 +21,7 @@ import { TextOverlay } from './components'
 <Background>
   <MidjourneyExploreImage index={0} search="ethereal clouds soft light drawing" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </Background>
-<TranslateY from={140} to={0} duration={12}>
+<TranslateY from={140} to={0} duration={12} label="create-slide">
   <TextOverlay text="CREATE" position="bottom" />
 </TranslateY>
 
@@ -31,7 +31,7 @@ import { TextOverlay } from './components'
   <MidjourneyExploreImage search="vast mountain landscape cinematic" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </Background>
 
-<Opacity from={0} to={1} duration={20}>
+<Opacity from={0} to={1} duration={20} label="explore-fade">
   <TextOverlay text="EXPLORE" />
 </Opacity>
 
@@ -41,8 +41,8 @@ import { TextOverlay } from './components'
   <MidjourneyExploreImage search="geometric patterns gold and black" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </Background>
 
-<Blur from={24} to={0} duration={15}>
-  <Opacity from={0} to={1} duration={15}>
+<Blur from={24} to={0} duration={15} label="design-blur">
+  <Opacity from={0} to={1} duration={15} label="design-fade">
     <TextOverlay text="DESIGN" position="bottom" />
   </Opacity>
 </Blur>
@@ -53,7 +53,7 @@ import { TextOverlay } from './components'
   <MidjourneyExploreImage search="ocean waves aerial turquoise" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </Background>
 
-<Opacity from={0} to={1} duration={15}>
+<Opacity from={0} to={1} duration={15} label="flow-fade">
   <TextOverlay text="FLOW" />
 </Opacity>
 
@@ -63,7 +63,7 @@ import { TextOverlay } from './components'
   <MidjourneyExploreImage search="botanical illustration detailed flowers" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </Background>
 
-<TranslateX from={-140} to={0} duration={12}>
+<TranslateX from={-140} to={0} duration={12} label="grow-slide">
   <TextOverlay text="GROW" position="bottom" />
 </TranslateX>
 
@@ -73,7 +73,7 @@ import { TextOverlay } from './components'
   <MidjourneyExploreImage search="nebula deep space stars cosmic" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </Background>
 
-<Opacity from={0} to={1} duration={20}>
+<Opacity from={0} to={1} duration={20} label="dream-fade">
   <TextOverlay text="DREAM" />
 </Opacity>
 
@@ -83,8 +83,8 @@ import { TextOverlay } from './components'
   <MidjourneyExploreImage search="abstract light rays prismatic" aspectRatio="16:9" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 </Background>
 
-<Scale from={1} to={1.8} duration={30}>
-  <Opacity from={0} to={1} duration={20}>
+<Scale from={1} to={1.8} duration={30} label="end-zoom">
+  <Opacity from={0} to={1} duration={20} label="end-fade">
     <TextOverlay text="MIDJOURNEY" subtitle="Explore the imagination" />
   </Opacity>
 </Scale>

@@ -10,7 +10,7 @@ import { Opacity, Fill } from 'egaki/video'
 export async function HeroScene() {
   return (
     <Fill>
-      <Opacity from={0} to={1} duration={20}>
+      <Opacity from={0} to={1} duration={20} label="hero-fade">
         <GeneratedImage
           prompt="a magical forest with glowing mushrooms and fireflies, fantasy art style"
           seed={99}

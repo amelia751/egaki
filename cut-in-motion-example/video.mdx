@@ -7,8 +7,8 @@ import { TextSlide, Bg } from './components'
 # Scene 1 duration=2s
 
 <Bg color="#1a1a2e" />
-<TranslateX from={-140} to={0} duration={0.7 * FPS}>
-  <TranslateX from={0} to={140} duration={0.7 * FPS} startInFrames={-0.7 * FPS} cutInMotion={0.3}>
+<TranslateX from={-140} to={0} duration={0.7 * FPS} label="enter">
+  <TranslateX from={0} to={140} duration={0.7 * FPS} startInFrames={-0.7 * FPS} cutInMotion={0.3} label="exit">
     <TextSlide text="Start with motion" color="#e94560" />
   </TranslateX>
 </TranslateX>
@@ -16,8 +16,8 @@ import { TextSlide, Bg } from './components'
 # Scene 2 duration=2.5s
 
 <Bg color="#16213e" />
-<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
-  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1} label="enter">
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2} label="exit">
     <TextSlide text="Cut before it ends" color="#0f3460" font="Georgia, serif" />
   </TranslateX>
 </TranslateX>
@@ -25,8 +25,8 @@ import { TextSlide, Bg } from './components'
 # Scene 3 duration=2.5s
 
 <Bg color="#0f3460" />
-<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
-  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1} label="enter">
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2} label="exit">
     <TextSlide text="Same direction" color="#e94560" size={88} />
   </TranslateX>
 </TranslateX>
@@ -34,8 +34,8 @@ import { TextSlide, Bg } from './components'
 # Scene 4 duration=2.5s
 
 <Bg color="#533483" />
-<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
-  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1} label="enter">
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2} label="exit">
     <TextSlide text="Creates flow" color="#e94560" font="Georgia, serif" />
   </TranslateX>
 </TranslateX>
@@ -43,8 +43,8 @@ import { TextSlide, Bg } from './components'
 # Scene 5 duration=3s
 
 <Bg color="#1a1a2e" />
-<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
-  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.1}>
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1} label="enter">
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.1} label="exit">
     <TextSlide text="Like a conveyor belt" color="#0f3460" size={96} />
   </TranslateX>
 </TranslateX>
