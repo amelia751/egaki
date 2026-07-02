@@ -15,8 +15,11 @@
       "x": "https://x.com/__morse"
     }
   },
+  // /docs redirects to a real page, NOT to /. The first deploy briefly served
+  // a 308 (permanent, browser-cached) / -> /docs redirect; browsers that
+  // cached it would infinite-loop on /docs -> / -> (cached) /docs.
   "redirects": [
-    { "source": "/docs", "destination": "/" }
+    { "source": "/docs", "destination": "/docs/quickstart" }
   ],
   "navigation": {
     "tabs": [
