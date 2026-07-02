@@ -3,6 +3,12 @@
 **Never use `textShadow`.** It looks bad in video. This applies to all components,
 examples, and MDX content.
 
+**Never scale scenes below 1.** The outer `<Scale>` wrapper on a scene must
+always go from `1` to a larger value (e.g. `1` to `1.3`), never from a value
+below 1 (e.g. `0.9` to `1.1`). When the scale is below 1, the composition
+shrinks and exposes the black background behind it. Use `from={1} to={1.2}` or
+`from={1} to={1.35}` for ambient zoom drift on scenes.
+
 **Never use viewport-relative units** (`vw`, `vh`, `vmin`, `vmax`). Remotion
 compositions have a fixed pixel size (e.g. 1920×1080) and are scaled to fit the
 player viewport. Viewport units resolve against the browser window, not the
@@ -1154,6 +1160,41 @@ Default is 1.0. ElevenLabs does not support speed control.
 
 **Model options**: Cartesia `sonic-3.5` (default, best quality), `sonic-3`.
 ElevenLabs `eleven_v3` (best), `eleven_multilingual_v2`, `eleven_flash_v2_5`.
+
+### Inserting pauses in TTS narration
+
+Both Cartesia and ElevenLabs support inserting silence into generated
+speech. Use this to give scenes breathing room in launch videos and
+narrated content, so sentences don't run into each other.
+
+**Cartesia (sonic-3.5, sonic-3):** Use the `<break>` SSML tag with
+exact duration in seconds or milliseconds.
+
+```
+Playwriter lets you control Chrome from code. <break time="400ms"/> Install the extension.
+```
+
+```
+But there's a catch. <break time="800ms"/> Introducing Cloud Browsers.
+```
+
+Avoid stacking multiple `<break>` tags in quick succession; the model
+can hallucinate or produce artifacts.
+
+**ElevenLabs (eleven_v3):** SSML `<break>` is not supported on v3.
+Use plain-text pause tags instead: `[pause]`, `[short pause]`,
+`[long pause]`.
+
+```
+But there's a catch. [long pause] Introducing Cloud Browsers.
+```
+
+For older ElevenLabs models (`eleven_multilingual_v2`, `eleven_flash_v2_5`),
+SSML `<break time="1.5s" />` works (max 3 seconds per break).
+
+If pauses alone don't give enough spacing, add explicit `duration=` on
+headings to extend a scene beyond its audio length, creating a silent
+gap after the narration finishes.
 
 ### Using TTS in egaki videos
 
