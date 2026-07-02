@@ -60,16 +60,16 @@ on headings, no `startFrom`.
 ```mdx
 # P1
 
-<Audio src="/narration.wav" trimBefore={0} trimAfter={44} />
+<Audio src="/narration.wav" trimBefore={0.112 * FPS} trimAfter={1.47 * FPS} />
 <Caption words={[...]} />
 ```
 
 **Never use `startFrom` with `trimBefore`.** They double-count the offset. `trimBefore`
 alone handles both playback positioning and auto-duration.
 
-**Never use `Math.round()` in MDX expressions.** `Math` is not in safe-mdx's scope.
-Pre-compute frame numbers and hardcode them. `FPS` and `BEAT` scope variables are
-available, but not `Math` or other globals.
+**Express all time values as `seconds * FPS`.** Never use raw frame numbers for
+delays, trimBefore, trimAfter, or any time-based value. This keeps the MDX
+portable across different fps settings.
 
 ### Caption component
 
@@ -86,12 +86,13 @@ Each `<Caption>` takes a `words` array:
 ```tsx
 <Caption words={[
   { word: "You", delay: 0 },
-  { word: "will", delay: 7 },
-  { word: "rest,", delay: 12 },
+  { word: "will", delay: 0.248 * FPS },
+  { word: "rest,", delay: 0.412 * FPS },
 ]} />
 ```
 
-`delay` is the frame offset from the section start when the word becomes visible.
+`delay` is the time offset (in seconds * FPS) from the section start when the
+word becomes visible.
 
 ### WordFlash + BlackScreen
 
@@ -125,15 +126,15 @@ If using the server component, timestamps are cached at
 Group words by punctuation (`.` `,` `:`) and pause gaps (> 0.4s between words).
 Each phrase becomes a section. Split phrases longer than 6 words into sub-sections.
 
-**Step 4: Compute frame values.**
+**Step 4: Express time values as seconds * FPS.**
 
 For each section:
-- `trimBefore = round(phrase_start_seconds * fps)`
-- `trimAfter = round(next_phrase_start_seconds * fps)`
-- Per-word `delay = round((word_start - phrase_start) * fps)`
+- `trimBefore = phrase_start_seconds * FPS`
+- `trimAfter = next_phrase_start_seconds * FPS`
+- Per-word `delay = (word_start - phrase_start) * FPS`
 
-Store in `phrases.json` for reference, but hardcode the computed frame numbers
-directly in the MDX (since `Math.round()` is not available in MDX expressions).
+Store in `phrases.json` for reference. Use the raw second values directly
+in MDX expressions multiplied by FPS (e.g. `trimBefore={0.112 * FPS}`).
 
 ### Creating new videos with this pattern
 
