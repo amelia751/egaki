@@ -15,6 +15,9 @@
       "x": "https://x.com/__morse"
     }
   },
+  "redirects": [
+    { "source": "/docs", "destination": "/" }
+  ],
   "navigation": {
     "tabs": [
       {
@@ -25,7 +28,7 @@
             "group": "Getting Started",
             "icon": "lucide:rocket",
             "pages": [
-              "docs/index",
+              "index",
               "docs/quickstart",
               "docs/authentication"
             ]

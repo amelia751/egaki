@@ -5,8 +5,6 @@ import { Spiceflow } from 'spiceflow'
 import { app as holocronApp } from '@holocron.so/vite/app'
 
 export const app = new Spiceflow()
-  // The site only has pages under /docs; redirect the root there.
-  .get('/', ({ redirect }) => redirect('/docs', { status: 308 }))
   .use(holocronApp)
 
 export default {
