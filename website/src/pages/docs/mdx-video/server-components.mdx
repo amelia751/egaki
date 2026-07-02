@@ -1,0 +1,107 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Server components and AI-generated media
+sidebarTitle: Server Components
+description: Use Server blocks for async data fetching and AI generation. GeneratedImage, GeneratedVideo, GeneratedSpeech, and .server.tsx files.
+icon: lucide:server
+---
+
+# Server Components
+
+`<Server>` is a reserved MDX element that marks a subtree as React Server Components.
+Children render in the RSC environment (async allowed, fs/API access) and stream
+to the client.
+
+## Basic usage
+
+```mdx
+import { AsyncStats } from './async-stats'
+
+# Analytics duration=6s
+
+<Opacity from={0} to={1} duration={15}>
+  <Server>
+    <AsyncStats />
+  </Server>
+</Opacity>
+```
+
+## Generated media
+
+Built-in server components for AI-generated media:
+
+```mdx
+# Scene duration=5s
+
+<Server>
+  <GeneratedImage
+    prompt="a magical forest with glowing mushrooms"
+    seed={99}
+    model="imagen-4.0-generate-001"
+    style={{ width: '80%', margin: 'auto', borderRadius: 16 }}
+  />
+</Server>
+```
+
+Available components: `GeneratedImage`, `GeneratedVideo`, `GeneratedSpeech`.
+
+Results are **cached** in `public/generated/`. Regeneration only happens when
+the prompt, model, or other params change.
+
+## .server.tsx files
+
+For complex generated media compositions, use `.server.tsx` files. Import from
+`egaki/generate-media` (not `egaki/video`):
+
+```tsx
+// hero-scene.server.tsx
+import { GeneratedImage } from 'egaki/generate-media'
+import { Opacity, Fill } from 'egaki/video'
+
+export async function HeroScene() {
+  return (
+    <Fill>
+      <Opacity from={0} to={1} duration={20}>
+        <GeneratedImage
+          prompt="a magical forest with glowing mushrooms"
+          seed={99}
+          model="imagen-4.0-generate-001"
+          style={{ width: '80%', margin: 'auto', borderRadius: 16 }}
+        />
+      </Opacity>
+    </Fill>
+  )
+}
+```
+
+```mdx
+import { HeroScene } from './hero-scene.server'
+
+# Scene duration=5s
+
+<HeroScene />
+```
+
+Components from `.server.*` files are **automatically wrapped in `<Server>`** by
+the build system. No manual `<Server>` block needed.
+
+## Text-to-speech
+
+Generate narration audio server-side:
+
+```mdx
+import { TextToSpeech } from 'egaki/text-to-speech'
+
+# Narration duration=5s
+
+<Server>
+  <TextToSpeech text="Welcome to the presentation." />
+</Server>
+```
+
+## Rules
+
+- Each `<Server>` must start on its own line
+- Inside `<Server>`, normal RSC rules apply: no function props into client refs
+- Editing a file referenced inside `<Server>` triggers a hot refetch
+- `<Server>` inside imported `.mdx` files is ignored (warns)

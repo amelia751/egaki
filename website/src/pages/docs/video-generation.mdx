@@ -1,0 +1,109 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Video generation from text and image inputs
+sidebarTitle: Video Generation
+description: Generate videos using Veo, Kling, Wan, Seedance, and xAI Grok. Text-to-video, image-to-video, editing, extension, and reference-to-video.
+icon: lucide:video
+---
+
+# Video Generation
+
+Generate videos from text prompts, animate still images, edit existing videos, or extend clips.
+
+<Aside>
+<Warning>
+Video generation is **slow**. Most models take 1-5 minutes per clip. The CLI shows
+progress and waits automatically.
+</Warning>
+</Aside>
+
+## Text to video
+
+```bash
+egaki video "a paper boat drifting on a calm lake at sunrise" -o boat.mp4
+```
+
+Control **duration** and **resolution**:
+
+```bash
+egaki video "timelapse of a stormy sea, cinematic" \
+  -m veo-3.1-generate-001 \
+  --duration 8 \
+  --resolution 1080p \
+  --aspect-ratio 16:9 \
+  -o storm.mp4
+```
+
+## Image to video
+
+Animate a still image. The model must support **i2v** (image-to-video):
+
+```bash
+egaki video "slowly animate the clouds" \
+  --input photo.jpg \
+  -m klingai/kling-v2.6-i2v \
+  -o animated.mp4
+```
+
+## Video editing
+
+Modify an existing video (xAI Grok):
+
+```bash
+egaki video "make it look like a watercolor painting" \
+  -m grok-imagine-video \
+  --mode edit-video \
+  --input ./original.mp4 \
+  -o edited.mp4
+```
+
+## Video extension
+
+Continue a video from its last frame:
+
+```bash
+egaki video "the camera keeps moving forward" \
+  -m grok-imagine-video \
+  --mode extend-video \
+  --input ./clip.mp4 \
+  -o extended.mp4
+```
+
+## Reference-to-video (R2V)
+
+Generate video guided by 1-7 reference images (xAI Grok). Images act as style
+and content references, not as the first frame:
+
+```bash
+egaki video "the model walks down a runway wearing the outfit" \
+  -m grok-imagine-video \
+  --mode reference-to-video \
+  --reference-images ./model-face.jpg \
+  --reference-images ./outfit.jpg \
+  --duration 8 \
+  -o runway.mp4
+```
+
+## Multiple videos
+
+```bash
+egaki video "waves crashing on cliffs at golden hour" -n 2 -o waves.mp4
+# writes waves.mp4 and waves-1.mp4
+```
+
+## Pipe to stdout
+
+```bash
+egaki video "looping rain animation" --stdout | ffmpeg -i pipe:0 -vf fps=12 rain.gif
+```
+
+## Video model quick reference
+
+| Model ID | Best for |
+|---|---|
+| `veo-3.1-generate-001` | Highest quality, audio, up to 4K |
+| `veo-3.1-fast-generate-001` | Fast iteration, 720p-4K |
+| `klingai/kling-v2.5-turbo-t2v` | Cheap and fast |
+| `klingai/kling-v2.6-i2v` | Image-to-video |
+| `bytedance/seedance-v1.5-pro` | Audio support, three resolutions |
+| `grok-imagine-video` | Editing, extension, R2V |

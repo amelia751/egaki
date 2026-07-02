@@ -1,0 +1,120 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Image generation from text and image inputs
+sidebarTitle: Image Generation
+description: Generate, edit, and inpaint images using Imagen, Gemini, GPT, Flux, xAI Grok, and other AI models. Batch output, seed control, and piping.
+icon: lucide:image
+---
+
+# Image Generation
+
+Generate images from text prompts, edit existing images, or inpaint with masks.
+
+## Text to image
+
+```bash
+egaki image "cinematic mountain village at sunrise" -o village.png
+```
+
+Specify a **model** with `-m`:
+
+```bash
+egaki image "isometric floating city, detailed, soft colors" -m imagen-4.0-generate-001 -o city.png
+```
+
+## Edit an existing image
+
+Pass `--input` to provide a source image for editing:
+
+```bash
+egaki image "add a red scarf and make it winter" --input portrait.jpg -o portrait-winter.png
+```
+
+Works with **URLs** too:
+
+```bash
+egaki image "turn this into a manga panel" --input https://example.com/photo.jpg -o manga.png
+```
+
+## Inpainting with a mask
+
+Provide both `--input` and `--mask` to replace specific regions:
+
+```bash
+egaki image "replace the sky with dramatic storm clouds" \
+  --input landscape.png \
+  --mask mask.png \
+  -o storm.png
+```
+
+The **mask** is a black-and-white image where white regions indicate areas to replace.
+
+## Aspect ratio
+
+```bash
+egaki image "cyberpunk alley at night" --aspect-ratio 16:9
+egaki image "polaroid-style travel photo" --aspect-ratio 4:5
+```
+
+## Multiple images
+
+Generate **batch variations** with `-n`:
+
+```bash
+egaki image "minimal logo concepts for a cat cafe" -n 4 -o logo.png
+# writes logo-0.png, logo-1.png, logo-2.png, logo-3.png
+```
+
+## Deterministic output
+
+Models that support `--seed` produce the same image for the same seed:
+
+```bash
+egaki image "studio product shot of a ceramic mug" \
+  -m imagen-4.0-generate-001 \
+  --seed 42 \
+  -o mug.png
+```
+
+## Pipe to stdout
+
+Skip writing to disk and pipe directly to other tools:
+
+```bash
+egaki image "flat icon of a fox" --stdout | magick - -resize 512x512 fox-icon.png
+```
+
+## JSON output for automation
+
+```bash
+egaki image "futuristic sneaker concept" -m gpt-image-1.5 --json -o sneaker.png
+```
+
+Prints a JSON object with the output path and metadata.
+
+## Image model quick reference
+
+| Model ID | Best for |
+|---|---|
+| `imagen-4.0-ultra-generate-001` | High-quality with seed + ratio |
+| `gemini-3.1-flash-image-preview` | Fast, cheap text+image edits |
+| `nano-banana-pro-preview` | Highest fidelity Google output |
+| `gpt-image-1.5` | Strong editing and inpainting |
+| `fal-ai/flux/schnell` | Very fast low-cost batches |
+| `grok-imagine-image-quality` | xAI high quality with 2K output |
+| `recraft-v4` | Design-focused generation |
+
+<Aside>
+<Info>
+Run `egaki models --type image` to see all available image models with pricing.
+</Info>
+</Aside>
+
+## Feature support by model family
+
+- **Imagen** (`imagen-*`): `--seed`, `--aspect-ratio`, `--input`, `--mask`, `-n`
+- **Gemini**: `--input`, `--aspect-ratio`, `--image-size`; usually no `--seed`
+- **OpenAI**: strong editing and inpainting; size controls are model-specific
+- **BFL** (`flux-*`): Kontext/Pro variants via AI Gateway subscription
+- **Recraft** (`recraft-*`): design-focused, v2/v3/v4 families
+- **xAI** (`grok-imagine-*`): `--quality`, `--resolution`, `--output-format`, `--input`

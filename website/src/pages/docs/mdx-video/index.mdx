@@ -1,0 +1,75 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: MDX-to-video framework overview
+sidebarTitle: Overview
+description: Write video scenes in MDX where each heading becomes a timed Remotion sequence. Animation primitives, server components, and in-browser export.
+icon: lucide:film
+---
+
+# MDX Video Framework
+
+egaki includes an MDX-to-video framework built on **Remotion** and **Spiceflow**.
+Write MDX files where each heading becomes a timed scene. Animation primitives
+handle motion. Export to MP4 via in-browser WebCodecs rendering.
+
+```diagram
+MDX file ──► Vite plugin ──► Browser Player ──► Export MP4
+   │                              │
+   ├── headings = scenes          ├── live preview
+   ├── animation primitives       ├── tweakpane controls
+   └── server components          └── WebCodecs rendering
+```
+
+## How it works
+
+Each `#` heading in your MDX becomes a `Series.Sequence` in Remotion.
+Content before the first heading is the **preamble** (plays across all scenes).
+Duration is set per heading. Animation primitives like `Opacity`, `TranslateX`,
+and `Scale` animate CSS properties over frames.
+
+```mdx
+---
+fps: 30
+bpm: 120
+---
+
+<Audio src="/soundtrack.mp3" />
+
+# Intro duration=3s
+
+<TranslateX from={-140} to={0} duration={0.7 * FPS}>
+  <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Title</div>
+</TranslateX>
+
+# Main duration=5s
+
+<Opacity from={0} to={1} duration={1 * FPS}>
+  <p>Content fades in over 1 second.</p>
+</Opacity>
+```
+
+## Key concepts
+
+- **Sections** are defined by headings with `duration=` props
+- **Preamble** content (before first heading) persists across all scenes
+- **`FPS`** and **`BEAT`** are scope variables derived from frontmatter
+- **Animation primitives** (`Opacity`, `TranslateX`, `Scale`, `Blur`) animate one CSS property
+- **`<Server>`** blocks render in RSC for async data fetching and AI generation
+- **`LayoutTransition`** animates elements between scenes with FLIP
+- **Export** happens in-browser via `@remotion/web-renderer` (WebCodecs, no FFmpeg)
+
+## Project setup
+
+A minimal egaki video project:
+
+```
+my-video/
+├── video.mdx
+├── vite.config.ts
+├── package.json
+├── tsconfig.json
+├── egaki-env.d.ts
+└── public/
+```
+
+See the [Getting Started](./getting-started.mdx) guide for step-by-step setup.

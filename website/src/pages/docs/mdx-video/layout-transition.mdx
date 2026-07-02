@@ -1,0 +1,90 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: LayoutTransition FLIP animation between scenes
+sidebarTitle: Layout Transition
+description: Animate elements from their position in one scene to another using FLIP measurements, springs, and visual style interpolation.
+icon: lucide:move-diagonal
+---
+
+# LayoutTransition
+
+`<LayoutTransition>` animates an element from its position in the previous scene to
+its new position in the current scene. Matching is by `id`.
+
+## Cross-scene transitions
+
+```mdx
+# Scene 1 duration=3s
+
+<LayoutTransition id="title">**Hello**</LayoutTransition>
+
+# Scene 2 duration=3s
+
+<LayoutTransition id="title" duration={25} bounce={0.2}>**Hello**</LayoutTransition>
+<LayoutTransition id="subtitle">**World**</LayoutTransition>
+```
+
+In Scene 2, "Hello" animates from its Scene-1 position to its new slot above "World".
+"World" has no match in Scene 1, so it appears normally.
+
+## Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `id` | string | required | Match key between scenes |
+| `duration` | number | 20 | Animation duration in frames |
+| `bounce` | number | 0.15 | Spring bounce (0-1) |
+| `easing` | function | - | Custom easing (overrides bounce) |
+| `mode` | string | `'both'` | `'both'`, `'position'`, or `'size'` |
+
+## Easing vs bounce
+
+By default, the transition uses a spring driven by `bounce`. When `easing` is set,
+the spring is replaced with `interpolate()` using that easing function:
+
+```mdx
+<LayoutTransition id="card" easing={EASE.overshootBouncy} duration={30}>
+  <div>Card content</div>
+</LayoutTransition>
+```
+
+## Intra-scene transitions
+
+Use `showFrom` and `showUpTo` to animate within a single section:
+
+```mdx
+# Active Item duration=6s
+
+<div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <LayoutTransition id="dot" showFrom={0} showUpTo={2 * FPS}>
+      <Dot />
+    </LayoutTransition>
+    <span>First item</span>
+  </div>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <LayoutTransition id="dot" showFrom={2 * FPS} showUpTo={4 * FPS}>
+      <Dot />
+    </LayoutTransition>
+    <span>Second item</span>
+  </div>
+</div>
+```
+
+The dot animates from "First item" to "Second item" at the 2-second mark.
+
+## Visual style interpolation
+
+During the transition, `LayoutTransition` automatically interpolates:
+
+- **Border radius** (counter-scaled so corners don't distort)
+- **Background color** (RGB linear interpolation)
+- **Box shadow** (counter-scaled)
+- **Opacity** (when source and target differ)
+
+## Constraints
+
+- The wrapped child must be **flow content** (text, spans, divs). Components that
+  render `AbsoluteFill` measure as zero-size and the transition no-ops.
+- The ghost container stays mounted for 5 seconds after a scene transition.
+- Seek-safe by design: no temporal state, derives transforms from current frame.

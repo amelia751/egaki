@@ -19,3 +19,7 @@ stale
 # Downloaded music
 music/
 /youtube-extraction
+
+# Website
+website/.wrangler/
+website/src/pages/docs/cli/

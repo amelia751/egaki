@@ -1,0 +1,117 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Authentication and API key management
+sidebarTitle: Authentication
+description: Configure provider API keys, ChatGPT OAuth, xAI Grok Build auth, Vertex AI billing, and egaki subscriptions for accessing all models.
+icon: lucide:key-round
+---
+
+# Authentication
+
+egaki supports multiple authentication modes. You can mix and match: use ChatGPT auth
+for OpenAI models, a Google key for Imagen, and an egaki subscription for everything else.
+
+## Provider keys (BYOK)
+
+Add API keys for individual providers with `egaki login`:
+
+```bash
+# Google AI Studio (Imagen, Gemini, Veo)
+egaki login --provider google --key AIza...
+
+# OpenAI (GPT Image, DALL-E)
+egaki login --provider openai --key sk-...
+
+# xAI (Grok Imagine)
+egaki login --provider xai --key xai-...
+
+# Fal.ai (Flux, Recraft)
+egaki login --provider fal --key ...
+
+# Replicate
+egaki login --provider replicate --key r8_...
+```
+
+Keys are stored in `~/.config/egaki/credentials.json` with file mode `0600`.
+
+## ChatGPT OAuth
+
+Log in with your existing ChatGPT account. This routes image requests through the
+ChatGPT/Codex backend, using your ChatGPT Plus/Pro subscription credits.
+
+```bash
+egaki login --provider chatgpt
+```
+
+Opens a browser for OAuth. After approval, use OpenAI image models:
+
+```bash
+egaki image "dreamy bakery at sunrise" -m gpt-image-1.5 -o bakery.png
+```
+
+## xAI Grok Build OAuth
+
+Log in with your Grok Build subscription via browser OAuth:
+
+```bash
+egaki login --provider xai-oauth
+```
+
+This gives you access to `grok-imagine-image` and `grok-imagine-video` models
+using your Grok Build subscription credits.
+
+## Vertex AI (Google Cloud billing)
+
+Prefix model IDs with `vertex/` to route through Vertex AI instead of Google AI Studio.
+This uses Google Cloud billing instead of AI Studio quotas.
+
+```bash
+egaki login --provider vertex --key AIza...
+egaki image "editorial sneaker photo" -m vertex/imagen-4.0-generate-001 -o sneaker.png
+egaki video "storm over mountains" -m vertex/veo-3.1-fast-generate-001 -o storm.mp4
+```
+
+<Aside>
+<Tip>
+Vertex AI and Google AI Studio use different billing. Vertex charges through
+your Google Cloud project. AI Studio has free tier quotas for many models.
+</Tip>
+</Aside>
+
+## Egaki subscription
+
+One API key for all supported models. Three plans:
+
+| Plan | Price | Credits | Approx. images |
+|------|-------|---------|-----------------|
+| Starter | $9/mo | 100 | ~100 standard images |
+| Pro | $29/mo | 500 | ~500 standard images |
+| Unlimited | $99/mo | 2000 | ~2000 standard images |
+
+```bash
+# Subscribe (opens checkout URL)
+egaki subscribe --plan pro --email user@example.com
+
+# Save the key after checkout
+egaki login --provider egaki --key egaki_...
+
+# Check usage
+egaki usage
+
+# Cancel
+egaki unsubscribe
+```
+
+## Check configured providers
+
+```bash
+egaki login --show
+```
+
+Shows which providers are configured and their status (valid key, expired, etc.).
+
+## Remove a provider key
+
+```bash
+egaki login --remove google
+```

@@ -1,0 +1,64 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Framer Motion integration with Remotion
+sidebarTitle: Framer Motion
+description: Use motion.div, springs, variants, staggered children, and keyframes from motion/react. Frame-deterministic, seekable, zero config.
+icon: lucide:sparkle
+---
+
+# Framer Motion Integration
+
+egaki auto-detects `motion` in your project and bridges it with Remotion's
+frame-based rendering. Use `motion.div`, springs, variants, staggered children,
+and keyframes inside MDX sections.
+
+## Setup
+
+Install motion:
+
+```bash
+pnpm add motion
+```
+
+egaki detects it automatically. No config needed.
+
+## Usage
+
+```tsx
+import { motion } from 'motion/react'
+
+export function AnimatedCard() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 50 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: 'easeOut' }}
+      style={{ background: '#1a1a2e', padding: 32, borderRadius: 12 }}
+    >
+      <h2>Hello Motion</h2>
+    </motion.div>
+  )
+}
+```
+
+## How it works
+
+The Vite plugin disables `Element.prototype.animate` (WAAPI) before Motion's
+support check runs, patches `JSAnimation.prototype`, and uses
+`MotionGlobalConfig.useManualTiming`. A `MotionTimingSync` component wraps each
+section and publishes the current frame time.
+
+Animations stay **frame-deterministic** and support **backward scrubbing**.
+
+## Limitations
+
+- **AnimatePresence / exit animations**: work during forward playback but won't replay on backward seek
+- **Layout animations** (`layout` prop): may work forward but are not seekable
+- **`layoutId`** shared layout: does not work reliably; use egaki's `<LayoutTransition>` instead
+- **Viewport/gesture animations** (`whileInView`, `whileHover`, drag): not deterministic
+- **WAAPI is disabled page-wide**: third-party libraries using WAAPI fall back to JS
+
+## Zero overhead for non-motion projects
+
+If `motion` is not installed: no scripts injected, no patches applied,
+`MotionTimingSync` is a passthrough. No performance cost.

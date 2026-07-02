@@ -1,0 +1,80 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Speech-to-text transcription with word timestamps
+sidebarTitle: Transcription
+description: Transcribe audio files with word-level timestamps using OpenAI Whisper, ElevenLabs, Deepgram, Groq, and Cartesia for video captions.
+icon: lucide:captions
+---
+
+# Transcription
+
+Transcribe audio files to text with **word-level timestamps**. Useful for generating
+captions in egaki videos.
+
+## Basic usage
+
+```bash
+egaki transcribe recording.mp3
+```
+
+Specify a model:
+
+```bash
+egaki transcribe recording.mp3 --model whisper-1
+```
+
+## Models with word timestamps
+
+Not all models return word-level timing. These do:
+
+| Model | Provider | Notes |
+|---|---|---|
+| `whisper-1` | OpenAI | Reliable, good accuracy |
+| `ink-whisper` | Cartesia | Cheapest option |
+| `scribe_v1` | ElevenLabs | High accuracy |
+| `nova-3` | Deepgram | Fast |
+| `whisper-large-v3` | Groq | Fast, open weights |
+| `whisper-large-v3-turbo` | Groq | Fastest |
+| `distil-whisper-large-v3-en` | Groq | English only, very fast |
+
+<Aside>
+<Warning>
+`gpt-4o-transcribe` and `gpt-4o-mini-transcribe` do **not** support word timestamps.
+The OpenAI API rejects `verbose_json` for these models.
+</Warning>
+</Aside>
+
+## Output formats
+
+By default, transcription prints the text and word timestamps to stdout.
+Save to a file:
+
+```bash
+egaki transcribe recording.mp3 -o transcript.json
+```
+
+## Using timestamps for video captions
+
+The typical workflow for adding captions to an egaki video:
+
+```bash
+# 1. Generate TTS narration
+egaki speech "Your narration text." --voice <id> -m sonic-3.5 -o public/narration.mp3
+
+# 2. Transcribe to get word timestamps
+egaki transcribe public/narration.mp3 --model whisper-1
+
+# 3. Use the timestamps in your MDX video
+```
+
+Convert each word's `startSecond` to frame delays using `FPS`:
+
+```mdx
+<Caption words={[
+  { word: "Your", delay: 0 },
+  { word: "narration", delay: 0.26 * FPS },
+  { word: "text.", delay: 0.48 * FPS },
+]} />
+```
+
+When you regenerate the TTS audio, always re-transcribe and update the delays.

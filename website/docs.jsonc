@@ -1,0 +1,91 @@
+{
+  "$schema": "https://holocron.so/docs.json",
+  "name": "egaki",
+  "description": "AI image, video, and speech generation CLI with MDX-to-video framework",
+  "colors": { "primary": "#ffffff" },
+  "icons": { "library": "lucide" },
+  "navbar": {
+    "links": [
+      { "type": "github", "href": "https://github.com/remorses/egaki" }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/remorses/egaki",
+      "x": "https://x.com/__morse"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "icon": "lucide:book-open",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "icon": "lucide:rocket",
+            "pages": [
+              "docs/index",
+              "docs/quickstart",
+              "docs/authentication"
+            ]
+          },
+          {
+            "group": "Generation",
+            "icon": "lucide:sparkles",
+            "pages": [
+              "docs/image-generation",
+              "docs/video-generation",
+              "docs/speech",
+              "docs/transcription",
+              "docs/models"
+            ]
+          },
+          {
+            "group": "MDX Video",
+            "icon": "lucide:film",
+            "pages": [
+              "docs/mdx-video/index",
+              "docs/mdx-video/getting-started",
+              "docs/mdx-video/sections",
+              "docs/mdx-video/animation",
+              "docs/mdx-video/easing",
+              "docs/mdx-video/layout-transition",
+              "docs/mdx-video/components",
+              "docs/mdx-video/server-components",
+              "docs/mdx-video/captions",
+              "docs/mdx-video/tweakpane",
+              "docs/mdx-video/framer-motion",
+              "docs/mdx-video/shaders",
+              "docs/mdx-video/export"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "icon": "lucide:square-terminal",
+        "groups": [
+          {
+            "group": "Commands",
+            "icon": "lucide:chevrons-right",
+            "pages": [
+              "docs/cli/index",
+              "docs/cli/image",
+              "docs/cli/video",
+              "docs/cli/speech",
+              "docs/cli/transcribe",
+              "docs/cli/demucs",
+              "docs/cli/voice-clone",
+              "docs/cli/models",
+              "docs/cli/login",
+              "docs/cli/subscribe",
+              "docs/cli/unsubscribe",
+              "docs/cli/usage"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

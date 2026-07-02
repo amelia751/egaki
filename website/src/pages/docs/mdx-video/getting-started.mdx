@@ -1,0 +1,103 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Set up your first egaki video project
+sidebarTitle: Getting Started
+description: Create a new egaki video project with Vite, write your first MDX video, preview it in the browser player, and export as MP4.
+icon: lucide:play
+---
+
+# Getting Started
+
+## Create a project
+
+```bash
+mkdir my-video && cd my-video
+pnpm init
+pnpm add egaki vite @vitejs/plugin-react
+```
+
+## Configure Vite
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import { egakiPlugin } from 'egaki/vite'
+
+export default defineConfig({
+  plugins: [egakiPlugin({ entry: './video.mdx' })],
+})
+```
+
+## Add TypeScript config
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "noImplicitAny": false,
+    "strict": true,
+    "skipLibCheck": true,
+    "plugins": [{ "name": "@mdx-js/typescript-plugin" }]
+  },
+  "mdx": { "checkMdx": true },
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.mdx"]
+}
+```
+
+## Add egaki type declarations
+
+```ts
+// egaki-env.d.ts
+import 'egaki/mdx-components'
+```
+
+This gives you autocomplete for built-in components (`Opacity`, `TranslateX`, etc.) in MDX files.
+
+## Write your first video
+
+```mdx
+---
+fps: 30
+---
+
+# Hello duration=3s
+
+<Opacity from={0} to={1} duration={1 * FPS}>
+  <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>
+    Hello World
+  </div>
+</Opacity>
+
+# Goodbye duration=2s
+
+<TranslateX from={0} to={200} duration={0.5 * FPS}>
+  <div style={{ fontSize: 48, color: '#818cf8' }}>
+    Bye!
+  </div>
+</TranslateX>
+```
+
+## Preview
+
+```bash
+npx vite
+```
+
+Open `http://localhost:5173`. You'll see the Remotion Player with your video.
+Use the timeline to scrub through scenes.
+
+## Export
+
+Click the **Export MP4** button in the player UI. Rendering happens in-browser
+via WebCodecs. No FFmpeg or server-side processing needed.
+
+<Aside>
+<Warning>
+Export requires a **Chromium-based browser** (Chrome, Edge, Brave). Firefox and
+Safari do not support the `drawElementImage` API used for rendering.
+</Warning>
+</Aside>

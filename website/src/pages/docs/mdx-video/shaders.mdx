@@ -1,0 +1,61 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Custom shaders and porting Framer modules
+sidebarTitle: Shaders
+description: Use defineShader() to create WebGL2 fragment shader components with tweakpane controls. Port Framer shader modules to egaki built-ins.
+icon: lucide:zap
+---
+
+# Shaders
+
+egaki supports WebGL2 fragment shaders as built-in components via `defineShader()`.
+Time is frame-based (`u_time = frame / fps`), making shaders deterministic and seekable.
+
+## Built-in shader components
+
+Available in MDX without imports:
+
+```mdx
+<Background>
+  <BandsShader speed={0.5} />
+</Background>
+```
+
+## Porting Framer shaders
+
+Framer shader modules (`defineShader()` from `framer`) can be ported to egaki
+using `defineShader()` from `cli/src/vite/shader-renderer.tsx`.
+
+### Steps
+
+1. Fetch the Framer module source from `framerusercontent.com`
+2. Extract the GLSL fragment body (uniforms are auto-generated)
+3. Map property controls to `defineShader` config
+4. Export a typed props interface and component
+5. Wire into `MDX_BUILTIN_COMPONENTS` in `mdx-video.tsx`
+
+### Rules
+
+- All props must be exposed in tweakpane UI
+- Preserve original defaults exactly from the Framer module
+- Time is frame-based: `u_time = frame / fps`
+- `preserveDrawingBuffer: true` is set automatically for WebCodecs compatibility
+- Include the original Framer URL as a comment at the top of the file
+
+## Creating custom shaders
+
+```tsx
+import { defineShader } from 'egaki/video'
+
+const MyShader = defineShader({
+  title: 'MyShader',
+  fragment: `
+    float d = length(v_uv - 0.5);
+    float pulse = sin(u_time * speed + d * 10.0) * 0.5 + 0.5;
+    fragColor = vec4(pulse, 0.2, 0.8, 1.0);
+  `,
+  propertyControls: {
+    speed: { type: 'number', defaultValue: 1.0, min: 0, max: 5, step: 0.1 },
+  },
+})
+```

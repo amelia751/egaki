@@ -1,0 +1,120 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Animation primitives for MDX videos
+sidebarTitle: Animation
+description: Opacity, TranslateX, TranslateY, Scale, and Blur primitives. Enter and exit animations, cut-in-motion transitions, and inline mode.
+icon: lucide:move
+---
+
+# Animation Primitives
+
+egaki provides animation primitives that wrap a CSS property transition over frames.
+Available in MDX without imports: `Opacity`, `TranslateX`, `TranslateY`, `Scale`, `Blur`.
+
+## Basic usage
+
+Each primitive animates **one CSS property** from `from` to `to` over `duration` frames:
+
+```mdx
+<Opacity from={0} to={1} duration={1 * FPS}>
+  <div>Fades in over 1 second</div>
+</Opacity>
+
+<TranslateX from={-140} to={0} duration={0.5 * FPS}>
+  <div>Slides in from the left</div>
+</TranslateX>
+
+<Scale from={0.8} to={1} duration={0.5 * FPS}>
+  <div>Scales up to full size</div>
+</Scale>
+```
+
+## Enter vs exit animations
+
+- **Positive or zero `startInFrames`**: enter animation (offset from section start)
+- **Negative `startInFrames`**: exit animation (offset from section end)
+
+```mdx
+{/* Enter: slides in at the start */}
+<TranslateX from={-140} to={0} duration={0.5 * FPS}>
+  {/* Exit: slides out before the section ends */}
+  <TranslateX from={0} to={140} duration={0.5 * FPS} startInFrames={-0.5 * FPS}>
+    <div style={{ fontSize: 72, color: 'white' }}>Title</div>
+  </TranslateX>
+</TranslateX>
+```
+
+## Cut-in-motion
+
+The **cut-in-motion** pattern creates conveyor-belt transitions. The scene cuts while
+text is still moving, and the next scene's text appears already mid-slide.
+
+Use `cutInMotion` (0-1) to clip the animation at the scene boundary:
+
+```mdx
+# First Scene duration=3s
+
+<TranslateX from={-140} to={0} duration={0.7 * FPS}>
+  <TranslateX from={0} to={140} duration={0.7 * FPS} startInFrames={-0.7 * FPS} cutInMotion={0.3}>
+    <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Title</div>
+  </TranslateX>
+</TranslateX>
+
+# Middle Scene duration=3s
+
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Subtitle</div>
+  </TranslateX>
+</TranslateX>
+```
+
+## Inline mode
+
+By default, primitives use `<Fill>` (full-frame AbsoluteFill). Pass `inline` to stay
+in flow layout (flex, grid):
+
+```mdx
+<Scale from={0.8} to={1} duration={30} inline>
+  <Opacity from={0} to={1} duration={20} inline>
+    <div style={{ width: 200 }}>Card content</div>
+  </Opacity>
+</Scale>
+```
+
+<Aside>
+<Warning>
+Never use `%` widths/heights on children of `inline` primitives. The inline wrapper
+has no intrinsic size, so percentages resolve to 0. Use `px` or `em` instead.
+</Warning>
+</Aside>
+
+## Composing animations
+
+Nest primitives to compose multiple effects on the same element:
+
+```mdx
+<TranslateX from={-100} to={0} duration={0.5 * FPS}>
+  <Opacity from={0} to={1} duration={0.5 * FPS}>
+    <div>Slides in and fades in simultaneously</div>
+  </Opacity>
+</TranslateX>
+```
+
+## Style prop
+
+Pass `style` to add CSS to the animation wrapper:
+
+```mdx
+<Scale from={0} to={1} duration={24} inline
+  style={{ width: '100%', height: '100%', borderRadius: '20%', overflow: 'hidden' }}>
+  <img src="/photo.png" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Scale>
+```
+
+## Default easings
+
+- **Enter animations** default to ease-out
+- **Exit animations** default to ease-in
+
+Override with the `easing` prop. See the [Easing](./easing.mdx) page for all presets.

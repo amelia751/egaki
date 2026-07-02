@@ -1,0 +1,80 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Client-side video export with WebCodecs
+sidebarTitle: Export
+description: Export MP4 directly in the browser via @remotion/web-renderer with HtmlInCanvas mode. Full CSS support, agent SDK, and premounting.
+icon: lucide:download
+---
+
+# Export
+
+egaki renders video in the browser via `@remotion/web-renderer` with
+`allowHtmlInCanvas: true`. This uses Chromium's `drawElementImage` API for
+full-screenshot-per-frame rendering. All CSS features work.
+
+## Exporting from the player
+
+Click the **Export MP4** button in the player UI. The export happens entirely
+in-browser using WebCodecs. No FFmpeg or server needed.
+
+## Constraints
+
+- **Chromium only**: Chrome, Edge, Brave. Firefox and Safari are not supported.
+- **Single-threaded**: rendering is not parallelized
+- **Keep the tab in foreground**: background tabs throttle `requestAnimationFrame`
+- **`getRemotionEnvironment().isRendering` does not work** with client-side rendering;
+  use `useIsExporting()` from egaki instead
+
+## Media imports
+
+Always import media components from `@remotion/media`, not `remotion`:
+
+| Component | Import from | Supported |
+|---|---|---|
+| `<Audio>` | `@remotion/media` | Yes |
+| `<Video>` | `@remotion/media` | Yes |
+| `<Audio>` | `remotion` | No |
+| `<Video>` | `remotion` | No |
+| `<OffthreadVideo>` | `remotion` | No |
+
+Never use raw `<img>` tags. Always use `<Img>` from `egaki/video`, which calls
+`delayRender()` to prevent blank frames.
+
+## Agent SDK
+
+The `window.egakiSDK` singleton provides programmatic control:
+
+```js
+// Screenshot a frame
+const dataUrl = await window.egakiSDK.screenshot({ frame: 60 })
+
+// Export a segment
+await window.egakiSDK.export({ frameRange: [0, 90], path: 'clip.mp4' })
+
+// Get composition info
+const info = window.egakiSDK.getInfo()
+// { totalDuration, fps, width, height, sections: [...] }
+
+// Filmstrip for scene overview
+const filmstrip = await window.egakiSDK.filmstrip({
+  scenes: [0, 1, 2],
+  framesPerScene: 3,
+})
+```
+
+## Premounting for smooth playback
+
+egaki's `player-page.tsx` automatically adds `premountFor` (1 second) to every
+`Series.Sequence`. For custom TSX components that build their own `<Series>`,
+add `premountFor` manually:
+
+```tsx
+<Series>
+  <Series.Sequence durationInFrames={45}>
+    <Video src="/clip-01.mp4" muted loop objectFit="cover" />
+  </Series.Sequence>
+  <Series.Sequence premountFor={60} durationInFrames={45}>
+    <Video src="/clip-02.mp4" muted loop objectFit="cover" />
+  </Series.Sequence>
+</Series>
+```

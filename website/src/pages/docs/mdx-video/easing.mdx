@@ -1,0 +1,99 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Easing presets and spring utilities
+sidebarTitle: Easing
+description: EASE presets, cubicBezier, springFromDuration, dspring, and continuous intensity-parameterized motion curves ported from Jitter.
+icon: lucide:waypoints
+---
+
+# Easing
+
+egaki exports easing utilities from `egaki/video`. Always use these instead of
+`Easing.bezier()` from Remotion. The egaki versions attach metadata for tweakpane
+curve editing.
+
+## EASE presets
+
+Default presets at intensity 50:
+
+```tsx
+import { EASE } from 'egaki/video'
+import { interpolate } from 'remotion'
+
+const x = interpolate(frame, [0, 30], [0, 100], {
+  easing: EASE.smooth,
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+```
+
+**Bezier presets** (clean curves, no overshoot):
+`smooth`, `natural`, `decelerate`, `accelerate`
+
+**Spring/bounce presets** (values can exceed 0-1):
+`elasticSnap`, `bounce`, `bounceAnticipate`, `bounceThrow`, `overshoot`,
+`overshootElastic`, `overshootBouncy`, `decelerateOvershoot`, `decelerateElastic`,
+`naturalThrow`, `accelerateImpulse`, `accelerateElastic`, `impulseSlow`,
+`impulseOvershoot`
+
+## Custom intensity
+
+Each preset is a function that takes any intensity 0-100:
+
+```tsx
+import { smoothEasing, overshoot, bounceEasing } from 'egaki/video'
+
+const gentle = interpolate(frame, [0, 60], [0, 1], {
+  easing: smoothEasing(25),
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+
+const extreme = interpolate(frame, [0, 30], [0, 1], {
+  easing: overshoot(90),
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+```
+
+## cubicBezier
+
+Use `cubicBezier()` from `egaki/video` instead of `Easing.bezier()` from Remotion:
+
+```tsx
+import { cubicBezier } from 'egaki/video'
+
+const ease = cubicBezier(0.5, 0, 0, 1)
+```
+
+## springFromDuration
+
+Convert duration + bounce to Remotion spring config:
+
+```tsx
+import { spring } from 'remotion'
+import { springFromDuration, dspring } from 'egaki/video'
+
+// springFromDuration returns a config for spring()
+const scale = spring({ frame, fps, config: springFromDuration(0.5, 0.3) })
+
+// dspring is the shorthand
+const opacity = dspring(frame, fps, 0.6, 0.25) // 600ms, subtle bounce
+```
+
+**`bounce` parameter**: 0 = no overshoot, 0.25 = Apple-like, 0.5 = playful, 1 = maximum.
+
+## Building custom curves
+
+For advanced use, `polybezier` and `pathPreset` let you build multi-segment curves:
+
+```tsx
+import { polybezier, pathPreset } from 'egaki/video'
+
+const throwCurve = polybezier([
+  { x: 0, y: 0, upper: 0.7 },
+  { x: 0.33, y: -0.2, lower: 0.8, upper: 0.8 },
+  { x: 0.67, y: 1.3, lower: 0.1, upper: 0.1 },
+  { x: 1, y: 1, lower: 0.8 },
+])
+```

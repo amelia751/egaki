@@ -1,0 +1,96 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Get started with egaki in 2 minutes
+sidebarTitle: Quickstart
+description: Install the egaki CLI globally, configure an API key or ChatGPT OAuth, and generate your first AI image and video in under two minutes.
+icon: lucide:zap
+---
+
+# Quickstart
+
+## Install
+
+```bash
+pnpm add -g egaki
+```
+
+Or with npm:
+
+```bash
+npm install -g egaki
+```
+
+## Authenticate
+
+egaki needs provider API keys to generate media. The fastest way to start is with
+**ChatGPT auth** (uses your existing ChatGPT subscription) or a **Google AI Studio key**.
+
+### ChatGPT auth (easiest)
+
+```bash
+egaki login --provider chatgpt
+```
+
+Opens a browser window for OAuth. After approval, you can use OpenAI image models
+like `gpt-image-1.5`.
+
+### Google AI Studio key
+
+Get a free key from [aistudio.google.com](https://aistudio.google.com/apikey), then:
+
+```bash
+egaki login --provider google --key AIza...
+```
+
+This gives you access to **Imagen** and **Gemini** image models, plus **Veo** video models.
+
+### Egaki subscription
+
+One key for all providers. No need to manage separate API keys.
+
+```bash
+egaki subscribe --plan pro
+egaki login --provider egaki --key egaki_...
+```
+
+<Aside>
+<Note>
+Run `egaki login --show` at any time to see which providers are configured.
+</Note>
+</Aside>
+
+## Generate your first image
+
+```bash
+egaki image "a watercolor fox reading a map" -o fox.png
+```
+
+The CLI picks the best available model based on your configured providers.
+Override with `-m`:
+
+```bash
+egaki image "isometric floating city" -m imagen-4.0-generate-001 -o city.png
+```
+
+## Generate your first video
+
+```bash
+egaki video "a paper boat drifting on a calm lake at sunrise" -o boat.mp4
+```
+
+Video generation takes 1-5 minutes depending on the model. The CLI shows progress.
+
+## Discover available models
+
+```bash
+egaki models
+egaki models --type image
+egaki models --type video
+```
+
+## What's next
+
+- [Image generation guide](./image-generation.mdx) for editing, inpainting, and batch generation
+- [Video generation guide](./video-generation.mdx) for i2v, resolution control, and more
+- [Models reference](./models.mdx) for the full catalog with pricing
+- [CLI Reference](./cli/index.md) for every command and option

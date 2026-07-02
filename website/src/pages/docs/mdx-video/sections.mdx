@@ -1,0 +1,101 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Sections, durations, and preamble content
+sidebarTitle: Sections
+description: How headings define timed scenes with seconds, beats, or frames. Auto-duration from media elements and preamble for global content.
+icon: lucide:layout-list
+---
+
+# Sections
+
+Each `#` heading in your MDX defines a **section** (scene). Sections are rendered as
+Remotion `Series.Sequence` components, playing one after another.
+
+## Duration units
+
+Set duration on the heading with a number and optional unit:
+
+| Unit | Example | Meaning |
+|---|---|---|
+| `s` | `duration=3.5s` | Seconds (multiplied by fps) |
+| `beats` / `beat` | `duration=8beats` | Beats (using frontmatter `bpm`) |
+| `frames` / `f` | `duration=90frames` | Raw frames |
+| *(bare number)* | `duration=90` | Raw frames |
+
+```mdx
+---
+fps: 30
+bpm: 120
+---
+
+# Intro duration=3s
+
+# Verse duration=8beats
+
+# Bridge duration=90frames
+
+# Outro duration=2s
+```
+
+<Aside>
+<Warning>
+Heading durations are parsed from raw text, **not** MDX expressions.
+`duration={33 * BEAT}` does not work. Use `duration=33beats` instead.
+</Warning>
+</Aside>
+
+## Auto-duration from media
+
+When a heading does not set an explicit `duration`, the section uses the maximum
+duration of any `<Audio>` or `<Video>` element inside it.
+
+Place **long-running media** (soundtracks, background videos) in the **preamble**,
+not inside sections. Otherwise the section inherits the full media duration.
+
+## Preamble
+
+Content **before the first heading** is the preamble. It renders at the composition
+level, outside the `Series`, and persists across all sections.
+
+Use the preamble for:
+
+- **Soundtracks**: `<Audio src="/music.mp3" />` plays for the full video
+- **Background video**: `<Video src="/bg.mp4" />` behind all sections
+- **Global overlays**: watermarks, logos, progress bars
+
+```mdx
+---
+fps: 30
+bpm: 120
+---
+
+<Audio src="/soundtrack.mp3" />
+<Video src="/ambient-bg.mp4" objectFit="cover" />
+
+# First Section duration=5s
+
+This content appears on top of the ambient background.
+
+# Second Section duration=3s
+
+Background video continues playing.
+```
+
+Preamble content sits behind section content in z-order (earlier DOM = behind).
+
+## FPS and BEAT scope variables
+
+MDX expressions have access to **`FPS`** and **`BEAT`** as globals:
+
+- **`FPS`** = frames per second (from frontmatter `fps`, default 30)
+- **`BEAT`** = frames per beat, computed as `fps / (bpm / 60)`
+
+```mdx
+<TranslateX from={-140} to={0} duration={0.5 * FPS}>
+  <div>Slides in over half a second</div>
+</TranslateX>
+
+<Opacity from={0} to={1} duration={2 * BEAT}>
+  <div>Fades in over 2 beats</div>
+</Opacity>
+```

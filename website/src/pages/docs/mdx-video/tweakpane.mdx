@@ -1,0 +1,61 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Live parameter tuning with Tweakpane
+sidebarTitle: Tweakpane
+description: Use useTweakpane to register sliders, color pickers, and toggles in a shared pane for real-time parameter adjustment during preview.
+icon: lucide:sliders-horizontal
+---
+
+# Tweakpane
+
+`useTweakpane(label, schema)` registers tweakable parameters in a pane fixed
+to the top-right of the player. When the component unmounts, its folder is removed.
+
+## Basic usage
+
+```tsx
+import { useTweakpane } from 'egaki/video'
+
+export function MyComponent(props) {
+  const tp = useTweakpane('MyComponent', {
+    blur: { value: props.blur ?? 12, min: 0, max: 50, step: 0.5 },
+    visible: props.visible ?? true,
+    label: props.label ?? 'Hello',
+    color: props.color ?? '#ff0055',
+  })
+
+  return (
+    <div style={{ filter: `blur(${tp.blur}px)`, color: tp.color }}>
+      {tp.visible && tp.label}
+    </div>
+  )
+}
+```
+
+## Control types
+
+| Value type | UI control |
+|---|---|
+| `number` with `{ min, max, step }` | Slider |
+| `boolean` | Checkbox |
+| `string` | Text input |
+| `string` starting with `#` | Color picker |
+| `{ x, y }` object | Point 2D |
+
+## Copy changes button
+
+A **Copy changes** button at the top of the pane serializes all active component
+parameters as structured markdown. It includes the current frame, section heading,
+and only params that differ from their defaults.
+
+## Pattern: props as defaults
+
+Do not destructure tweakpane-managed props. Pass them as defaults so the prop
+serves as the initial value and tweakpane overrides it live:
+
+```tsx
+const tp = useTweakpane('Card', {
+  borderRadius: { value: props.borderRadius ?? 16, min: 0, max: 50 },
+  opacity: { value: props.opacity ?? 1, min: 0, max: 1, step: 0.01 },
+})
+```

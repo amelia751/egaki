@@ -1,0 +1,99 @@
+---
+$schema: https://holocron.so/frontmatter.json
+title: Supported models, providers, and pricing
+sidebarTitle: Models
+description: Full catalog of image, video, speech, and transcription models with per-image, per-second, and per-token pricing across all providers.
+icon: lucide:cpu
+---
+
+# Models
+
+egaki supports models from **Google**, **OpenAI**, **xAI**, **Fal.ai**, **Replicate**,
+**ElevenLabs**, **Cartesia**, **Deepgram**, and **Groq**.
+
+## Discover models
+
+```bash
+# All models
+egaki models
+
+# Filter by type
+egaki models --type image
+egaki models --type video
+egaki models --type speech
+egaki models --type transcription
+
+# Filter by provider
+egaki models --provider google
+egaki models --provider openai
+
+# JSON output for scripting
+egaki models --json
+```
+
+## Image models
+
+| Model ID | Provider | Pricing |
+|---|---|---|
+| `imagen-4.0-generate-001` | Google | $0.02/image |
+| `imagen-4.0-ultra-generate-001` | Google | $0.06/image |
+| `imagen-4.0-fast-generate-001` | Google | $0.01/image |
+| `gemini-2.5-flash-image` | Google | per-token |
+| `gemini-3.1-flash-image-preview` | Google | per-token |
+| `nano-banana-pro-preview` | Google | per-token |
+| `gpt-image-1.5` | OpenAI | $0.02-0.19/image |
+| `gpt-image-2` | OpenAI | $0.02-0.19/image |
+| `dall-e-3` | OpenAI | $0.04-0.12/image |
+| `grok-imagine-image` | xAI | $0.01/image |
+| `grok-imagine-image-quality` | xAI | $0.03/image |
+| `flux-kontext-pro` | BFL/Fal | $0.04/image |
+| `recraft-v4` | Recraft | $0.04/image |
+
+## Video models
+
+| Model ID | Provider | Duration | Pricing |
+|---|---|---|---|
+| `veo-3.1-generate-001` | Google | 4-8s | $0.35-1.50/s |
+| `veo-3.1-fast-generate-001` | Google | 4-8s | $0.10-0.40/s |
+| `klingai/kling-v2.5-turbo-t2v` | Kling | 5-10s | per-second |
+| `klingai/kling-v2.6-i2v` | Kling | 5-10s | per-second |
+| `bytedance/seedance-v1.5-pro` | Bytedance | 5-10s | per-second |
+| `grok-imagine-video` | xAI | 1-15s | $0.07/s |
+
+## Speech models
+
+| Model ID | Provider | Pricing |
+|---|---|---|
+| `tts-1` | OpenAI | $15/M chars |
+| `tts-1-hd` | OpenAI | $30/M chars |
+| `sonic-3.5` | Cartesia | $12/M chars |
+| `sonic-3` | Cartesia | $12/M chars |
+| `eleven_v3` | ElevenLabs | $30/M chars |
+| `eleven_flash_v2_5` | ElevenLabs | $8/M chars |
+
+## Transcription models
+
+| Model ID | Provider | Word timestamps |
+|---|---|---|
+| `whisper-1` | OpenAI | Yes |
+| `ink-whisper` | Cartesia | Yes |
+| `scribe_v1` | ElevenLabs | Yes |
+| `nova-3` | Deepgram | Yes |
+| `whisper-large-v3` | Groq | Yes |
+
+<Aside>
+<Tip>
+Pricing shown is approximate. Run `egaki models --json` for the latest costs
+from the egaki model catalog.
+</Tip>
+</Aside>
+
+## Vertex AI routing
+
+Prefix any Google model with `vertex/` to route through Vertex AI
+(Google Cloud billing) instead of Google AI Studio:
+
+```bash
+egaki image "photo" -m vertex/imagen-4.0-generate-001 -o photo.png
+egaki video "clip" -m vertex/veo-3.1-generate-001 -o clip.mp4
+```
