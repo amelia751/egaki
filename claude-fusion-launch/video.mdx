@@ -1,0 +1,175 @@
+---
+fps: 30
+width: 1920
+height: 1080
+---
+
+import {
+  COLORS,
+  FusionToggleCard,
+  WordRevealTitle,
+  PromptCard,
+  ChatBubble,
+  StillFrame,
+  TextAndModel,
+  ClaudeLogoOutro,
+} from './components'
+
+# Toggle duration=2.3s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#CF6E59' }} />
+</Background>
+
+<FusionToggleCard toggleAtSec={1.2} />
+
+# Intro duration=2.5s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#CF6E59' }} />
+</Background>
+
+<Opacity from={1} to={0} duration={0.3 * FPS} startInFrames={-0.3 * FPS}>
+  <WordRevealTitle lines={['Claude now connects with', 'Autodesk Fusion']} fontSize={84} />
+</Opacity>
+
+# Title Place Elements duration=2.1s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#F5F3ED' }} />
+</Background>
+
+<WordRevealTitle lines={['Place elements precisely']} fontSize={80} wordStaggerSec={0.08} />
+
+# Prompt Keyboard duration=2.7s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#F5F3ED' }} />
+</Background>
+
+<PromptCard
+  text="Can you look at my design in Fusion? I need you to arrange the keys properly on the keyboard."
+  typeStartSec={0.3}
+  typeDurationSec={1.8}
+  sendAtSec={2.4}
+/>
+
+# Split Keyboard Scattered duration=3.7s
+
+<StillFrame src="/stills/keyboard-split-scattered.png" from={1} to={1.015} />
+
+# Split Keyboard Mid duration=3.2s
+
+<StillFrame src="/stills/keyboard-split-mid.png" from={1} to={1.015} />
+
+# Split Keyboard Arranged duration=2.8s
+
+<StillFrame src="/stills/keyboard-split-arranged.png" from={1} to={1.015} />
+
+# Keyboard Fullscreen duration=2.1s
+
+<StillFrame src="/stills/keyboard-fullscreen.png" from={1.0} to={1.08} origin="55% 45%" />
+
+# Title See Inside duration=2.5s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#F5F3ED' }} />
+</Background>
+
+<WordRevealTitle lines={['See inside your designs']} fontSize={80} wordStaggerSec={0.08} />
+
+# Bubble Exploded duration=2.3s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#F5F3ED' }} />
+</Background>
+
+<ChatBubble text={"Can you move the main components vertically to\ncreate an exploded view?"} />
+
+# Chat Exploded Question duration=2.1s
+
+<StillFrame src="/stills/chat-exploded-question.png" from={1} to={1.02} />
+
+# Split Exploded duration=4.3s
+
+<StillFrame src="/stills/exploded-split.png" from={1} to={1.015} />
+
+# Chat Exploded Zoom duration=2s
+
+<StillFrame src="/stills/chat-exploded-zoom.png" from={1} to={1.025} origin="30% 40%" />
+
+# Exploded Fullscreen duration=1.7s
+
+<StillFrame src="/stills/exploded-fullscreen.png" from={1.0} to={1.06} origin="50% 45%" />
+
+# Exploded Showcase duration=2.7s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#F5F3ED' }} />
+</Background>
+
+<TextAndModel text="Now that's a clean exploded view." src="/stills/exploded-fullscreen.png" />
+
+# Title Materials duration=2.2s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#F5F3ED' }} />
+</Background>
+
+<WordRevealTitle lines={['Explore material options']} fontSize={80} wordStaggerSec={0.08} />
+
+# Bubble Casing duration=1.9s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#F5F3ED' }} />
+</Background>
+
+<ChatBubble text={"Let's focus on the bottom casing.\nCan you hide other components?"} />
+
+# Casing Chat 1 duration=3s
+
+<StillFrame src="/stills/casing-chat-1.png" from={1} to={1.02} />
+
+# Casing Chat 2 duration=3s
+
+<StillFrame src="/stills/casing-chat-2.png" from={1} to={1.02} />
+
+# Casing Chat 3 duration=3.5s
+
+<StillFrame src="/stills/casing-chat-3.png" from={1} to={1.025} origin="50% 60%" />
+
+# Casing Split 1 duration=3s
+
+<StillFrame src="/stills/casing-split-1.png" from={1} to={1.015} />
+
+# Casing Split 2 duration=2.5s
+
+<StillFrame src="/stills/casing-split-2.png" from={1} to={1.015} />
+
+# Casing Split 3 duration=1.4s
+
+<StillFrame src="/stills/casing-split-3.png" from={1} to={1.01} />
+
+# Casing Dark 1 duration=1.8s
+
+<StillFrame src="/stills/casing-dark-1.png" from={1.0} to={1.05} origin="50% 50%" />
+
+# Casing Dark 2 duration=1.9s
+
+<StillFrame src="/stills/casing-dark-2.png" from={1.0} to={1.04} />
+
+# CTA duration=4.1s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#EFEEE5' }} />
+</Background>
+
+<WordRevealTitle lines={['Available now in the', 'Connectors Directory']} fontSize={72} />
+
+# Outro duration=6.75s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#EFEEE5' }} />
+</Background>
+
+<ClaudeLogoOutro />

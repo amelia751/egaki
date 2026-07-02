@@ -1,0 +1,24 @@
+{
+  "name": "claude-fusion-launch",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@remotion/media": "4.0.475",
+    "@remotion/player": "4.0.475",
+    "egaki": "workspace:^",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "remotion": "4.0.475",
+    "spiceflow": "1.26.0-rsc.7"
+  },
+  "devDependencies": {
+    "@mdx-js/typescript-plugin": "^0.1.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.10"
+  }
+}
