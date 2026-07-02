@@ -62,7 +62,7 @@ export function HeroSection() {
         >
           <span>make videos with code.</span>
           <span>
-            <code className='bg-primary/15 px-2.5 py-0.5 rounded-md font-mono text-[0.85em] font-bold tracking-[0.15em]'>
+            <code className='bg-foreground/10 px-2.5 py-0.5 rounded-md font-mono text-[0.85em] font-bold tracking-[0.15em]'>
               mdx
             </code>{' '}
             in, videos out.
@@ -72,7 +72,7 @@ export function HeroSection() {
         <div className='flex gap-3 flex-wrap justify-center'>
           <a
             href='/docs/quickstart'
-            className='no-underline inline-flex shrink-0 items-center justify-center gap-2.5 h-10 rounded-md px-6 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all'
+            className='no-underline inline-flex shrink-0 items-center justify-center gap-2.5 h-10 rounded-md px-6 text-sm font-medium bg-foreground text-background hover:opacity-90 transition-all'
           >
             Get Started
           </a>
