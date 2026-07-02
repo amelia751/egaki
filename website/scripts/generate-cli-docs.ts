@@ -11,7 +11,7 @@ import path from 'node:path'
 // Import the CLI instance (does not call parse())
 const { cli } = await import('egaki/src/cli/cli')
 
-const pages = generateDocs({ cli, basePath: '/docs/cli' })
+const pages = generateDocs({ cli })
 
 const outDir = path.join(import.meta.dirname, '..', 'src', 'pages', 'docs', 'cli')
 fs.mkdirSync(outDir, { recursive: true })

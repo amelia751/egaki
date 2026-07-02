@@ -34,9 +34,17 @@
     ]
   },
 
-  // Custom domain
+  // Path routes for the API on egaki.org. The docs website worker (website/)
+  // owns the egaki.org custom domain as fallback; these more-specific path
+  // routes take precedence over the custom domain, so the published CLI URLs
+  // (https://egaki.org/v3/ai, /upload, /buy, ...) keep working unchanged.
   "routes": [
-    { "pattern": "egaki.org", "custom_domain": true },
-    { "pattern": "www.egaki.org", "custom_domain": true }
+    { "pattern": "egaki.org/v3/*", "zone_name": "egaki.org" },
+    { "pattern": "egaki.org/api/*", "zone_name": "egaki.org" },
+    { "pattern": "egaki.org/upload", "zone_name": "egaki.org" },
+    { "pattern": "egaki.org/uploads/*", "zone_name": "egaki.org" },
+    { "pattern": "egaki.org/buy*", "zone_name": "egaki.org" },
+    { "pattern": "egaki.org/success*", "zone_name": "egaki.org" },
+    { "pattern": "egaki.org/stripe/*", "zone_name": "egaki.org" }
   ]
 }

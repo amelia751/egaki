@@ -5,9 +5,10 @@
   "scripts": {
     "dev": "vite dev",
     "generate-cli-docs": "tsx scripts/generate-cli-docs.ts",
-    "build": "pnpm generate-cli-docs && vite build",
+    "build": "pnpm generate-cli-docs && tsc && vite build",
     "start": "node dist/rsc/index.js",
-    "deploy": "pnpm build && wrangler deploy"
+    "deploy": "pnpm build && wrangler deploy",
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@holocron.so/vite": "^0.23.0",

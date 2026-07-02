@@ -1,6 +1,13 @@
 {
   "name": "egaki-docs",
   "main": "spiceflow/cloudflare-entrypoint",
-  "compatibility_date": "2026-06-30",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // egaki.org root serves the docs site. The gateway worker (gateway/) keeps
+  // serving its API paths (/v3/*, /api/*, /buy, /success, /stripe/*, /upload*)
+  // via zone path routes, which take precedence over this custom domain.
+  "routes": [
+    { "pattern": "egaki.org", "custom_domain": true },
+    { "pattern": "www.egaki.org", "custom_domain": true }
+  ]
 }
