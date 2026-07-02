@@ -3,7 +3,7 @@
   "version": "0.6.0",
   "type": "module",
   "description": "AI image, video, and speech generation CLI with MDX-to-video framework",
-  "main": "./dist/cli/cli.js",
+  "main": "./dist/cli/main.js",
   "types": "./dist/cli/cli.d.ts",
   "exports": {
     "./package.json": "./package.json",
@@ -48,7 +48,7 @@
       "default": "./src/vite/*.tsx"
     }
   },
-  "bin": "dist/cli/cli.js",
+  "bin": "dist/cli/main.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/remorses/egaki.git",
@@ -66,7 +66,7 @@
   ],
   "scripts": {
     "dev": "tsx src/cli/cli.ts",
-    "build": "tsc && chmod +x dist/cli/cli.js",
+    "build": "tsc && chmod +x dist/cli/main.js",
     "test": "vitest run",
     "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && pnpm build"
   },

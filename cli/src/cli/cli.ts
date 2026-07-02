@@ -1267,7 +1267,9 @@ const MAX_UPLOAD_SIZE = 100 * 1024 * 1024
 
 cli.help()
 cli.version(pkg.version)
-await cli.parse()
+
+export { cli }
+
 
 // ─── error output helpers ────────────────────────────────────────────────────
 
