@@ -509,7 +509,7 @@ Conventions and rules:
 
 **Vite plugin** (`src/vite/vite-plugin.ts`): accepts `{ entry: './video.mdx' }`, generates virtual modules for the MDX source, user imports (eager glob of all `.tsx/.ts` in project root), and the Spiceflow app entry. Auto-injects `spiceflowPlugin` and `@vitejs/plugin-react`. HMR: entry MDX edits invalidate virtual modules and send `rsc:update` (string flows through flight); user `.tsx`/`.ts`/imported-`.mdx` edits stay in the client module graph — component files get React Fast Refresh, everything else propagates through `virtual:egaki-modules` to `mdx-client.tsx`, which accepts the dep update via `import.meta.hot.accept('virtual:egaki-modules', cb)` and pushes the fresh map into React via `useSyncExternalStore`.
 
-**Components** (`components.tsx`): ported from [remocn](https://github.com/kapishdima/remocn). Includes `MeshGradientBg`, `BlurReveal`, `MaskedSlideReveal`, `StaggeredFadeUp`, `TerminalSimulator`, `GlassCodeBlock`, `ShimmerSweep`, `SpringPopIn`, `AnimatedChart`, `FeaturePill`. All use Remotion hooks (`useCurrentFrame`, `useVideoConfig`, `spring`, `interpolate`).
+**Components** (`components.tsx`): ported from [remocn](https://github.com/kapishdima/remocn). Includes `BlurReveal`, `MaskedSlideReveal`, `StaggeredFadeUp`, `ShimmerSweep`. All use Remotion hooks (`useCurrentFrame`, `useVideoConfig`, `spring`, `interpolate`).
 
 **Animation primitives** (`mdx-video.tsx`): `Opacity`, `Scale`, `TranslateX`, `TranslateY`, `Blur`. Each animates one CSS property from `from` to `to` over `duration` frames. Enter vs exit is inferred from `startInFrames`: positive or zero = enter (offset from section start), negative = exit (offset from section end). `cutInMotion` (0-1) clips the animation at the scene boundary for conveyor-belt transitions. By default, all primitives use `<Fill>` wrapper (full-frame AbsoluteFill). Pass `inline` to wrap in a plain `<div>` instead, so the element stays in flow layout (flex, grid, etc.) instead of covering the full frame. Pass `style` to add extra CSS to the wrapper. Opacity is never implicit; compose by nesting (e.g. wrap `<TranslateX>` in `<Opacity>` for a fade+slide). Enter animations default to ease-out; exit animations default to ease-in.
 
@@ -1005,7 +1005,7 @@ Content **before the first `#` heading** in the MDX file is the **preamble**. It
 Use the preamble for:
 - **Soundtracks**: `<Audio src="/music.mp3" />` plays for the full video
 - **Ambient background video**: `<Video src="/bg.mp4" />` loops behind all sections
-- **Global background color or image**: a `<Background>` with `<MeshGradientBg>` or a static color that shows behind every section without repeating it in each one
+- **Global background color or image**: a `<Background>` with a shader (e.g. `<BandsShader>`) or a static color that shows behind every section without repeating it in each one
 - **Persistent overlays**: watermarks, logos, or any element that should never disappear between sections
 
 ```mdx
@@ -1299,7 +1299,7 @@ backward, forward, or mid-transition always produces the correct frame.
   column). Components that render a full-frame `AbsoluteFill` (like
   `BlurReveal`) measure as zero-size wrappers and the transition no-ops.
 - Works for elements inside imported TSX components too (React context).
-- The ghost stays mounted for the first 5 seconds of a section
+- The ghost stays mounted for the first 3 seconds of a section
   (`GHOST_WINDOW_SECONDS` in `player-page.tsx`); springs must settle within
   that window.
 

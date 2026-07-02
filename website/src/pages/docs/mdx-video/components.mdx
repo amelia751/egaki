@@ -2,14 +2,24 @@
 $schema: https://holocron.so/frontmatter.json
 title: Built-in visual components for MDX videos
 sidebarTitle: Components
-description: BlurReveal, MeshGradientBg, StaggeredFadeUp, TerminalSimulator, GlassCodeBlock, Fill, Background, Img, and Video. Available in MDX without imports.
+description: Fill, Background, BlurReveal, MaskedSlideReveal, StaggeredFadeUp, ShimmerSweep, CodeBlock, AngledScreen, Img, Audio, and Video. Available in MDX without imports.
 icon: lucide:component
 ---
 
 # Built-in Components
 
-egaki includes visual components ported from [remocn](https://github.com/kapishdima/remocn).
-All are available in MDX without imports.
+egaki ships a set of visual components that are available in MDX **without
+imports**. The full built-in map is: `Fill`, `Background`, `LayoutTransition`,
+`AngledScreen`, `BandsShader`, `WaveGradientShader`, `LiquidGradientShader`,
+`DispersionRingsShader`, `BlurReveal`, `MaskedSlideReveal`, `StaggeredFadeUp`,
+`CodeBlock`, `ShimmerSweep`, `Img`, `Audio`, `Video`, `Opacity`, `Scale`,
+`TranslateX`, `TranslateY`, `Blur`, `GeneratedImage`, `GeneratedVideo`, and
+`GeneratedSpeech`.
+
+Animation primitives (`Opacity`, `Scale`, `TranslateX`, `TranslateY`, `Blur`)
+are covered in [Animation](/docs/mdx-video/animation). Shaders are covered in
+[Shaders](/docs/mdx-video/shaders). Layout transitions have their
+[own page](/docs/mdx-video/layout-transition).
 
 ## Fill
 
@@ -30,7 +40,7 @@ Renders behind section content. Use for gradient backgrounds, images, or videos:
 
 ```mdx
 <Background>
-  <MeshGradientBg />
+  <BandsShader />
 </Background>
 ```
 
@@ -40,16 +50,6 @@ Animated text reveal with a blur-to-sharp transition:
 
 ```mdx
 <BlurReveal text="Hello World" />
-```
-
-## MeshGradientBg
-
-Animated mesh gradient background:
-
-```mdx
-<Background>
-  <MeshGradientBg />
-</Background>
 ```
 
 ## MaskedSlideReveal
@@ -72,27 +72,6 @@ Children fade up one by one with staggered timing:
 </StaggeredFadeUp>
 ```
 
-## TerminalSimulator
-
-Animated terminal with typed-out commands:
-
-```mdx
-<TerminalSimulator
-  commands={['npm install egaki', 'egaki image "hello" -o hello.png']}
-/>
-```
-
-## GlassCodeBlock
-
-Code block with frosted glass styling:
-
-```mdx
-<GlassCodeBlock
-  code={'const x = 42'}
-  language="typescript"
-/>
-```
-
 ## ShimmerSweep
 
 A shimmer sweep effect over content:
@@ -103,25 +82,27 @@ A shimmer sweep effect over content:
 </ShimmerSweep>
 ```
 
-## SpringPopIn
+## CodeBlock
 
-Spring-based pop-in animation:
+A ray.so-style syntax-highlighted code block powered by shiki, with multiple
+themes and window chrome styles:
 
 ```mdx
-<SpringPopIn>
-  <div style={{ width: 200, height: 200, background: '#6366f1', borderRadius: 16 }} />
-</SpringPopIn>
+<CodeBlock language="typescript" filename="hello.ts">
+{`const x = 42`}
+</CodeBlock>
 ```
 
-## AnimatedChart
+## AngledScreen
 
-Animated bar or line chart:
+CSS 3D perspective wrapper with fake depth-of-field. Wraps any children
+(images, videos, divs) in a 3D-rotated plane; the far edge is blurred
+automatically based on the rotation direction:
 
 ```mdx
-<AnimatedChart
-  data={[40, 70, 45, 90, 60]}
-  type="bar"
-/>
+<AngledScreen rotateY={-20}>
+  <Img src="/screenshot.png" style={{ width: '100%' }} />
+</AngledScreen>
 ```
 
 ## Img and Video
@@ -138,3 +119,17 @@ uses `delayRender()` to prevent blank frames during export.
 ```
 
 Use `objectFit="cover"` to fill the frame edge to edge, cropping excess content.
+
+## Audio
+
+`<Audio>` from `@remotion/media` is available without import. Supports
+`startInFrames`, `trimBefore`, `trimAfter`, and `volume`:
+
+```mdx
+<Audio src="/music.mp3" volume={0.3} />
+```
+
+## GeneratedImage, GeneratedVideo, GeneratedSpeech
+
+AI-generated media components that render server-side and cache results to
+`public/generated/`. See [Server Components](/docs/mdx-video/server-components).

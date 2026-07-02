@@ -13,7 +13,7 @@ icon: lucide:play
 ```bash
 mkdir my-video && cd my-video
 pnpm init
-pnpm add egaki vite @vitejs/plugin-react
+pnpm add egaki vite @vitejs/plugin-react spiceflow
 ```
 
 ## Configure Vite
@@ -21,10 +21,10 @@ pnpm add egaki vite @vitejs/plugin-react
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
-import { egakiPlugin } from 'egaki/vite'
+import { video } from 'egaki/vite'
 
 export default defineConfig({
-  plugins: [egakiPlugin({ entry: './video.mdx' })],
+  plugins: [video({ entry: './video.mdx' })],
 })
 ```
 

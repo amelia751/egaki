@@ -41,7 +41,7 @@ Animate a still image. The model must support **i2v** (image-to-video):
 ```bash
 egaki video "slowly animate the clouds" \
   --input photo.jpg \
-  -m klingai/kling-v2.6-i2v \
+  -m kling-v2.6-i2v \
   -o animated.mp4
 ```
 
@@ -103,7 +103,7 @@ egaki video "looping rain animation" --stdout | ffmpeg -i pipe:0 -vf fps=12 rain
 |---|---|
 | `veo-3.1-generate-001` | Highest quality, audio, up to 4K |
 | `veo-3.1-fast-generate-001` | Fast iteration, 720p-4K |
-| `klingai/kling-v2.5-turbo-t2v` | Cheap and fast |
-| `klingai/kling-v2.6-i2v` | Image-to-video |
-| `bytedance/seedance-v1.5-pro` | Audio support, three resolutions |
+| `kling-v2.5-turbo-t2v` | Cheap and fast |
+| `kling-v2.6-i2v` | Image-to-video |
+| `seedance-v1.5-pro` | Audio support, three resolutions |
 | `grok-imagine-video` | Editing, extension, R2V |

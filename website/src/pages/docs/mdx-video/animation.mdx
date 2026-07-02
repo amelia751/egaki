@@ -75,8 +75,8 @@ By default, primitives use `<Fill>` (full-frame AbsoluteFill). Pass `inline` to 
 in flow layout (flex, grid):
 
 ```mdx
-<Scale from={0.8} to={1} duration={30} inline>
-  <Opacity from={0} to={1} duration={20} inline>
+<Scale from={0.8} to={1} duration={1 * FPS} inline>
+  <Opacity from={0} to={1} duration={0.7 * FPS} inline>
     <div style={{ width: 200 }}>Card content</div>
   </Opacity>
 </Scale>
@@ -106,9 +106,9 @@ Nest primitives to compose multiple effects on the same element:
 Pass `style` to add CSS to the animation wrapper:
 
 ```mdx
-<Scale from={0} to={1} duration={24} inline
+<Scale from={0} to={1} duration={0.8 * FPS} inline
   style={{ width: '100%', height: '100%', borderRadius: '20%', overflow: 'hidden' }}>
-  <img src="/photo.png" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+  <Img src="/photo.png" objectFit="cover" style={{ width: '100%', height: '100%' }} />
 </Scale>
 ```
 
