@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.7.1
+
+1. **Fixed `egaki/vite` import failing from npm** — the Vite plugin export was pointing to raw `.ts` source files, which Node cannot load from `node_modules`. Now correctly points to compiled JS. The `./cached-generate` export had the same issue.
+2. **Fixed path resolution in published package** — the Vite plugin resolves `app.tsx` and `motion-timing.ts` from the `src/vite/` directory. Previously it used `import.meta.url` directly, which broke when running from `dist/vite/`. Now resolves relative to the package root.
+
 ## 0.7.0
 
 1. **MDX video framework** — write video scenes in MDX files, preview in a browser-based player, and export to MP4 via in-browser WebCodecs rendering. Each `#` heading becomes a timed section. Animation primitives (`Opacity`, `Scale`, `TranslateX`, `TranslateY`, `Blur`) handle motion with composable enter/exit animations:

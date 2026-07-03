@@ -24,10 +24,11 @@ import { mdxParse } from 'safe-mdx/parse'
 import { collectServerImportSources } from './server-mdx.ts'
 import { parseFrontmatter } from './mdx-parse.ts'
 
-// Resolve the package src/ directory from this file's location.
-// Used for resolve.alias so the RSC module runner can resolve relative
-// imports from app.tsx (same pattern as egaki/vite).
-const __srcDir = fileURLToPath(new URL('.', import.meta.url))
+// Resolve the package src/vite/ directory from this file's location.
+// This file may run from src/vite/ (dev) or dist/vite/ (published).
+// Either way, going up 2 levels reaches the package root, then into src/vite/.
+const __pkgRoot = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../..')
+const __srcDir = path.join(__pkgRoot, 'src', 'vite')
 const APP_SRC_PATH = path.join(__srcDir, 'app.tsx')
 
 const VIRTUAL_APP = 'virtual:egaki-app'

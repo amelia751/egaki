@@ -1,6 +1,6 @@
 {
   "name": "egaki",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "description": "AI image, video, and speech generation CLI with MDX-to-video framework",
   "main": "./dist/cli/main.js",
@@ -28,12 +28,12 @@
       "default": "./src/vite/server-components.tsx"
     },
     "./cached-generate": {
-      "types": "./src/cli/cached-generate.ts",
-      "default": "./src/cli/cached-generate.ts"
+      "types": "./dist/cli/cached-generate.d.ts",
+      "default": "./dist/cli/cached-generate.js"
     },
     "./vite": {
-      "types": "./src/vite/vite-plugin.ts",
-      "default": "./src/vite/vite-plugin.ts"
+      "types": "./dist/vite/vite-plugin.d.ts",
+      "default": "./dist/vite/vite-plugin.js"
     },
     "./mdx-components": {
       "types": "./src/vite/mdx-provided-components.ts",
