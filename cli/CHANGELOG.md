@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.7.2
+
+1. **Fixed missing `spiceflow` and `@vitejs/plugin-react` dependencies** — both were listed as optional peer dependencies but imported unconditionally by the Vite plugin. Now included as regular dependencies so `egaki/vite` works out of the box without manually installing them.
+
 ## 0.7.1
 
 1. **Fixed `egaki/vite` import failing from npm** — the Vite plugin export was pointing to raw `.ts` source files, which Node cannot load from `node_modules`. Now correctly points to compiled JS. The `./cached-generate` export had the same issue.

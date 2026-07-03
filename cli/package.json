@@ -1,6 +1,6 @@
 {
   "name": "egaki",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "type": "module",
   "description": "AI image, video, and speech generation CLI with MDX-to-video framework",
   "main": "./dist/cli/main.js",
@@ -117,17 +117,18 @@
     "tweakpane": "^4.0.5",
     "yaml": "^2.9.0",
     "zod": "^4.3.6",
+    "@vitejs/plugin-react": "^6.0.2",
+    "spiceflow": "1.26.0-rsc.7",
     "zustand": "^5.0.14"
   },
   "peerDependencies": {
-    "@vitejs/plugin-react": ">=6",
+    "vite": ">=6",
     "motion": ">=12",
     "motion-dom": ">=12",
-    "motion-utils": ">=12",
-    "spiceflow": ">=1.26.0-rsc.5"
+    "motion-utils": ">=12"
   },
   "peerDependenciesMeta": {
-    "@vitejs/plugin-react": {
+    "vite": {
       "optional": true
     },
     "motion": {
@@ -138,15 +139,11 @@
     },
     "motion-utils": {
       "optional": true
-    },
-    "spiceflow": {
-      "optional": true
     }
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/react": "^19.2.17",
-    "@vitejs/plugin-react": "^6.0.2",
     "vite": "^8.0.10",
     "vitest": "^4.1.8"
   }
