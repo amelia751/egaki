@@ -1,10 +1,19 @@
-# egaki
-
-Generate AI images and videos from the terminal with one command.
+<div align='center' class='hidden'>
+    <br/>
+    <br/>
+    <h3>egaki</h3>
+    <p>AI image and video generation from the terminal. MDX-to-video framework built on Remotion.</p>
+    <br/>
+    <br/>
+</div>
 
 `egaki` is a TypeScript CLI built on the Vercel AI SDK and goke. It supports
 Google Imagen, Gemini image-capable models, video generation (Veo, Kling, Wan,
 Bytedance Seedance, xAI Grok), and model discovery with pricing.
+
+It also includes a **MDX-to-video framework** built on Remotion: write MDX with
+headings as section boundaries, use built-in animation primitives, easing presets,
+layout transitions, captions, and TTS. Export to MP4 directly in the browser.
 
 ## Install
 
@@ -297,7 +306,7 @@ egaki image "mascot variations, flat vector look" \
 | Model ID | Best for | Example command |
 | --- | --- | --- |
 | `veo-3.1-generate-001` | Highest quality video with audio, up to 4K | `egaki video "rainy Tokyo street at night" -m veo-3.1-generate-001 --duration 8 -o tokyo.mp4` |
-| `veo-3.1-fast-generate-001` | Fast Veo with 720p–4K, good for iteration | `egaki video "abstract paint patterns" -m veo-3.1-fast-generate-001 --duration 5 -o paint.mp4` |
+| `veo-3.1-fast-generate-001` | Fast Veo with 720p-4K, good for iteration | `egaki video "abstract paint patterns" -m veo-3.1-fast-generate-001 --duration 5 -o paint.mp4` |
 | `vertex/veo-3.1-generate-001` | Same as above, routed through Vertex AI | `egaki video "rainy Tokyo street" -m vertex/veo-3.1-generate-001 --duration 8 -o tokyo.mp4` |
 | `klingai/kling-v2.5-turbo-t2v` | Cheap, fast Kling text-to-video | `egaki video "a paper boat on a pond" -m klingai/kling-v2.5-turbo-t2v --duration 5 -o boat.mp4` |
 | `bytedance/seedance-v1.5-pro` | Bytedance, audio support, three resolutions | `egaki video "timelapse of clouds above mountains" -m bytedance/seedance-v1.5-pro -o clouds.mp4` |
@@ -312,10 +321,10 @@ egaki image "mascot variations, flat vector look" \
 - **Recraft models (`recraft-*`)**: v2/v3/v4 families available via AI Gateway subscription
 - **xAI image models (`grok-imagine-*`)**: `--quality`, `--resolution`, `--output-format`, `--input` for editing, `-n` for batches. Auth via API key or Grok Build OAuth
 - **Vertex models (`vertex/*`)**: same models as Google AI Studio, routed through Vertex AI / Google Cloud billing
-- **Google Veo video models**: up to 4K, audio optional, duration 4–8s
+- **Google Veo video models**: up to 4K, audio optional, duration 4-8s
 - **Kling video models**: mode (std/pro), audio on v2.6+, image-to-video support
-- **Bytedance Seedance**: 480p–1080p, audio support on v1.5-pro
-- **xAI Grok video (`grok-imagine-video`)**: 480p–720p, 1–15s, i2v, video editing, video extension, R2V from reference images
+- **Bytedance Seedance**: 480p-1080p, audio support on v1.5-pro
+- **xAI Grok video (`grok-imagine-video`)**: 480p-720p, 1-15s, i2v, video editing, video extension, R2V from reference images
 
 ## Subscription and usage
 
@@ -350,6 +359,34 @@ egaki usage
 egaki unsubscribe
 ```
 
+## CLI commands
+
+| Command | What it does |
+|---|---|
+| `egaki image` | Generate/edit images (Imagen, Gemini, GPT, Fal, xAI) |
+| `egaki video` | Generate videos (Veo, Kling, Wan, Seedance, xAI) |
+| `egaki speech` | Text-to-speech (OpenAI, ElevenLabs, Cartesia) |
+| `egaki demucs` | Stem separation via fal.ai (no local torch needed) |
+| `egaki voice clone` | Clone a voice from audio (Cartesia, ElevenLabs) |
+| `egaki transcribe` | Speech-to-text (OpenAI, ElevenLabs, Deepgram, Groq, Cartesia) |
+| `egaki models` | List available models with pricing |
+
+Audio workflow example:
+
+```bash
+# 1. Separate vocals from a song
+egaki demucs song.mp3 --stems vocals -o stems/
+
+# 2. Clone the voice from the isolated vocals
+egaki voice clone stems/song-vocals.mp3 --name "Singer" --json
+
+# 3. Generate TTS with the cloned voice
+egaki speech "Your text here." --voice <voice-id> -m sonic-3.5 -o output.mp3
+
+# 4. Transcribe audio to get word timestamps
+egaki transcribe recording.mp3 -m whisper-1
+```
+
 ## Help
 
 ```bash
@@ -364,6 +401,985 @@ egaki models --help
 - `egaki login` stores provider keys in `~/.config/egaki/credentials.json`.
 - `egaki subscribe`, `egaki usage`, and `egaki unsubscribe` manage Egaki plans.
 - Video costs are tracked per-second based on model, resolution, and duration.
+
+---
+
+# MDX Video Framework
+
+Write MDX with headings as section boundaries; each heading becomes a timed
+Remotion `Series.Sequence`. Frontmatter sets global `fps` and `bpm`. Export
+to MP4 directly in the browser via WebCodecs.
+
+## Getting started
+
+Create a new video project:
+
+```bash
+mkdir my-video && cd my-video
+pnpm init
+pnpm add egaki remotion @remotion/media react react-dom
+```
+
+Create `video.mdx`:
+
+```mdx
+---
+fps: 30
+bpm: 120
+---
+
+# Intro duration=3s
+
+<TranslateX from={-140} to={0} duration={0.5 * FPS}>
+  <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>
+    Hello World
+  </div>
+</TranslateX>
+
+# Outro duration=2s
+
+<Opacity from={1} to={0} duration={0.5 * FPS} startInFrames={-0.5 * FPS}>
+  <div style={{ fontSize: 48, color: 'white' }}>Goodbye</div>
+</Opacity>
+```
+
+Create `vite.config.ts`:
+
+```ts
+import { defineConfig } from 'vite'
+import { egakiPlugin } from 'egaki/vite'
+
+export default defineConfig({
+  plugins: [egakiPlugin({ entry: './video.mdx' })],
+})
+```
+
+Run `pnpm dev` and open the browser to see the player with controls and export.
+
+## How it works
+
+```
+MDX file
+  │
+  ▼
+app.tsx (server, Spiceflow RSC)
+  └── passes the raw MDX source string to the client via RSC flight
+        │
+        ▼
+mdx-client.tsx ('use client', runs in the browser)
+  ├── safe-mdx parses AST, resolves user imports
+  ├── splits into MdxSection[] by headings, parses durations
+  ├── renders each section to JSX (client-side React)
+  └── renders PlayerPage with the sections
+        │
+        ▼
+player-page.tsx (client)
+  ├── wraps sections in Remotion <Series> / <Series.Sequence>
+  ├── renders interactive <Player> with controls
+  └── "Export MP4" button ► @remotion/web-renderer (WebCodecs, in-browser)
+```
+
+MDX renders fully on the client. Expression props can be functions
+(`easing={x => x}`), and user `.tsx` components don't need a `'use client'`
+directive.
+
+## Sections and duration
+
+Each `#` heading creates a new section. Set duration with a unit suffix:
+
+| Unit | Example | Meaning |
+|---|---|---|
+| `s` | `duration=3.5s` | Seconds (multiplied by fps) |
+| `beats` / `beat` | `duration=8beats` | Beats (using frontmatter `bpm`) |
+| `frames` / `frame` / `f` | `duration=90frames` | Raw frames |
+| *(bare number)* | `duration=90` | Raw frames |
+
+```mdx
+---
+fps: 30
+bpm: 120
+---
+
+# Intro duration=3s
+
+# Verse duration=8beats
+
+# Bridge duration=90frames
+
+# Outro duration=2s
+```
+
+Heading durations are parsed from raw text, **not** MDX expressions.
+`duration={33 * BEAT}` does not work; use `duration=33beats` instead.
+
+### Auto-duration from media
+
+When a heading does **not** set an explicit `duration`, the section uses the
+maximum duration of any `<Audio>` or `<Video>` element inside it (including
+positive `startInFrames` offset). The longest media wins. If no media is
+present and no duration is set, the section falls back to a default frame count.
+
+**Pitfall:** if you want a section's duration to match a short audio clip,
+never place a long-running video or full-length soundtrack `<Audio>` inside
+that section. Place long-running media in the **preamble** (before the first
+heading) so it plays across all sections without affecting any section's
+auto-duration.
+
+## `FPS` and `BEAT` scope variables
+
+MDX expressions have access to `FPS` and `BEAT` as global scope variables,
+derived from frontmatter `fps` and `bpm`. No import needed.
+
+- **`FPS`** = frames per second (default 30). Use to convert seconds to frames.
+- **`BEAT`** = frames per beat, computed as `fps / (bpm / 60)`. At 120bpm/30fps = 15 frames.
+
+```mdx
+---
+fps: 30
+bpm: 120
+---
+
+# Intro duration=2s
+
+<TranslateX from={-140} to={0} duration={0.5 * FPS} startInFrames={0.3 * FPS}>
+  <div style={{ fontSize: 72, color: 'white' }}>Hello</div>
+</TranslateX>
+
+# Verse duration={8 * BEAT}
+
+<Opacity from={0} to={1} duration={2 * BEAT}>
+  Content appears over 2 beats
+</Opacity>
+```
+
+**Always use `FPS` instead of raw frame numbers.** Raw frame literals like
+`duration={20}` break when the export fps changes (e.g. 30fps preview vs
+60fps final render). This applies to `duration`, `startInFrames`, and any
+frame-based value.
+
+```mdx
+<!-- correct -->
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+
+<!-- wrong, breaks at different fps -->
+<TranslateX from={-140} to={0} duration={15}>
+```
+
+## Preamble
+
+Content **before the first `#` heading** is the **preamble**. It renders at
+the Remotion composition level, outside the `<Series>` that sequences sections.
+Preamble content persists across all sections for the entire video duration, and
+renders in the background behind section content.
+
+Use the preamble for:
+- **Soundtracks**: `<Audio src="/music.mp3" />` plays for the full video
+- **Ambient background video**: `<Video src="/bg.mp4" />` loops behind all sections
+- **Global background**: a `<Background>` with a shader or static color
+- **Persistent overlays**: watermarks, logos
+
+```mdx
+---
+fps: 30
+bpm: 120
+---
+
+<Audio src="/soundtrack.mp3" />
+<Video src="/ambient-bg.mp4" objectFit="cover" />
+
+# First Section duration=5s
+
+This content appears on top of the ambient background video.
+```
+
+## Animation primitives
+
+Built-in components available in MDX without imports: `Opacity`, `Scale`,
+`TranslateX`, `TranslateY`, `Blur`. Each animates one CSS property from
+`from` to `to` over `duration` frames.
+
+**Enter vs exit** is inferred from `startInFrames`: positive or zero = enter
+(offset from section start), negative = exit (offset from section end).
+
+```mdx
+# Scene duration=3s
+
+<!-- Enter: slide in from left over 0.5s -->
+<TranslateX from={-140} to={0} duration={0.5 * FPS}>
+  <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Title</div>
+</TranslateX>
+
+<!-- Exit: fade out over last 0.5s of the section -->
+<Opacity from={1} to={0} duration={0.5 * FPS} startInFrames={-0.5 * FPS}>
+  <div style={{ color: 'white' }}>Subtitle</div>
+</Opacity>
+```
+
+### `inline` prop
+
+By default, primitives use `<Fill>` wrapper (full-frame AbsoluteFill). Pass
+`inline` to wrap in a plain `<div>` instead, so the element stays in flow
+layout (flex, grid, etc.).
+
+Use `inline` when animating elements **inside** a layout (cards, list items,
+flex children). Nest multiple `inline` primitives to compose animations:
+
+```tsx
+<Scale from={0.8} to={1} duration={30} easing={impulseOvershoot(71)} inline>
+  <Opacity from={0} to={0.5} duration={20} easing={(t) => t} inline>
+    <div style={{ width: 100 }}>Content</div>
+  </Opacity>
+</Scale>
+```
+
+**Never use `%` widths/heights on children of `inline` primitives.** The
+`inline` wrapper has no intrinsic size, so percentage values resolve to 0.
+Use `px` or `em` instead.
+
+### Sequential animations
+
+When an element has two animations at different times (e.g. a shrink-in
+followed by a pulse), nest two wrappers. Each applies independently:
+
+```tsx
+<Scale from={1.7} to={1} duration={msToFrame(1490, fps)} easing={EASE.smooth} inline>
+  <Scale from={1} to={1.1} duration={msToFrame(3572 - 1632, fps)}
+         startInFrames={msToFrame(1632, fps)} easing={impulseOvershoot(96)} inline>
+    <div style={{ width: '38%', aspectRatio: '675 / 392' }}>Card</div>
+  </Scale>
+</Scale>
+```
+
+### `style` prop for layout
+
+The `style` prop on `inline` primitives is essential for flex/grid
+participation. Use it to set dimensions, overflow, border-radius:
+
+```tsx
+<Scale from={0} to={1} duration={24} easing={EASE.smooth} inline
+  style={{ width: '100%', height: '100%', borderRadius: '20%', overflow: 'hidden' }}>
+  <img src={src} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+</Scale>
+```
+
+### `cutInMotion`
+
+Use `cutInMotion` (0-1) to clip the animation at the scene boundary for
+conveyor-belt transitions. The scene cuts while text is still in motion, and
+the next scene's text appears already mid-slide.
+
+Pattern:
+- **First scene**: enter with no `cutInMotion`, exit with `cutInMotion={0.3}`
+- **Middle scenes**: enter with `cutInMotion={0.1}`, exit with `cutInMotion={0.2}`
+- **Last scene**: exit with small `cutInMotion={0.1}`
+
+```mdx
+# First Scene duration=3s
+<TranslateX from={-140} to={0} duration={0.7 * FPS}>
+  <TranslateX from={0} to={140} duration={0.7 * FPS} startInFrames={-0.7 * FPS} cutInMotion={0.3}>
+    <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Title</div>
+  </TranslateX>
+</TranslateX>
+
+# Middle Scene duration=3s
+<TranslateX from={-140} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <TranslateX from={0} to={140} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+    <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Title</div>
+  </TranslateX>
+</TranslateX>
+```
+
+See `cut-in-motion-example/` and `shader-example/` for working demos.
+
+## `<Fill>`
+
+A full-frame layer like Remotion's `AbsoluteFill` but with better defaults
+for video content. Children **stretch horizontally** to fill the frame and
+**center vertically**. Available in MDX without imports. Accepts `style` to
+override alignment. Prefer `<Fill>` over raw `<AbsoluteFill>`.
+
+## Easing presets
+
+Import from `egaki/video`. **Always use `cubicBezier()` from `egaki/video`
+instead of `Easing.bezier()` from `remotion`**, because the egaki version
+attaches metadata that lets the tweakpane UI show and edit the curve.
+
+### `springFromDuration` and `dspring`
+
+Use these instead of raw `spring({ config: { damping, stiffness, mass } })`.
+
+```tsx
+import { spring } from 'remotion'
+import { springFromDuration, dspring, EASE } from 'egaki/video'
+
+// springFromDuration returns a config object for Remotion's spring()
+const scale = spring({ frame, fps, config: springFromDuration(0.5, 0.3) })
+
+// dspring is the shorthand that calls spring() internally
+const opacity = dspring(frame, fps, 0.6, 0.25)  // 600ms, subtle bounce
+const pop = dspring(frame, fps, 0.4)              // 400ms, no bounce
+```
+
+**`bounce` parameter**: 0 = no overshoot, 0.25 = subtle Apple-like, 0.5 = playful, 1 = maximum bounce.
+
+### `EASE` presets
+
+```tsx
+import { EASE, smoothEasing, bounceEasing } from 'egaki/video'
+import { interpolate } from 'remotion'
+
+const x = interpolate(frame, [0, 60], [0, 500], {
+  easing: EASE.smooth,
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+```
+
+**Bezier presets** (clean curves, no overshoot):
+`smooth`, `natural`, `decelerate`, `accelerate`
+
+**Spring/bounce presets** (values can exceed 0-1):
+`elasticSnap`, `bounce`, `bounceAnticipate`, `bounceThrow`, `overshoot`,
+`overshootElastic`, `overshootBouncy`, `decelerateOvershoot`, `decelerateElastic`,
+`naturalThrow`, `accelerateImpulse`, `accelerateElastic`, `impulseSlow`,
+`impulseOvershoot`
+
+### Continuous intensity functions
+
+Each preset also has a continuous function that takes any intensity 0-100:
+
+```tsx
+import { overshoot, naturalThrow } from 'egaki/video'
+
+const scale = interpolate(frame, [0, 30], [0, 1], {
+  easing: overshoot(63),
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+```
+
+All 14 presets: `naturalThrow`, `decelerateOvershoot`, `decelerateElastic`,
+`accelerateImpulse`, `accelerateElastic`, `elasticSnap`, `bounce`,
+`bounceAnticipate`, `bounceThrow`, `impulseSlow`, `impulseOvershoot`,
+`overshoot`, `overshootElastic`, `overshootBouncy`.
+
+### Curve engine primitives
+
+For building custom curves:
+
+```tsx
+import { cubicBezier, polybezier, pathPreset } from 'egaki/video'
+
+// Analytic cubic-bezier y(x) solver
+const ease = cubicBezier(0.5, 0, 0, 1)
+
+// Multi-segment curve from control points
+const throwCurve = polybezier([
+  { x: 0, y: 0, upper: 0.7 },
+  { x: 0.33, y: -0.2, lower: 0.8, upper: 0.8 },
+  { x: 0.67, y: 1.3, lower: 0.1, upper: 0.1 },
+  { x: 1, y: 1, lower: 0.8 },
+])
+
+// Intensity-parameterized preset
+const myPreset = pathPreset({
+  0: [
+    { x: 0, y: 0, upper: 0 },
+    { x: 0.4, y: 1.05, lower: 0.8, upper: 0.2 },
+    { x: 1, y: 1, lower: 0.7 },
+  ],
+  100: [
+    { x: 0, y: 0, upper: 0 },
+    { x: 0.15, y: 1.8, lower: 0.8, upper: 0.1 },
+    { x: 1, y: 1, lower: 0.8 },
+  ],
+})
+const easing = myPreset(35)
+```
+
+## LayoutTransition
+
+`<LayoutTransition id="x">` makes an element animate from its position in the
+previous section to its new position in the current section. Matching is by
+`id`.
+
+```mdx
+# Scene 1 duration=3s
+
+<LayoutTransition id="title">**Hello**</LayoutTransition>
+
+# Scene 2 duration=3s
+
+<LayoutTransition id="title" duration={25} bounce={0.2}>**Hello**</LayoutTransition>
+<LayoutTransition id="subtitle">**World**</LayoutTransition>
+```
+
+**Props**: `id` (required), `duration` (frames, default 20), `bounce`
+(spring bounce 0-1, default 0.15), `easing` (custom easing function,
+overrides `bounce`), `mode` (`'both' | 'position' | 'size'`, default `'both'`).
+
+During the transition, `LayoutTransition` automatically interpolates border
+radius, background color, box shadow, and opacity between old and new elements.
+
+### Intra-scene transitions with `showFrom` / `showUpTo`
+
+`LayoutTransition` also works **within a single section**. Use `showFrom` and
+`showUpTo` props (frame numbers) to create time-windowed instances of the same
+`id`. Only one instance is visible at a time; the element FLIP-animates between
+them.
+
+```mdx
+# Active Item duration=6s
+
+<div style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <LayoutTransition id="dot" showFrom={0} showUpTo={2 * FPS} duration={18} bounce={0.2}>
+      <Dot />
+    </LayoutTransition>
+    <span>First item</span>
+  </div>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+    <LayoutTransition id="dot" showFrom={2 * FPS} showUpTo={4 * FPS} duration={18} bounce={0.2}>
+      <Dot />
+    </LayoutTransition>
+    <span>Second item</span>
+  </div>
+</div>
+```
+
+Demo: `layout-transition-example/` project.
+
+## `<Server>` component slots
+
+`<Server>` is a **reserved MDX element** marking a subtree as React Server
+Components. Its children render server-side (async allowed, fs/API access)
+and get spliced into the client tree as a slot.
+
+```mdx
+import { AsyncStats } from './async-stats'
+import { TextToSpeech } from 'egaki/text-to-speech'
+
+# Analytics duration=6s
+
+<Opacity from={0} to={1} duration={15}>
+  <Server>
+    <AsyncStats />
+    <TextToSpeech text="Analytics that build themselves." />
+  </Server>
+</Opacity>
+```
+
+Rules:
+- Files referenced inside `<Server>` execute in the RSC env. **`*.server.{ts,tsx}`
+  files** are excluded from the client bundle automatically.
+- Each `<Server>` must start on its **own line**.
+- Inside `<Server>` normal RSC rules apply: no function props into client refs,
+  no Remotion hooks (built-ins like `Opacity` work as client refs).
+- Bare specifiers work (`import { TextToSpeech } from 'egaki/text-to-speech'`).
+
+## Generated media in `.server.tsx` files
+
+`GeneratedImage`, `GeneratedVideo`, and `GeneratedSpeech` can be used inside
+`.server.tsx` files for type-safe composition with custom logic.
+
+**Import from `egaki/generate-media`** (not `egaki/video`). The `egaki/video`
+exports are client stubs that return `null`.
+
+```tsx
+// hero-scene.server.tsx
+import { GeneratedImage } from 'egaki/generate-media'
+import { Opacity, Fill } from 'egaki/video'
+
+export async function HeroScene() {
+  return (
+    <Fill>
+      <Opacity from={0} to={1} duration={20}>
+        <GeneratedImage
+          prompt="a magical forest with glowing mushrooms"
+          seed={99}
+          model="imagen-4.0-generate-001"
+          style={{ width: '80%', margin: 'auto', borderRadius: 16 }}
+        />
+      </Opacity>
+    </Fill>
+  )
+}
+```
+
+```mdx
+import { HeroScene } from './hero-scene.server'
+
+# Scene duration=5s
+
+<HeroScene />
+```
+
+Components imported from `.server.*` files are **automatically wrapped in
+`<Server>`** by the MDX parser. No manual `<Server>` block needed.
+
+See `generated-media-example/` for a working demo.
+
+## Media components
+
+`<Video>` and `<Audio>` from `@remotion/media` are available in MDX.
+Both accept `startInFrames` (in frames) to offset playback.
+
+- **Positive** `startInFrames`: delays playback from section start.
+  `<Video src="/clip.mp4" startInFrames={1 * FPS} />` plays after 1 second.
+- **Negative** `startInFrames`: offsets from section end.
+  `<Audio src="/sfx.mp3" startInFrames={-2 * FPS} />` plays 2 seconds before end.
+
+### `objectFit` for full-frame media
+
+`<Video>` and `<Img>` from `egaki/video` support `objectFit` as a component prop:
+
+```tsx
+<Fill>
+  <Video src="/bg.mp4" muted loop objectFit="cover" />
+</Fill>
+```
+
+| Value | Behavior |
+|---|---|
+| `"cover"` | Fills the container, crops overflow |
+| `"fill"` | Stretches to fill, ignores aspect ratio |
+| `"contain"` | Fits inside with letterboxing |
+| `"none"` | No resizing, centered at native size |
+
+**Never use raw `<img>` tags.** Always use `<Img>` from `egaki/video`, which
+calls `delayRender()` while the image loads. A raw `<img>` renders a blank
+frame during export.
+
+### Import rules
+
+Do **NOT** import `<Audio>`, `<Video>`, or `<OffthreadVideo>` from `remotion`.
+Always import `<Audio>` and `<Video>` from `@remotion/media`.
+
+| Component | Import from | Works? |
+|---|---|---|
+| `<Audio>` | `@remotion/media` | Yes |
+| `<Video>` | `@remotion/media` | Yes |
+| `<Audio>` / `<Video>` | `remotion` | No (throws in web-renderer) |
+| `<OffthreadVideo>` | `remotion` | No |
+
+## `useAbsoluteCurrentFrame`
+
+Remotion's `useCurrentFrame()` returns the frame relative to the current
+section (resets to 0 at each boundary). `useAbsoluteCurrentFrame()` returns
+the **absolute frame** across the entire composition.
+
+```tsx
+import { useAbsoluteCurrentFrame } from 'egaki/video'
+import { useVideoConfig } from 'remotion'
+
+function GlobalTimer() {
+  const absoluteFrame = useAbsoluteCurrentFrame()
+  const { fps } = useVideoConfig()
+  const elapsedSeconds = (absoluteFrame / fps).toFixed(1)
+  return <span>{elapsedSeconds}s</span>
+}
+```
+
+Use this for preamble overlays, cross-section sync, or global elapsed time.
+
+## `useTweakpane`
+
+Registers tweakable parameters in a shared tweakpane pane (top-right in the
+player). When the component unmounts, its folder is removed.
+
+```tsx
+import { useTweakpane } from 'egaki/video'
+
+export function MyComponent(props: MyComponentProps) {
+  const { children, style } = props
+
+  const tp = useTweakpane('MyComponent', {
+    blur: { value: props.blur ?? 12, min: 0, max: 50, step: 0.5 },
+    visible: props.visible ?? true,
+    label: props.label ?? 'Hello',
+    color: props.color ?? '#ff0055',
+    offset: props.offset ?? { x: 50, y: 25 },
+  })
+
+  return <div style={{ filter: `blur(${tp.blur}px)`, color: tp.color }}>
+    {children}
+  </div>
+}
+```
+
+Pass props as defaults so tweakpane overrides them live. A "Copy changes"
+button serializes all modified params as structured markdown.
+
+## `resolveAssetPath`
+
+Resolves file paths in server components so `/image.png` maps to
+`{projectRoot}/public/image.png`. Import from `egaki/generate-media`.
+
+## `cachedGenerate`
+
+A higher-order function that wraps any async function with filesystem caching,
+deduplication, stale management, and progress tracking. All built-in generate
+functions use it. Available for user code via `import { cachedGenerate } from 'egaki/cached-generate'`.
+
+```ts
+import { cachedGenerate } from 'egaki/cached-generate'
+
+const cachedExplore = cachedGenerate({
+  namespace: 'explore',
+  prefixFrom: (p) => p.query,
+  generate: async (params) => fetchExploreApi(params.query),
+  serialize: (result) => ({ json: result, extension: '.json' }),
+  deserialize: ({ filePath }) => JSON.parse(fs.readFileSync(filePath, 'utf-8')),
+})
+```
+
+Files go to `public/generated/{namespace}/`. Errors are not cached; failed
+calls retry on next invocation.
+
+## Captions
+
+Word-by-word captions synced to narration audio. Workflow: transcribe audio
+to get word timestamps, convert to frame delays, render a Caption component.
+
+### Transcription
+
+```bash
+egaki transcribe audio.mp3 --model whisper-1
+```
+
+**Models with word timestamps**: `whisper-1` (OpenAI), `ink-whisper`
+(Cartesia, cheapest), `scribe_v1` (ElevenLabs), `nova-3` (Deepgram),
+`whisper-large-v3`, `whisper-large-v3-turbo`, `distil-whisper-large-v3-en`
+(Groq, fastest).
+
+### Frame delays
+
+Use each word's `startSecond` with `FPS`:
+
+```mdx
+<Caption words={[
+  { word: "Just", delay: 0 },
+  { word: "quit", delay: 0.26 * FPS },
+  { word: "your", delay: 0.48 * FPS },
+]} />
+```
+
+**Re-transcribe after regenerating TTS.** When you regenerate audio, all
+word timestamps change. Always re-run `egaki transcribe` and update delays.
+
+### Default caption style
+
+Film-style subtitles at the bottom of the frame:
+
+```tsx
+<AbsoluteFill style={{
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'center',
+  padding: '0 80px 120px',
+}}>
+  <span style={{
+    fontSize: 42,
+    fontWeight: 400,
+    color: '#f5d442',
+    fontFamily: '"Georgia", "Times New Roman", serif',
+    textAlign: 'center',
+    lineHeight: 1.4,
+    letterSpacing: '0.01em',
+    maxWidth: '70%',
+  }}>
+    {words.map((w, i) => (
+      <span key={i} style={{ opacity: frame >= w.delay ? 1 : 0 }}>
+        {i > 0 ? ' ' : ''}{w.word}
+      </span>
+    ))}
+  </span>
+</AbsoluteFill>
+```
+
+**Style rules:**
+- Georgia serif, `fontWeight: 400`, soft yellow `#f5d442`
+- 42px for 1080x1920 vertical; scale proportionally for other resolutions
+- Bottom of screen via `alignItems: 'flex-end'` with `padding-bottom: 120px`
+- `maxWidth: '70%'` to prevent captions spanning full width
+- No text shadow, no uppercase, no fade animation; instant `opacity: 0/1`
+- **No layout shift**: render ALL words always, toggle visibility with
+  `opacity`, never conditional rendering
+
+Reference examples: `sun-montage-example/` (film-style),
+`bible-montage/` (editorial cascade with font rotation),
+`captions-example/` (TikTok highlight style using `@remotion/captions`).
+
+## Voice cloning and TTS
+
+### Audio separation
+
+```bash
+egaki demucs song.mp3 --stems vocals,other -o stems/
+```
+
+### Voice cloning
+
+```bash
+# Cartesia (default, instant, free, up to 10s)
+egaki voice clone stems/vocals.mp3 --name "my-voice" --language en --json
+
+# ElevenLabs (better for noisy audio)
+egaki voice clone stems/vocals.mp3 --provider elevenlabs --name "my-voice" --remove-background-noise --json
+```
+
+### TTS generation
+
+```bash
+egaki speech "Your text here." --voice <voice-id> --model sonic-3.5 -o public/voice.mp3
+```
+
+**Speed control**: Cartesia supports `--speed 0.6` to `1.5`. Default is 1.0.
+
+### Inserting pauses
+
+**Cartesia (sonic-3.5):** Use SSML `<break>` tags.
+
+```
+Playwriter lets you control Chrome from code. <break time="400ms"/> Install the extension.
+```
+
+**ElevenLabs (eleven_v3):** Use plain-text pause tags.
+
+```
+But there's a catch. [long pause] Introducing Cloud Browsers.
+```
+
+### Using TTS in videos
+
+Place audio in `public/` and reference with `<Audio>`. For voiceover over
+the whole video, put it in the preamble. For section narration, put it
+inside the section.
+
+```mdx
+<Audio src="/voice-intro.mp3" />
+
+# Scene duration=5s
+
+<Caption words={[...]} />
+```
+
+## DimOverlay pattern
+
+When a preamble `<Video>` plays behind section content, use `DimOverlay` to
+darken and blur the video:
+
+```mdx
+# Scene duration=10s
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backdropFilter: 'blur(20px)' }}>
+    <DimOverlay darkness={0.8} duration={22} />
+  </div>
+</Background>
+```
+
+See `sun-montage-example/components.tsx` for the implementation.
+
+## Masked word-by-word text reveal
+
+A staggered slide-up animation where each word is clipped by an `overflow: hidden`
+container and slides into view with `translateY`:
+
+```tsx
+function MaskedWordsText({ text, startSec }: { text: string; startSec: number }) {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
+  return (
+    <>
+      {text.split(' ').map((word, i) => {
+        const wordStart = (startSec + i * 0.061) * fps
+        const progress = interpolate(frame, [wordStart, wordStart + 0.607 * fps], [0, 1], {
+          easing: EASE.smooth,
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        })
+        return (
+          <span key={i}>
+            <span style={{ display: 'inline-block', overflow: 'hidden', verticalAlign: 'top' }}>
+              <span style={{ display: 'inline-block', transform: `translateY(${(1 - progress) * 100}%)` }}>
+                {word}
+              </span>
+            </span>
+            {i < text.split(' ').length - 1 ? ' ' : null}
+          </span>
+        )
+      })}
+    </>
+  )
+}
+```
+
+See `testimonial-example/components.tsx` for a working implementation.
+
+## Frosted glass with `backdrop-filter`
+
+Use `backdrop-filter: blur()` with a semi-transparent `backgroundColor`.
+This works because egaki uses HtmlInCanvas which supports all CSS features.
+
+```tsx
+<div style={{
+  backdropFilter: 'blur(54.5px)',
+  WebkitBackdropFilter: 'blur(54.5px)',
+  backgroundColor: 'rgba(255, 255, 255, 0.13)',
+  borderRadius: '6%',
+}} />
+```
+
+## Subpixel jitter prevention
+
+Two rules when animating `transform: scale()` or `translateX/Y()`:
+
+1. **Add `willChange: 'transform'`** to promote the layer to its own compositor surface.
+2. **Round values to 3 decimal places**: `Math.round(value * 1000) / 1000`.
+
+```tsx
+const scale = interpolate(frame, [0, 90], [1, 1.35], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.cinematic,
+})
+const s = Math.round(scale * 1000) / 1000
+
+<div style={{
+  transform: `scale(${s})`,
+  transformOrigin: '60% 45%',
+  willChange: 'transform',
+}}>
+```
+
+**Never** use `clamp` on slow, continuous animations (scrolling, panning, drift).
+Clamping freezes the output at the boundary. Only use `clamp` for bounded
+animations (opacity 0-1, progress bars).
+
+## Zoom and ambient drift
+
+### Zoom at a specific point
+
+```tsx
+const scale = interpolate(frame, [0, 90], [1, 1.2], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.cinematic,
+})
+
+<div style={{
+  transform: `scale(${Math.round(scale * 1000) / 1000})`,
+  transformOrigin: '55% 35%',
+  willChange: 'transform',
+}}>
+```
+
+### Ambient drift
+
+No scene should feel static. Layer a **slow linear animation** over the full
+scene duration on top of entrance effects. Keep magnitude small: +0.05 to
++0.10 for scale, 10-30px for translate. Interpolate from a negative offset
+to 0 so the final frame is predictable.
+
+```tsx
+// Entrance: fast zoom-in over 1.5s
+const zoomIn = interpolate(frame, [0, 45], [1, 1.35], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+  easing: EASE.cinematic,
+})
+
+// Ambient drift: slow linear scale over full 3s scene
+const drift = interpolate(frame, [0, 90], [-0.08, 0], {
+  extrapolateLeft: 'clamp',
+  extrapolateRight: 'clamp',
+})
+
+const s = Math.round((zoomIn + drift) * 1000) / 1000
+```
+
+## Premounting video sequences
+
+When building montages in TSX, use `<Series>` with `premountFor` to preload
+the next clip before the cut:
+
+```tsx
+import { Series } from 'remotion'
+import { Video, Fill } from 'egaki/video'
+
+<Series>
+  <Series.Sequence durationInFrames={45}>
+    <Fill><Video src="/clip-01.mp4" muted loop objectFit="cover" /></Fill>
+  </Series.Sequence>
+  <Series.Sequence premountFor={60} durationInFrames={45}>
+    <Fill><Video src="/clip-02.mp4" muted loop objectFit="cover" /></Fill>
+  </Series.Sequence>
+</Series>
+```
+
+In MDX sections this is handled automatically (1 second premount).
+
+## Framer Motion integration
+
+egaki auto-detects `motion` in your project and bridges it with Remotion's
+frame-based rendering. `motion.div`, springs, variants, staggered children,
+and keyframes work inside MDX sections. Animations are frame-deterministic
+and support backward scrubbing.
+
+**Limitations:**
+- `AnimatePresence` / exit animations won't replay on backward seek
+- `layout` prop is not seekable
+- `layoutId` / shared layout does not work; use egaki's `<LayoutTransition>`
+- `whileInView`, `whileHover`, drag, tap are not deterministic
+- Zero overhead when `motion` is not installed
+
+## CSS rules
+
+- **Never use viewport-relative units** (`vw`, `vh`, `vmin`, `vmax`). Remotion
+  compositions have a fixed pixel size; viewport units resolve against the
+  browser window. Use `%`, `px`, or `em` instead.
+- **All CSS features work** including `perspective`, `transform-style: preserve-3d`,
+  `backdrop-filter`, `mask-image`, `mix-blend-mode`, `filter`, `clip-path`.
+  egaki uses HtmlInCanvas (Chromium's `drawElementImage`).
+- **Export is Chromium-only.** Keep the tab in the foreground during export
+  (background tabs throttle `requestAnimationFrame`).
+
+## MDX LSP autocomplete
+
+Every egaki video project can have MDX LSP support so built-in components
+get autocomplete with prop types.
+
+1. **`@mdx-js/typescript-plugin`** installed as a devDependency.
+2. **`tsconfig.json`** with the plugin registered:
+
+```json
+{
+  "compilerOptions": {
+    "plugins": [{ "name": "@mdx-js/typescript-plugin" }]
+  },
+  "mdx": { "checkMdx": true },
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "**/*.mdx"]
+}
+```
+
+3. **`egaki-env.d.ts`** in the project root (auto-generated on first run):
+
+```ts
+import 'egaki/mdx-components'
+```
+
+**VS Code**: install the [MDX extension](https://marketplace.visualstudio.com/items?itemName=unifiedjs.vscode-mdx).
+**Zed**: install [zed-mdx](https://github.com/srazzak/zed-mdx) and enable TypeScript in settings.
+
+## Agent skill
+
+This package ships a skill file that teaches AI coding agents how and when to
+use it. Install it with:
+
+```bash
+npx -y skills add remorses/egaki
+```
 
 ## License
 
