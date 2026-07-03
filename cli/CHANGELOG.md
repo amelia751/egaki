@@ -2,6 +2,137 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.7.0
+
+1. **MDX video framework** — write video scenes in MDX files, preview in a browser-based player, and export to MP4 via in-browser WebCodecs rendering. Each `#` heading becomes a timed section. Animation primitives (`Opacity`, `Scale`, `TranslateX`, `TranslateY`, `Blur`) handle motion with composable enter/exit animations:
+
+   ```mdx
+   ---
+   fps: 30
+   bpm: 120
+   ---
+
+   <Audio src="/soundtrack.mp3" />
+
+   # Intro duration=3s
+
+   <TranslateX from={-140} to={0} duration={0.7 * FPS}>
+     <div style={{ fontSize: 72, fontWeight: 900, color: 'white' }}>Hello</div>
+   </TranslateX>
+
+   # Scene Two duration=8beats
+
+   <Opacity from={0} to={1} duration={2 * BEAT}>
+     <div style={{ fontSize: 48 }}>Built with egaki</div>
+   </Opacity>
+   ```
+
+   Install the Vite plugin (`egaki/vite`), point it at your `.mdx` entry, and run `vite dev`. Heading durations support `s` (seconds), `beats` (from frontmatter `bpm`), and `frames` units. `FPS` and `BEAT` are available as scope variables in MDX expressions.
+
+2. **`egaki speech` command** — text-to-speech generation with OpenAI, ElevenLabs, and Cartesia providers:
+
+   ```bash
+   egaki speech "Hello, welcome to egaki!" -o hello.mp3
+   egaki speech "Breaking news" -m gpt-4o-mini-tts --instructions "News anchor tone"
+   egaki speech "Smooth narration" -m sonic-3.5 --voice <voice-id> --speed 0.8
+   cat script.txt | egaki speech --stdin -o narration.mp3
+   ```
+
+3. **`egaki transcribe` command** — speech-to-text with word-level timestamps from OpenAI, ElevenLabs, Deepgram, Groq, and Cartesia:
+
+   ```bash
+   egaki transcribe recording.mp3 -m whisper-1
+   egaki transcribe podcast.mp3 -m ink-whisper   # Cartesia, cheapest
+   egaki transcribe interview.wav --stdout
+   ```
+
+4. **`egaki demucs` command** — audio stem separation via fal.ai (no local torch needed):
+
+   ```bash
+   egaki demucs song.mp3 --stems vocals,drums,bass,other
+   egaki demucs song.mp3 --stems vocals -o stems/
+   ```
+
+5. **`egaki voice clone` command** — clone a voice from audio for use with `egaki speech`:
+
+   ```bash
+   egaki voice clone vocals.mp3 --name "Narrator"
+   egaki voice clone clip.mp3 --name "Speaker" --provider elevenlabs --remove-background-noise
+   egaki speech "Hello" --voice <voice-id>
+   ```
+
+6. **`<Server>` RSC slots in MDX** — mark subtrees as React Server Components with `<Server>`. Children render server-side (async, fs/API access) and stream into the client tree:
+
+   ```mdx
+   import { TextToSpeech } from 'egaki/text-to-speech'
+
+   # Narrated Scene duration=5s
+
+   <Server>
+     <TextToSpeech text="This narration is generated at dev time." />
+   </Server>
+   ```
+
+   Files with `.server.tsx` extension are auto-wrapped in `<Server>` when imported into MDX.
+
+7. **`GeneratedImage`, `GeneratedVideo`, `GeneratedSpeech` server components** — AI-generated media with filesystem caching and deduplication. Generate once, cache forever:
+
+   ```tsx
+   // hero.server.tsx
+   import { GeneratedImage } from 'egaki/generate-media'
+
+   export async function Hero() {
+     return <GeneratedImage prompt="magical forest" model="imagen-4.0-generate-001" />
+   }
+   ```
+
+8. **LayoutTransition FLIP animations** — elements animate from their position in the previous section to the new position using FLIP transforms. Supports cross-section and intra-scene transitions with `showFrom`/`showUpTo`:
+
+   ```mdx
+   # Scene 1 duration=3s
+   <LayoutTransition id="title">**Hello**</LayoutTransition>
+
+   # Scene 2 duration=3s
+   <LayoutTransition id="title" duration={25} bounce={0.2}>**Hello**</LayoutTransition>
+   ```
+
+9. **WebGL shader components** — `BandsShader`, `WaveGradientShader`, `LiquidGradientShader`, `DispersionRingsShader` ported from Framer with full tweakpane integration. All props are exposed as live sliders and color pickers.
+
+10. **Tweakpane integration** — `useTweakpane(label, schema)` registers live-editable parameters in a shared pane. Components show/hide their controls based on visibility. A "Copy changes" button exports all tweaked values as structured markdown.
+
+11. **Framer Motion (`motion/react`) integration** — auto-detected when installed. `motion.div`, springs, variants, and staggered children work inside MDX sections with frame-deterministic rendering and backward scrubbing support.
+
+12. **Easing curve engine** — ported from Jitter with 14 continuous preset functions (`smoothEasing`, `bounceEasing`, `overshootEasing`, `impulseOvershoot`, etc.) that accept any intensity 0-100. `cubicBezier()` from `egaki/video` attaches `BEZIER_POINTS` metadata for tweakpane editing:
+
+    ```tsx
+    import { EASE, smoothEasing, cubicBezier } from 'egaki/video'
+    const x = interpolate(frame, [0, 60], [0, 500], { easing: EASE.smooth })
+    ```
+
+13. **`CodeBlock` component** — syntax-highlighted code with shiki and ray.so themes, built into MDX scope.
+
+14. **`Fill` component** — full-frame layer like `AbsoluteFill` but children stretch horizontally and center vertically. Available in MDX without imports.
+
+15. **`inline` and `style` props on animation primitives** — `inline` wraps in a plain `<div>` instead of full-frame `<Fill>`, so animated elements participate in flex/grid layout. `style` adds CSS to the wrapper.
+
+16. **Auto-duration from media** — sections without explicit `duration` infer their length from the longest `<Audio>` or `<Video>` element inside them.
+
+17. **Player redesign** — right sidebar layout, floating toolbar with playback rate control, keyboard shortcuts (J/K/L scrub, space play/pause), video trim controls, and cubic bezier blade for easing editing.
+
+18. **Agent SDK (`window.egakiSDK`)** — programmatic control from Playwriter. Screenshot frames, export video segments, get composition info, filmstrip grid rendering, and element position mapping.
+
+19. **Programmatic `egaki/generate` API** — import `generateImage`, `generateVideo`, `generateSpeech` directly from TypeScript without the CLI.
+
+20. **Custom composition dimensions** — `width` and `height` in MDX frontmatter override the default 1920x1080. `scale` frontmatter field controls pixel density.
+
+21. **Multi-entry MDX** — all `.mdx` files in the project root are served as separate routes, not just the configured entry.
+
+22. **MDX LSP autocomplete** — built-in components get prop autocomplete in `.mdx` files via `@mdx-js/typescript-plugin` and auto-generated `egaki-env.d.ts`.
+
+23. **Breaking: animation primitives replaced** — the 8 previous animation wrappers (`FadeIn`, `SlideIn`, `ScaleIn`, `FadeOut`, etc.) are replaced by 5 composable primitives (`Opacity`, `Scale`, `TranslateX`, `TranslateY`, `Blur`). Enter vs exit is inferred from `startInFrames` sign. Nest them to compose animations.
+
+24. **Breaking: `gapBefore`/`gapAfter` replaced with `startInFrames`** — `<Audio>` and `<Video>` now use `startInFrames` (positive = delay from section start, negative = offset from section end).
+
 ## 0.6.0
 
 1. **xAI provider with Grok image and video generation** — generate images and videos using xAI's Aurora and Grok models. Two auth paths: direct API key via `XAI_API_KEY` or Grok Build OAuth browser flow:
