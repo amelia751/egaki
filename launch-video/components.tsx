@@ -194,12 +194,20 @@ export function LightSwipe({
   return (
     <Sequence from={from} layout="none">
       <Fill style={{ opacity, pointerEvents: 'none' }}>
-        {/* No blend mode: the clip fully covers the frame at the cut. */}
+        {/* Screen blend: black pixels become transparent so only the light
+            streaks overlay the scene. The contrast crush pushes near-black
+            noise fully to black so no grey veil washes over the frame. */}
         <Video
           src={src}
           playbackRate={playbackRate}
           muted
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            mixBlendMode: 'screen',
+            filter: 'brightness(0.75) contrast(2.2)',
+          }}
         />
       </Fill>
     </Sequence>
