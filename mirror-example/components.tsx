@@ -1,26 +1,26 @@
 'use client'
 
 /**
- * MirrorShowcase — recreation of the Jitter "Mirror: Social Media Showcase".
+ * MirrorShowcase — mirrored egaki motion graphics sequence.
  *
- * A vertical 1080x1350 artboard scaled to fit 1920x1080. Two mirrored
+ * A vertical 1080x1350 artboard scaled into 1920x1080. Two mirrored
  * galleries of masked phone screenshots fan out from center while serif
- * text transitions between "Social template" and "Live on Jitter".
+ * text transitions between "Motion graphics" and "egaki".
  *
  * Animation phases:
- *   0-1000ms    Frame bars spread apart, "Social template" scales down
+ *   0-1000ms    Frame bars spread apart, "Motion graphics" scales down
  *   600-2500ms  Masked image cards appear with staggered resize reveals
  *   864-2490ms  Visual groups scale 2→0.5 and spread ±200px
  *   2052-3362ms Visual groups scale further to 0.3
  *   2400-2960ms Cards hide in staggered sequence
- *   2500-3700ms "Live on Jitter" appears, bars return, URL slides in
+ *   2500-3700ms "egaki" appears, bars return, URL slides in
  *
- * Easing: all curves are exact cubic-bezier values extracted from Jitter's
- * webpack bundle. No approximations or preset substitutions.
+ * Easing: custom cubic-bezier curves tuned for the mirrored reveal.
  */
 
-import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
-import { EASE, smoothEasing } from 'egaki/video'
+import { useEffect } from 'react'
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
+import { cubicBezier, EASE, Img, smoothEasing } from 'egaki/video'
 import {
   ANIM,
   ARTBOARD,
@@ -37,34 +37,21 @@ import {
 } from './data'
 
 // ---------------------------------------------------------------------------
-// Layout: scale 1080x1350 artboard to fit 1920x1080
-// ---------------------------------------------------------------------------
-
-const COMP_W = 1920
-const COMP_H = 1080
-
-/** Scale factor to fit artboard height into composition */
-const SCALE = Math.min(COMP_W / ARTBOARD.width, COMP_H / ARTBOARD.height)
-/** Center the scaled artboard horizontally */
-const OFFSET_X = (COMP_W - ARTBOARD.width * SCALE) / 2
-const OFFSET_Y = (COMP_H - ARTBOARD.height * SCALE) / 2
-
-// ---------------------------------------------------------------------------
 // Easing functions (precomputed from data)
 // ---------------------------------------------------------------------------
 
 const E = {
   smooth50: EASE.smooth,
   smooth100: smoothEasing(100),
-  socialScale: Easing.bezier(...EASINGS.socialScale),
-  socialOpacity: Easing.bezier(...EASINGS.socialOpacity),
-  groupPhase1: Easing.bezier(...EASINGS.groupPhase1),
-  groupPhase2: Easing.bezier(...EASINGS.groupPhase2),
-  liveScale: Easing.bezier(...EASINGS.liveScale),
-  liveTextIn: Easing.bezier(...EASINGS.liveTextIn),
-  wwwTextIn: Easing.bezier(...EASINGS.wwwTextIn),
-  wwwLetterEasing: Easing.bezier(...EASINGS.wwwLetterEasing),
-  barReturn: Easing.bezier(...EASINGS.barReturn),
+  socialScale: cubicBezier(...EASINGS.socialScale),
+  socialOpacity: cubicBezier(...EASINGS.socialOpacity),
+  groupPhase1: cubicBezier(...EASINGS.groupPhase1),
+  groupPhase2: cubicBezier(...EASINGS.groupPhase2),
+  liveScale: cubicBezier(...EASINGS.liveScale),
+  liveTextIn: cubicBezier(...EASINGS.liveTextIn),
+  wwwTextIn: cubicBezier(...EASINGS.wwwTextIn),
+  wwwLetterEasing: cubicBezier(...EASINGS.wwwLetterEasing),
+  barReturn: cubicBezier(...EASINGS.barReturn),
 }
 
 // ---------------------------------------------------------------------------
@@ -193,10 +180,10 @@ function AnimatedText({
 }
 
 // ---------------------------------------------------------------------------
-// "Social template" text — scales down and fades
+// "Motion graphics" text — scales down and fades
 // ---------------------------------------------------------------------------
 
-function SocialTemplateText({ frame, fps }: { frame: number; fps: number }) {
+function MotionGraphicsText({ frame, fps }: { frame: number; fps: number }) {
   const scale = interpClamp(
     frame, ANIM.socialScale.startMs, ANIM.socialScale.endMs,
     ANIM.socialScale.from, ANIM.socialScale.to, fps, E.socialScale,
@@ -231,10 +218,10 @@ function SocialTemplateText({ frame, fps }: { frame: number; fps: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// "Live on Jitter" text — scales in + per-letter textIn
+// "egaki" text — scales in + per-letter textIn
 // ---------------------------------------------------------------------------
 
-function LiveOnJitterText({ frame, fps }: { frame: number; fps: number }) {
+function EgakiText({ frame, fps }: { frame: number; fps: number }) {
   const scale = interpClamp(
     frame, ANIM.liveScale.startMs, ANIM.liveScale.endMs,
     ANIM.liveScale.from, ANIM.liveScale.to, fps, E.liveScale,
@@ -278,7 +265,7 @@ function LiveOnJitterText({ frame, fps }: { frame: number; fps: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// "www.website.com" text — textIn + slide from X offset
+// "egaki.video" text — textIn + slide from X offset
 // ---------------------------------------------------------------------------
 
 function UrlText({ frame, fps }: { frame: number; fps: number }) {
@@ -347,7 +334,7 @@ function MaskedCard({
   const maskW = card.maskWidth * resizeProgress
   const maskH = card.maskHeight * resizeProgress
 
-  // The mask rect in Jitter has padding (x:10, y:10 within the maskGrp).
+  // The mask rect has 10px padding within its group.
   // The resize grows from center, so offset by half the unresized portion.
   const maskOffsetX = (card.maskWidth - maskW) / 2
   const maskOffsetY = (card.maskHeight - maskH) / 2
@@ -365,7 +352,9 @@ function MaskedCard({
         transformOrigin: 'center center',
       }}
     >
-      <img
+      {/* egaki Img (not plain <img>): calls delayRender() while loading so
+          offscreen exports/screenshots never capture missing images. */}
+      <Img
         src={imageSrc}
         style={{
           position: 'absolute',
@@ -373,6 +362,7 @@ function MaskedCard({
           top: card.imgY - 10 - maskOffsetY,
           width: card.imgWidth,
           height: card.imgHeight,
+          maxWidth: 'none',
         }}
       />
     </div>
@@ -441,9 +431,8 @@ function VisualGroup({
     <div
       style={{
         position: 'absolute',
-        // Move offset applied to position, not transform — matches Jitter's
-        // behavior where move changes the element's x/y, then scale is applied
-        // from the element's center at the new position.
+        // Move offset is applied to position so scale stays centered on the
+        // translated group.
         left: groupX + moveX,
         top: groupY,
         width: 666,
@@ -469,35 +458,56 @@ function VisualGroup({
 // Main composition
 // ---------------------------------------------------------------------------
 
+const GOOGLE_FONTS_HREF =
+  'https://fonts.googleapis.com/css2?family=Lora:wght@400&family=Roboto+Mono:wght@400&display=swap'
+
+/** Load Google Fonts into document.head instead of rendering a <link> inside
+ *  the composition: offscreen renders (screenshot/export via drawElementImage)
+ *  fail to draw subtrees that contain a loading external stylesheet. */
+function useGoogleFonts() {
+  useEffect(() => {
+    if (document.head.querySelector(`link[href="${GOOGLE_FONTS_HREF}"]`)) return
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = GOOGLE_FONTS_HREF
+    document.head.appendChild(link)
+  }, [])
+}
+
 export function MirrorShowcase() {
   const frame = useCurrentFrame()
-  const { fps } = useVideoConfig()
+  const { fps, width, height } = useVideoConfig()
+  const scale = Math.min(width / ARTBOARD.width, height / (ARTBOARD.height + 810))
+  useGoogleFonts()
 
   return (
     <AbsoluteFill style={{ backgroundColor: ARTBOARD.background }}>
-      {/* Google Fonts */}
-      <link
-        href="https://fonts.googleapis.com/css2?family=Lora:wght@400&family=Roboto+Mono:wght@400&display=swap"
-        rel="stylesheet"
-      />
 
-      {/* Scaled artboard container */}
+      {/* Scaled artboard container.
+          Uses CSS `zoom` instead of `transform: scale()`: Chromium's
+          experimental drawElementImage (html-in-canvas, used by
+          @remotion/web-renderer screenshots/exports) silently fails to draw
+          subtrees where a transformed element contains further transformed
+          children under this scaled container — the whole artboard came out
+          black. `zoom` scales layout without a transform matrix and renders
+          correctly in both the live player and offscreen exports.
+          Note: Chromium multiplies the element's own left/top by its zoom
+          factor, so the centering offset is divided by `scale` here. */}
       <div
         style={{
           position: 'absolute',
-          left: OFFSET_X,
-          top: OFFSET_Y,
+          left: (width - ARTBOARD.width * scale) / 2 / scale,
+          top: 0,
           width: ARTBOARD.width,
           height: ARTBOARD.height,
-          transform: `scale(${SCALE})`,
-          transformOrigin: 'top left',
-          overflow: 'hidden',
+          zoom: scale,
+          overflow: 'visible',
         }}
       >
-        {/* "Social template" text */}
-        <SocialTemplateText frame={frame} fps={fps} />
+        {/* "Motion graphics" text */}
+        <MotionGraphicsText frame={frame} fps={fps} />
 
-        {/* Visual groups (rendered behind "Live on Jitter") */}
+        {/* Visual groups (rendered behind "egaki") */}
         <VisualGroup
           groupX={VISUAL_LEFT.x}
           groupY={VISUAL_LEFT.y}
@@ -517,8 +527,8 @@ export function MirrorShowcase() {
           fps={fps}
         />
 
-        {/* "Live on Jitter" text */}
-        <LiveOnJitterText frame={frame} fps={fps} />
+        {/* "egaki" text */}
+        <EgakiText frame={frame} fps={fps} />
 
         {/* Frame group */}
         <div

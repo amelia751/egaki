@@ -1,18 +1,18 @@
 /**
- * Scene data for the "Mirror: Social Media Showcase" recreation.
+ * Scene data for the "Mirror: Motion Graphics Showcase" recreation.
  *
- * Extracted from a Jitter project via Playwriter. The animation is a
- * vertical 1080x1350 artboard with mirrored image galleries that fan out
- * from center, framed by thin white bars and serif typography.
+ * The animation uses a vertical 1080x1350 design space with mirrored image
+ * galleries that fan out from center, framed by thin white bars and serif
+ * typography.
  *
  * Data is separated from components so React Fast Refresh works.
  *
- * All positions are in the Jitter artboard coordinate system (1080x1350).
+ * All positions are in the source artboard coordinate system (1080x1350).
  * The component scales this to fit the Remotion composition (1920x1080).
  */
 
 // ---------------------------------------------------------------------------
-// Image asset paths (downloaded from Jitter's CloudFront CDN)
+// Image asset paths
 //
 // Right and left groups share most images except Visual 02 which differs.
 // Images are numbered by their download order; the mapping below assigns
@@ -78,7 +78,7 @@ export interface VisualCard {
 // ---------------------------------------------------------------------------
 // Layout constants
 //
-// Artboard is 1080x1350 in Jitter. All positions and sizes use this space.
+// Artboard is 1080x1350. All positions and sizes use this space.
 // The component scales the whole thing to fit 1920x1080.
 // ---------------------------------------------------------------------------
 
@@ -110,7 +110,7 @@ export const FRAME = {
   rightBar: { x: 840, y: 0, width: 1, height: 1150, color: '#ffffff' },
   /** Bottom URL text */
   urlText: {
-    text: 'www.website.com',
+    text: 'egaki.video',
     x: 330,
     y: 1068,
     width: 181,
@@ -122,11 +122,11 @@ export const FRAME = {
 } as const
 
 // ---------------------------------------------------------------------------
-// Text layers — "Social template" and "Live on Jitter"
+// Text layers — "Motion graphics" and "egaki"
 // ---------------------------------------------------------------------------
 
 export const SOCIAL_TEXT = {
-  text: 'Social template',
+  text: 'Motion graphics',
   x: 198,
   y: 615,
   width: 685,
@@ -137,10 +137,10 @@ export const SOCIAL_TEXT = {
 } as const
 
 export const LIVE_TEXT = {
-  text: 'Live on Jitter',
-  x: 252,
+  text: 'egaki',
+  x: 380,
   y: 615,
-  width: 577,
+  width: 320,
   height: 120,
   fontSize: 100,
   fontFamily: '"Lora", serif',
@@ -240,9 +240,9 @@ export const ANIM = {
   /** Frame bars return to original position */
   barReturn: { startMs: 2602, endMs: 3402, distance: 420 },
 
-  /** "Social template" scale down (1 → 0.15) */
+  /** "Motion graphics" scale down (1 → 0.15) */
   socialScale: { startMs: 200, endMs: 1598, from: 1, to: 0.15 },
-  /** "Social template" opacity fade (100 → 0) */
+  /** "Motion graphics" opacity fade (100 → 0) */
   socialOpacity: { startMs: 600, endMs: 1598, from: 1, to: 0 },
 
   /** Visual groups scale phase 1 (2 → 0.5) + move ±200px */
@@ -250,19 +250,19 @@ export const ANIM = {
   /** Visual groups scale phase 2 (handoff → 0.3) */
   groupPhase2: { startMs: 2052, endMs: 3362, scaleTo: 0.3 },
 
-  /** "Live on Jitter" scale (1.5 → 1) */
+  /** "egaki" scale (1.5 → 1) */
   liveScale: { startMs: 2197, endMs: 3697, from: 1.5, to: 1 },
-  /** "Live on Jitter" textIn (per-letter stagger) */
+  /** "egaki" textIn (per-letter stagger) */
   liveTextIn: { startMs: 2503, letterDurationMs: 198, offsetMs: 60, travelY: 50 },
 
-  /** "www.website.com" textIn */
+  /** "egaki.video" textIn */
   wwwTextIn: { startMs: 2600, letterDurationMs: 254, offsetMs: 35, travelY: 50 },
-  /** "www.website.com" slide from X+100 to 0 */
+  /** "egaki.video" slide from X+100 to 0 */
   wwwMove: { startMs: 2600, endMs: 3400, fromX: 100 },
 } as const
 
 // ---------------------------------------------------------------------------
-// Easing definitions — cubic-bezier values extracted from Jitter
+// Easing definitions
 //
 // For custom:path:v1, the control points map to:
 //   cubic-bezier(upper, 0, lower, 1)
@@ -276,21 +276,21 @@ export const ANIM = {
 export const EASINGS = {
   /** Rescaling visuals initial scale — custom:path */
   rescale: [0.5375, 0, 0.65, 1] as const,
-  /** "Social template" scale down */
+  /** "Motion graphics" scale down */
   socialScale: [1, 0, 0.6, 1] as const,
-  /** "Social template" opacity fade */
+  /** "Motion graphics" opacity fade */
   socialOpacity: [1, 0, 0, 1] as const,
   /** Visual group scale+move phase 1 */
   groupPhase1: [0.7875, 0, 0.625, 1] as const,
   /** Visual group scale phase 2 */
   groupPhase2: [0.8875, 0, 0.5, 1] as const,
-  /** "Live on Jitter" scale */
+  /** "egaki" scale */
   liveScale: [0.6875, 0.0625, 0.7375, 1] as const,
-  /** "Live on Jitter" textIn stagger easing */
+  /** "egaki" textIn stagger easing */
   liveTextIn: [0.75, 0, 0.4, 1] as const,
-  /** "www.website.com" textIn stagger easing */
+  /** "egaki.video" textIn stagger easing */
   wwwTextIn: [0.6, 0, 0.5, 1] as const,
-  /** "www.website.com" per-letter easing */
+  /** "egaki.video" per-letter easing */
   wwwLetterEasing: [0.5875, 0, 0.7875, 1] as const,
   /** Bar return + www move easing */
   barReturn: [0.6, 0, 0.8, 1] as const,
