@@ -1,0 +1,350 @@
+---
+fps: 30
+bpm: 129.2
+width: 1920
+height: 1080
+---
+
+import {
+  EgakiTestimonial,
+  MirrorShowcase,
+  TypewriterTitle,
+  PromptCard,
+  ImageMontage,
+  RecordingPlaceholder,
+  CodeScene,
+  MontageCaption,
+  EgakiOutro,
+  LightSwipe,
+  ScreenRecording,
+  ExportButtonZoom,
+  DriftZoom,
+} from './components'
+import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
+
+{/* Dark Beach by Pastel Ghost, 129.2 BPM. First downbeat at 0.372s → trim 11 frames
+    so the beat grid lands on frame 0. */}
+
+<Audio src="/music.mp3" trimBefore={11} volume={0.5} />
+
+# Hook duration=8beats
+
+<GeneratedSpeech
+  text="This launch video wasn't made in a video editor."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+{/* Word timings from `egaki transcribe` on the generated speech wav. */}
+
+<Scale from={1} to={1.5} duration={8 * BEAT}>
+<Background>
+  <WaveGradientShader seed={7} style={{ width: '100%', height: '100%' }} />
+</Background>
+
+<TranslateY from={80} to={0} duration={0.6 * FPS}>
+  <TranslateY from={0} to={-80} duration={0.5 * FPS} startInFrames={-0.5 * FPS} cutInMotion={0.3}>
+    <TypewriterTitle
+      fontSize={92}
+      words={[
+        { text: 'This', startSec: 0.22, endSec: 0.46 },
+        { text: 'launch', startSec: 0.48, endSec: 0.8 },
+        { text: 'video', startSec: 0.82, endSec: 1.16 },
+        { text: "wasn't", startSec: 1.18, endSec: 1.46 },
+        { text: 'made', startSec: 1.48, endSec: 1.7, br: true },
+        { text: 'in', startSec: 1.7, endSec: 1.76 },
+        { text: 'a', startSec: 1.86, endSec: 1.88 },
+        { text: 'video', startSec: 1.88, endSec: 2.14 },
+        { text: 'editor.', startSec: 2.18, endSec: 2.5 },
+      ]}
+    />
+  </TranslateY>
+</TranslateY>
+</Scale>
+
+<LightSwipe src="/overlays/light-03.mp4" peakSec={0.25} />
+
+# Testimonial duration=8beats
+
+<GeneratedSpeech
+  text="It was written by a coding agent."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<Scale from={1} to={1.22} duration={8 * BEAT}>
+<Background>
+  <WaveGradientShader
+    colors={['#0a0a2e', '#1a0a3e', '#00d0ff', '#ff6b9d']}
+    seed={42}
+    style={{ width: '100%', height: '100%' }}
+  />
+</Background>
+
+<TranslateX from={-220} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <EgakiTestimonial />
+</TranslateX>
+</Scale>
+
+<LightSwipe src="/overlays/light-24.mp4" peakSec={0.33} />
+
+# The Source duration=8beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#000000' }} />
+</Background>
+
+<GeneratedSpeech
+  text="The whole thing is a text file."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<Scale from={1.18} to={1} duration={0.5 * FPS} cutInMotion={0.1}>
+  <DriftZoom to={1.08}>
+    <Scale from={1} to={1.12} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+      <CodeScene
+        code={TESTIMONIAL_SNIPPET}
+        theme="vercel"
+        title="video.mdx"
+        fontSize={22}
+        width={1100}
+      />
+    </Scale>
+  </DriftZoom>
+</Scale>
+
+<LightSwipe src="/overlays/light-22.mp4" peakSec={0.13} />
+
+# Meet Egaki duration=7beats
+
+<GeneratedSpeech
+  text="Meet egaki. Videos, written in MDX."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<Scale from={1} to={1.35} duration={7 * BEAT}>
+<Background>
+  <WaveGradientShader
+    colors={['#00d0ff', '#5b8cff', '#9EABFF', '#E29EFF']}
+    seed={11}
+    style={{ width: '100%', height: '100%' }}
+  />
+</Background>
+
+<TranslateY from={60} to={0} duration={0.5 * FPS}>
+  <TranslateY from={0} to={-60} duration={0.5 * FPS} startInFrames={-0.5 * FPS} cutInMotion={0.3}>
+    <TypewriterTitle
+      fontSize={96}
+      words={[
+        { text: 'Meet', startSec: 0.1, endSec: 0.22 },
+        { text: 'egaki.', startSec: 0.28, endSec: 0.68 },
+        { text: 'Videos', startSec: 1.16, endSec: 1.52, br: true },
+        { text: 'written', startSec: 1.78, endSec: 2.2 },
+        { text: 'in', startSec: 2.24, endSec: 2.34 },
+        { text: 'MDX.', startSec: 2.4, endSec: 2.9 },
+      ]}
+    />
+  </TranslateY>
+</TranslateY>
+</Scale>
+
+<LightSwipe src="/overlays/light-24.mp4" peakSec={0.33} />
+
+# Prompt duration=8beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', backgroundColor: '#F5F3ED' }} />
+</Background>
+
+<GeneratedSpeech
+  text="Describe what you want to your coding agent."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<DriftZoom to={1.05}>
+  <TranslateX from={220} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+    <PromptCard
+    greeting="Hey there, Tommy"
+    text="Create a launch video for our new testimonial feature"
+    typeStartSec={0.4}
+    typeDurationSec={2}
+      sendAtSec={3}
+    />
+  </TranslateX>
+</DriftZoom>
+
+<LightSwipe src="/overlays/light-17.mp4" peakSec={0.46} />
+
+# Agent Iterating duration=12beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#000000' }} />
+</Background>
+
+<GeneratedSpeech
+  text="It writes the scenes, screenshots every frame, and iterates until it looks right."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<DriftZoom to={1.05}>
+  <TranslateX from={0} to={260} duration={0.5 * FPS} startInFrames={-0.5 * FPS} cutInMotion={0.25}>
+    <RecordingPlaceholder
+      label="Codex editing video.mdx with the egaki dev server"
+      sublabel="placeholder, real screen recording goes here"
+    />
+  </TranslateX>
+</DriftZoom>
+
+<LightSwipe src="/overlays/light-06.mp4" peakSec={0.46} />
+
+# Mirror duration=9beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#000000' }} />
+</Background>
+
+<GeneratedSpeech
+  text="Entire showcase scenes, from a few lines of markdown."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+{/* MirrorShowcase lays out a 1080x1350 artboard scaled from the top edge,
+    leaving the bottom of a 1080-tall frame empty; nudge it down to center. */}
+
+<TranslateX from={-260} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+  <Fill style={{ transform: 'translateY(200px)' }}>
+    <MirrorShowcase />
+  </Fill>
+</TranslateX>
+
+<LightSwipe src="/overlays/light-03.mp4" peakSec={0.25} />
+
+# Anatomy duration=12beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#000000' }} />
+</Background>
+
+<GeneratedSpeech
+  text="Headings are scenes. Durations sync to the beat. And the voiceover? One component."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<Scale from={1.14} to={1} duration={0.5 * FPS} cutInMotion={0.1}>
+  <DriftZoom to={1.07}>
+    <Scale from={1} to={1.1} duration={0.6 * FPS} startInFrames={-0.6 * FPS} cutInMotion={0.2}>
+      <CodeScene
+      code={ANATOMY_SNIPPET}
+      highlightGroups={[[1], [3, 4, 5, 6, 7], [9, 10, 11, 12], [14, 15, 16, 17]]}
+      beatsPerGroup={3}
+      beat={BEAT}
+      theme="vercel"
+      title="video.mdx"
+      fontSize={24}
+        width={1150}
+      />
+    </Scale>
+  </DriftZoom>
+</Scale>
+
+<LightSwipe src="/overlays/light-08.mp4" peakSec={0.25} />
+
+# Brand Montage duration=14beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#050508' }} />
+</Background>
+
+<GeneratedSpeech
+  text="Images, speech and video. All generated inline, right in your markdown."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+{/* Scale down the montage so full-bleed brand images breathe inside the frame. */}
+
+<Scale from={1} to={1.12} duration={14 * BEAT}>
+<Fill style={{ transform: 'scale(0.62)' }}>
+  <ImageMontage
+    beat={BEAT}
+    images={[
+    '/logos/beam.webp',
+    '/logos/tilt.webp',
+    '/logos/ghost.webp',
+    '/logos/paloma.webp',
+    '/logos/bloom.webp',
+    '/logos/blaze.webp',
+    '/logos/sollflare.webp',
+    '/logos/wallflower.webp',
+    '/logos/handover.webp',
+    '/logos/dockr.webp',
+    '/logos/wrangle.webp',
+    '/logos/tiger-group.webp',
+    '/logos/miso.webp',
+    '/logos/taska.webp',
+    ]}
+  />
+</Fill>
+</Scale>
+
+<MontageCaption text="Launch your brand with video." startSec={0.4} />
+
+<LightSwipe src="/overlays/light-08.mp4" peakSec={0.25} />
+
+# Export duration=7beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#000000' }} />
+</Background>
+
+<GeneratedSpeech
+  text="Rendered right in the browser. No render farm."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<ScreenRecording src="/recordings/export-click.mp4" />
+
+<LightSwipe src="/overlays/light-22.mp4" peakSec={0.13} />
+
+# Export Zoom duration=6beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#000000' }} />
+</Background>
+
+<GeneratedSpeech
+  text="One click, and it's an MP4."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<ExportButtonZoom src="/recordings/export-click.mp4" />
+
+<LightSwipe src="/overlays/light-24.mp4" peakSec={0.33} />
+
+# Outro duration=12beats
+
+<GeneratedSpeech
+  text="egaki. Launch videos, written by agents."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<Scale from={1} to={1.25} duration={12 * BEAT}>
+<Background>
+  <WaveGradientShader
+    colors={['#6622cc', '#cc2288', '#ff6b9d', '#FFAE00']}
+    seed={3}
+    style={{ width: '100%', height: '100%' }}
+  />
+</Background>
+
+<EgakiOutro />
+</Scale>
