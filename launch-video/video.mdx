@@ -1,6 +1,6 @@
 ---
 fps: 30
-bpm: 129.2
+bpm: 140
 width: 1920
 height: 1080
 ---
@@ -22,10 +22,12 @@ import {
 } from './components'
 import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
 
-{/* Dark Beach by Pastel Ghost, 129.2 BPM. First downbeat at 0.372s → trim 11 frames
-    so the beat grid lands on frame 0. */}
+{/* Dark Beach by Pastel Ghost, natively 129.2 BPM, sped up to 140 BPM via
+    playbackRate so the beat grid matches the frontmatter bpm and scenes run
+    tighter. First downbeat at 0.372s source time → trim 11 frames so the
+    grid lands on frame 0. */}
 
-<Audio src="/music.mp3" trimBefore={11} volume={0.5} />
+<Audio src="/music.mp3" trimBefore={11} volume={0.5} playbackRate={140 / 129.2} />
 
 # Hook duration=8beats
 
@@ -116,7 +118,7 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
 
 <LightSwipe src="/overlays/light-22.mp4" peakSec={0.13} />
 
-# Meet Egaki duration=7beats
+# Meet Egaki duration=8beats
 
 <GeneratedSpeech
   text="Meet egaki. Videos, written in MDX."
@@ -124,7 +126,7 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
   voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
 />
 
-<Scale from={1} to={1.35} duration={7 * BEAT}>
+<Scale from={1} to={1.35} duration={8 * BEAT}>
 <Background>
   <WaveGradientShader
     colors={['#00d0ff', '#5b8cff', '#9EABFF', '#E29EFF']}
@@ -178,7 +180,7 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
 
 <LightSwipe src="/overlays/light-17.mp4" peakSec={0.46} />
 
-# Agent Iterating duration=12beats
+# Agent Iterating duration=13beats
 
 <Background>
   <div style={{ width: '100%', height: '100%', background: '#000000' }} />
@@ -224,7 +226,7 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
 
 <LightSwipe src="/overlays/light-03.mp4" peakSec={0.25} />
 
-# Anatomy duration=12beats
+# Anatomy duration=13beats
 
 <Background>
   <div style={{ width: '100%', height: '100%', background: '#000000' }} />
@@ -297,7 +299,7 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
 
 <LightSwipe src="/overlays/light-08.mp4" peakSec={0.25} />
 
-# Export duration=7beats
+# Export duration=8beats
 
 <Background>
   <div style={{ width: '100%', height: '100%', background: '#000000' }} />
@@ -313,7 +315,7 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
 
 <LightSwipe src="/overlays/light-22.mp4" peakSec={0.13} />
 
-# Export Zoom duration=6beats
+# Export Zoom duration=7beats
 
 <Background>
   <div style={{ width: '100%', height: '100%', background: '#000000' }} />
