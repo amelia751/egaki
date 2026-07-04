@@ -175,8 +175,8 @@ pnpm add node-web-audio-api
 
 ## Loudness measurement (LUFS)
 
-Measure perceived loudness using the **EBU R128 / ITU-R BS.1770** standard.
-Runs locally with K-weighting filters, no API call needed.
+Measure perceived loudness in LUFS using K-weighting and two-pass gating
+inspired by EBU R128. Runs locally, no API call needed.
 
 ```bash
 egaki loudness song.mp3

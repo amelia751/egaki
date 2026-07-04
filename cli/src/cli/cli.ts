@@ -1050,7 +1050,8 @@ cli
       for await (const chunk of process.stdin) {
         chunks.push(chunk)
       }
-      audioData = Buffer.concat(chunks).buffer as ArrayBuffer
+      const buf = Buffer.concat(chunks)
+      audioData = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
     } else {
       const resolved = path.resolve(audioPath)
       if (!fs.existsSync(resolved)) {
@@ -1088,7 +1089,7 @@ cli
     'loudness [audio]',
     dedent`
       Measure the perceived loudness (LUFS) of an audio file.
-      Uses the EBU R128 / ITU-R BS.1770 standard with K-weighting.
+      Uses K-weighting and two-pass gating inspired by EBU R128.
       Runs locally, no API call needed.
       Requires node-web-audio-api as an optional dependency.
     `,
@@ -1120,7 +1121,8 @@ cli
       for await (const chunk of process.stdin) {
         chunks.push(chunk)
       }
-      audioData = Buffer.concat(chunks).buffer as ArrayBuffer
+      const buf = Buffer.concat(chunks)
+      audioData = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
     } else {
       const resolved = path.resolve(audioPath)
       if (!fs.existsSync(resolved)) {

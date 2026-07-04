@@ -430,8 +430,9 @@ pnpm add node-web-audio-api
 
 ## Loudness measurement
 
-Measure perceived loudness in LUFS (EBU R128 standard). Useful for checking
-if your audio matches platform targets before compositing.
+Measure perceived loudness in LUFS using K-weighting and two-pass gating
+inspired by EBU R128. Useful for checking if your audio matches platform
+targets before compositing.
 
 ```bash
 egaki loudness narration.mp3
