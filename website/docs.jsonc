@@ -2,7 +2,7 @@
   "$schema": "https://holocron.so/docs.json",
   "name": "egaki",
   "description": "AI image, video, and speech generation CLI with MDX-to-video framework",
-  "colors": { "primary": "#ffffff" },
+  "colors": { "primary": "#ffffff", "dark": "#000000" },
   "icons": { "library": "lucide" },
   "navbar": {
     "links": [
