@@ -1,14 +1,14 @@
 ---
 $schema: https://holocron.so/frontmatter.json
-title: Text-to-speech, voice cloning, and stem separation
+title: Text-to-speech, voice cloning, stem separation, and BPM detection
 sidebarTitle: Speech & Audio
-description: Generate speech with OpenAI, ElevenLabs, and Cartesia. Clone voices from audio clips, control speed, and separate stems with Demucs.
+description: Generate speech with OpenAI, ElevenLabs, and Cartesia. Clone voices, control speed, separate stems with Demucs, and detect BPM for beat-synced videos.
 icon: lucide:mic
 ---
 
 # Speech & Audio
 
-egaki handles text-to-speech, voice cloning, and audio stem separation.
+egaki handles text-to-speech, voice cloning, audio stem separation, and BPM detection.
 
 ## Text-to-speech
 
@@ -108,3 +108,113 @@ egaki demucs song.mp3 --stems vocals,other -o stems/
 ```bash
 egaki demucs song.mp3 --model htdemucs_6s --stems vocals,guitar -o stems/
 ```
+
+## BPM detection
+
+Detect the tempo of an audio file locally. No API call needed; runs in
+milliseconds using peak detection and interval analysis.
+
+```bash
+egaki bpm song.mp3
+```
+
+Output:
+
+```
+BPM: 120
+Interval: 0.500s
+```
+
+Use `--json` for structured output:
+
+```bash
+egaki bpm track.wav --json
+# { "bpm": 120, "intervalInSeconds": 0.5 }
+```
+
+Pipe audio from another command:
+
+```bash
+ffmpeg -i video.mp4 -f mp3 - | egaki bpm --stdin
+```
+
+### Beat-synced videos
+
+Use the detected BPM in your MDX frontmatter to align scene cuts to the music:
+
+```bash
+# 1. Detect the BPM
+egaki bpm soundtrack.mp3 --json
+# { "bpm": 129 }
+
+# 2. Use it in your video
+```
+
+```mdx
+---
+fps: 30
+bpm: 129
+---
+
+<Audio src="/soundtrack.mp3" />
+
+# Verse duration=8beats
+
+Scene cuts land on the beat.
+```
+
+### Optional dependency
+
+BPM and loudness detection both require `node-web-audio-api`, a native audio
+processing library. It's listed as an optional dependency; if missing, the
+command prints install instructions:
+
+```bash
+pnpm add node-web-audio-api
+```
+
+## Loudness measurement (LUFS)
+
+Measure perceived loudness using the **EBU R128 / ITU-R BS.1770** standard.
+Runs locally with K-weighting filters, no API call needed.
+
+```bash
+egaki loudness song.mp3
+```
+
+Output:
+
+```
+Integrated: -14.2 LUFS
+Max: -8.1 LUFS
+Min: -28.4 LUFS
+Range: 20.3 LU
+```
+
+Use `--json` for structured output:
+
+```bash
+egaki loudness narration.mp3 --json
+```
+
+### What the numbers mean
+
+| Metric | Description |
+|---|---|
+| **Integrated** | Average perceived loudness across the whole file (gated) |
+| **Max** | Loudest 400ms block |
+| **Min** | Quietest 400ms block above the gate threshold |
+| **Range** | Dynamic range (max - min) in LU |
+
+### Common loudness targets
+
+| Platform | Target LUFS |
+|---|---|
+| YouTube | -14 |
+| Spotify | -14 |
+| Apple Music | -16 |
+| Podcast | -16 to -18 |
+| Broadcast TV | -24 |
+
+Compare your audio against these targets to know if it needs volume adjustment
+before using it in a video.

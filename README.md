@@ -367,6 +367,8 @@ egaki unsubscribe
 | `egaki video` | Generate videos (Veo, Kling, Wan, Seedance, xAI) |
 | `egaki speech` | Text-to-speech (OpenAI, ElevenLabs, Cartesia) |
 | `egaki demucs` | Stem separation via fal.ai (no local torch needed) |
+| `egaki bpm` | Detect BPM of audio (local, no API needed) |
+| `egaki loudness` | Measure perceived loudness in LUFS (local, no API needed) |
 | `egaki voice clone` | Clone a voice from audio (Cartesia, ElevenLabs) |
 | `egaki transcribe` | Speech-to-text (OpenAI, ElevenLabs, Deepgram, Groq, Cartesia) |
 | `egaki models` | List available models with pricing |
@@ -385,7 +387,65 @@ egaki speech "Your text here." --voice <voice-id> -m sonic-3.5 -o output.mp3
 
 # 4. Transcribe audio to get word timestamps
 egaki transcribe recording.mp3 -m whisper-1
+
+# 5. Detect BPM for beat-synced videos
+egaki bpm soundtrack.mp3 --json
 ```
+
+## BPM detection
+
+Detect the tempo of any audio file locally. No API call, runs in milliseconds.
+
+```bash
+egaki bpm song.mp3
+# BPM: 120
+# Interval: 0.500s
+
+egaki bpm track.wav --json
+# { "bpm": 120, "intervalInSeconds": 0.5 }
+
+# Pipe from ffmpeg
+ffmpeg -i video.mp4 -f mp3 - | egaki bpm --stdin
+```
+
+Use the detected BPM in your MDX video frontmatter to lock scene cuts to the beat:
+
+```mdx
+---
+fps: 30
+bpm: 129
+---
+
+<Audio src="/soundtrack.mp3" />
+
+# Verse duration=8beats
+```
+
+BPM detection requires `node-web-audio-api` (optional dependency). If missing,
+the command tells you how to install it:
+
+```bash
+pnpm add node-web-audio-api
+```
+
+## Loudness measurement
+
+Measure perceived loudness in LUFS (EBU R128 standard). Useful for checking
+if your audio matches platform targets before compositing.
+
+```bash
+egaki loudness narration.mp3
+# Integrated: -14.2 LUFS
+# Max: -8.1 LUFS
+# Min: -28.4 LUFS
+# Range: 20.3 LU
+
+egaki loudness track.wav --json
+```
+
+Common targets: YouTube/Spotify -14 LUFS, Apple Music -16 LUFS, podcasts -16 to -18 LUFS.
+
+Same `node-web-audio-api` optional dependency as BPM detection.
 
 ## Help
 
@@ -567,8 +627,14 @@ frame-based value.
 
 ### Beat-synced music
 
-Align the beat grid to the actual track: measure the track's BPM and the
-time of its **first downbeat**, then trim so the downbeat lands on frame 0.
+Align the beat grid to the actual track: detect the track's BPM with
+`egaki bpm`, find the time of its **first downbeat**, then trim so the
+downbeat lands on frame 0.
+
+```bash
+egaki bpm music.mp3 --json
+# { "bpm": 129.2, "intervalInSeconds": 0.464 }
+```
 
 ```mdx
 ---

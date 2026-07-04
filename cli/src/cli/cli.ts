@@ -87,6 +87,12 @@ import {
   cloneVoiceUncached as cloneVoice,
   type CloneProvider,
 } from './clone-generate.js'
+import {
+  detectBpm,
+} from './bpm-detect.js'
+import {
+  detectLoudness,
+} from './loudness-detect.js'
 
 const cli = goke('egaki')
 
@@ -1003,6 +1009,147 @@ cli
         model: result.model,
         stems: savedFiles,
       }, null, 2))
+    }
+  })
+
+// ─── bpm command ─────────────────────────────────────────────────────────────
+
+cli
+  .command(
+    'bpm [audio]',
+    dedent`
+      Detect the BPM (beats per minute) of an audio file.
+      Runs locally using peak detection, no API call needed.
+      Requires node-web-audio-api as an optional dependency.
+    `,
+  )
+  .option(
+    '--stdin',
+    'Read audio from stdin instead of a file path',
+  )
+  .option(
+    '--json',
+    'Output result as JSON to stdout',
+  )
+  .example('# Detect BPM of a song')
+  .example('egaki bpm song.mp3')
+  .example('# Pipe audio from another command')
+  .example('ffmpeg -i video.mp4 -f mp3 - | egaki bpm --stdin')
+  .example('# Get JSON output')
+  .example('egaki bpm track.wav --json')
+  .action(async (audioPath = '', options) => {
+    if (!options.stdin && !audioPath) {
+      console.error(pc.red('No audio provided. Pass an audio file path or use --stdin.'))
+      process.exit(1)
+    }
+
+    let audioData: ArrayBuffer
+
+    if (options.stdin) {
+      const chunks: Buffer[] = []
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk)
+      }
+      audioData = Buffer.concat(chunks).buffer as ArrayBuffer
+    } else {
+      const resolved = path.resolve(audioPath)
+      if (!fs.existsSync(resolved)) {
+        console.error(pc.red(`File not found: ${resolved}`))
+        process.exit(1)
+      }
+      const buf = fs.readFileSync(resolved)
+      audioData = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
+    }
+
+    if (!options.json) {
+      console.error(pc.dim(`Audio: ${options.stdin ? 'stdin' : audioPath} (${(audioData.byteLength / 1024).toFixed(1)} KB)`))
+      console.error(pc.cyan('Detecting BPM...'))
+    }
+
+    const result = await detectBpm(audioData)
+
+    if (result instanceof Error) {
+      console.error(pc.red(result.message))
+      process.exit(1)
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2))
+    } else {
+      console.error(pc.green(`BPM: ${result.bpm}`))
+      console.error(pc.dim(`Interval: ${result.intervalInSeconds.toFixed(3)}s`))
+    }
+  })
+
+// ─── loudness command ────────────────────────────────────────────────────────
+
+cli
+  .command(
+    'loudness [audio]',
+    dedent`
+      Measure the perceived loudness (LUFS) of an audio file.
+      Uses the EBU R128 / ITU-R BS.1770 standard with K-weighting.
+      Runs locally, no API call needed.
+      Requires node-web-audio-api as an optional dependency.
+    `,
+  )
+  .option(
+    '--stdin',
+    'Read audio from stdin instead of a file path',
+  )
+  .option(
+    '--json',
+    'Output result as JSON to stdout',
+  )
+  .example('# Measure loudness of a song')
+  .example('egaki loudness song.mp3')
+  .example('# Pipe audio from another command')
+  .example('ffmpeg -i video.mp4 -f mp3 - | egaki loudness --stdin')
+  .example('# Get JSON output')
+  .example('egaki loudness track.wav --json')
+  .action(async (audioPath = '', options) => {
+    if (!options.stdin && !audioPath) {
+      console.error(pc.red('No audio provided. Pass an audio file path or use --stdin.'))
+      process.exit(1)
+    }
+
+    let audioData: ArrayBuffer
+
+    if (options.stdin) {
+      const chunks: Buffer[] = []
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk)
+      }
+      audioData = Buffer.concat(chunks).buffer as ArrayBuffer
+    } else {
+      const resolved = path.resolve(audioPath)
+      if (!fs.existsSync(resolved)) {
+        console.error(pc.red(`File not found: ${resolved}`))
+        process.exit(1)
+      }
+      const buf = fs.readFileSync(resolved)
+      audioData = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer
+    }
+
+    if (!options.json) {
+      console.error(pc.dim(`Audio: ${options.stdin ? 'stdin' : audioPath} (${(audioData.byteLength / 1024).toFixed(1)} KB)`))
+      console.error(pc.cyan('Measuring loudness...'))
+    }
+
+    const result = await detectLoudness(audioData)
+
+    if (result instanceof Error) {
+      console.error(pc.red(result.message))
+      process.exit(1)
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2))
+    } else {
+      console.error(pc.green(`Integrated: ${result.integrated.toFixed(1)} LUFS`))
+      console.error(pc.dim(`Max: ${result.max.toFixed(1)} LUFS`))
+      console.error(pc.dim(`Min: ${result.min.toFixed(1)} LUFS`))
+      console.error(pc.dim(`Range: ${result.range.toFixed(1)} LU`))
     }
   })
 

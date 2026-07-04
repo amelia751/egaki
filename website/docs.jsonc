@@ -82,6 +82,8 @@
               "docs/cli/speech",
               "docs/cli/transcribe",
               "docs/cli/demucs",
+              "docs/cli/bpm",
+              "docs/cli/loudness",
               "docs/cli/voice-clone",
               "docs/cli/models",
               "docs/cli/login",

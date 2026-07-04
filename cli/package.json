@@ -141,6 +141,9 @@
       "optional": true
     }
   },
+  "optionalDependencies": {
+    "node-web-audio-api": ">=1"
+  },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/react": "^19.2.17",
