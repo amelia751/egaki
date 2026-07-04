@@ -32,8 +32,8 @@
  * - Cloudflare frame:       https://github.com/raycast/ray-so/blob/main/app/(navigation)/(code)/components/frames/CloudflareFrame.tsx
  */
 
-import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { interpolate, spring, useCurrentFrame, useDelayRender, useVideoConfig } from 'remotion'
 import { useTweakpane } from './tweakpane-hook.tsx'
 
 // ---------------------------------------------------------------------------
@@ -422,12 +422,30 @@ function detectLanguage(title?: string, language?: string): string {
 
 function useHighlightedHtml(code: string, lang: string, highlightLines: number[]): string {
   const [html, setHtml] = useState('')
+  const { delayRender, continueRender } = useDelayRender()
 
-  useEffect(() => {
+  // delayRender registered during the first render (useState initializer) and
+  // continued only AFTER the highlighted html has been committed to the DOM
+  // (layout effect below). Continuing from inside the shiki .then() is too
+  // early: React batches the setHtml update, so the renderer could capture the
+  // frame between continueRender and the commit, producing an empty block in
+  // screenshots/filmstrips/exports.
+  const [handle] = useState(() => delayRender('shiki highlight'))
+  useLayoutEffect(() => {
+    if (html) continueRender(handle)
+  }, [html, handle, continueRender])
+  // Unmount safety: never leave a dangling handle.
+  useLayoutEffect(() => {
+    return () => continueRender(handle)
+  }, [handle, continueRender])
+
+  useLayoutEffect(() => {
     let cancelled = false
 
     void getHighlighter().then((h) => {
-      if (cancelled) return
+      if (cancelled) {
+        return
+      }
 
       // Load language on demand if not already loaded
       const loaded = h.getLoadedLanguages()
@@ -449,9 +467,13 @@ function useHighlightedHtml(code: string, lang: string, highlightLines: number[]
         }],
       })
       if (!cancelled) setHtml(result)
+    }).catch(() => {
+      continueRender(handle)
     })
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [code, lang, highlightLines.join(',')])
 
   return html
