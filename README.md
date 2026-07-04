@@ -957,6 +957,24 @@ Both accept `startInFrames` (in frames) to offset playback.
 - **Negative** `startInFrames`: offsets from section end.
   `<Audio src="/sfx.mp3" startInFrames={-2 * FPS} />` plays 2 seconds before end.
 
+### Gaps before and after audio
+
+A gap **before** is a positive `startInFrames`. A gap **after** happens
+automatically when the clip is shorter than the section; use a negative
+`startInFrames` to anchor the clip to the cut, or `trimAfter` to cut the
+source early.
+
+```mdx
+{/* 0.4s breath after the cut, then the voice starts */}
+<GeneratedSpeech text="..." startInFrames={0.4 * FPS} />
+
+{/* whoosh that ends exactly at the scene cut */}
+<Audio src="/whoosh.mp3" startInFrames={-1 * FPS} />
+
+{/* play only the first 2s of a longer clip */}
+<Audio src="/tail.mp3" trimAfter={2 * FPS} />
+```
+
 ### `objectFit` for full-frame media
 
 `<Video>` and `<Img>` from `egaki/video` support `objectFit` as a component prop:
