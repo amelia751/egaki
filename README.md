@@ -719,6 +719,69 @@ Pattern:
 
 See `cut-in-motion-example/` and `shader-example/` for working demos.
 
+### Composing enter and exit moves
+
+Combine primitives for entrances and exits with real presence: a scene-level
+`Scale` for the camera push, plus `TranslateY`/`TranslateX` for the element
+move. Enter animations should end at the natural position (`to={0}` or
+`to={1}`) so the resting frame is predictable.
+
+```mdx
+# Hook duration=8beats
+
+<Scale from={1} to={1.5} duration={8 * BEAT}>
+<Background>
+  <WaveGradientShader style={{ width: '100%', height: '100%' }} />
+</Background>
+
+<TranslateY from={80} to={0} duration={0.6 * FPS}>
+  <TranslateY from={0} to={-80} duration={0.5 * FPS} startInFrames={-0.5 * FPS} cutInMotion={0.3}>
+    <div style={{ fontSize: 92, color: 'white' }}>Title</div>
+  </TranslateY>
+</TranslateY>
+</Scale>
+```
+
+**Go big.** Subtle values read as accidental drift; large values read as
+intentional motion. Prefer `Scale from={1} to={1.5}` over `1.05`, translate
+distances of 80-260px over 10-20px, and pair them with short durations
+(0.4-0.7s) and strong easings. Reserve subtle magnitudes (+0.05 scale) for
+ambient drift layered under the main move, not for the move itself.
+
+### Typewriter text
+
+Reveal text character by character, synced to the voiceover's word
+timestamps (see "Syncing animations to word timestamps"). Two details make
+it look right:
+
+- **Lay out the full text invisibly** and reveal characters on top, so
+  centered lines never shift while typing.
+- **Render the caret absolutely positioned** (zero width) so it never
+  wraps lines or pushes layout.
+
+```tsx
+function Typewriter({ words, fontSize }: { words: { text: string; startSec: number; endSec: number }[]; fontSize: number }) {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
+  const t = frame / fps
+  return (
+    <div style={{ position: 'relative', fontSize, color: 'white', textAlign: 'center' }}>
+      {/* ghost copy keeps the layout stable */}
+      <span style={{ visibility: 'hidden' }}>{words.map((w) => w.text).join(' ')}</span>
+      <span style={{ position: 'absolute', inset: 0 }}>
+        {words.map((w, i) => {
+          const chars = w.text.length
+          const shown = t < w.startSec ? 0 : t >= w.endSec ? chars
+            : Math.ceil(((t - w.startSec) / (w.endSec - w.startSec)) * chars)
+          return <span key={i}>{w.text.slice(0, shown)}{i < words.length - 1 && shown === chars ? ' ' : ''}</span>
+        })}
+        <span style={{ position: 'absolute', width: 0 }}>|</span>
+      </span>
+    </div>
+  )
+}
+```
+
 ## `<Fill>`
 
 A full-frame layer like Remotion's `AbsoluteFill` but with better defaults
