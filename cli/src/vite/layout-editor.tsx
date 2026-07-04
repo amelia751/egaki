@@ -687,7 +687,7 @@ export function LayoutEditor({ playerContainerRef, playerRef, editing, onEditing
     <div data-layout-editor-toolbar className='flex items-center gap-1.5 text-[13px]'>
       <ToolbarButton onClick={() => onEditingChange(!editing)} active={editing}
         title={editing ? 'Exit editing mode' : 'Edit layout — click to select, drag to move, corners to scale, double-click text to edit'}>
-        {editing ? '✦ Editing' : '✦ Edit Layout'}
+        {editing ? 'Editing' : 'Edit'}
       </ToolbarButton>
 
       {editing && changesCount > 0 && (

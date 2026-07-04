@@ -85,6 +85,12 @@ const getGenerationErrors = () => egakiStore.getState().serverGenerationErrors
 const EMPTY_ERRORS: GenerationError[] = []
 const getGenerationErrorsServer = () => EMPTY_ERRORS
 
+// Sidebar open state
+const subscribeSidebarOpen = (callback: () => void) =>
+  egakiStore.subscribe((state) => state.sidebarOpen, callback)
+const getSidebarOpen = () => egakiStore.getState().sidebarOpen
+const getSidebarOpenServer = () => false
+
 // Modules
 const subscribeModules = (callback: () => void) =>
   egakiStore.subscribe((state) => state.modules, callback)
@@ -107,6 +113,11 @@ export function useGenerationStatus(): GenerationStatus | null {
 /** Hook: recent generation errors (auto-cleared after 8s). */
 export function useGenerationErrors(): GenerationError[] {
   return useSyncExternalStore(subscribeGenerationErrors, getGenerationErrors, getGenerationErrorsServer)
+}
+
+/** Hook: whether the right tweakpane sidebar is open. */
+export function useSidebarOpen(): boolean {
+  return useSyncExternalStore(subscribeSidebarOpen, getSidebarOpen, getSidebarOpenServer)
 }
 
 /** Hook: user modules from virtual:egaki-modules. */

@@ -27,7 +27,7 @@ import { renderInBrowser } from './render-client.ts'
 import { createSpiceflowFetch } from 'spiceflow/client'
 import type { app } from './app.tsx'
 import { egakiStore } from './store.ts'
-import { useGenerationStatus, useGenerationErrors, type GenerationStatus } from './store-hooks.ts'
+import { useGenerationStatus, useGenerationErrors, useSidebarOpen, type GenerationStatus } from './store-hooks.ts'
 import { egakiSDK } from './sdk.ts'
 import { LayoutEditor, type SectionMeta } from './layout-editor.tsx'
 import { TweakpaneRoot, SIDEBAR_WIDTH } from './tweakpane-hook.tsx'
@@ -573,6 +573,7 @@ export function PlayerPage({
 
   const generationStatus = useGenerationStatus()
   const generationErrors = useGenerationErrors()
+  const sidebarOpen = useSidebarOpen()
 
   const [editing, setEditing] = useState(false)
   const [resetKey, setResetKey] = useState(0)
@@ -961,17 +962,29 @@ export function PlayerPage({
         </div>
       </div>
 
-      {/* Right sidebar — always visible, hosts tweakpane controls */}
+      {/* Right sidebar — collapsible, hosts tweakpane controls */}
       <TweakpaneRoot playerRef={playerRef} fps={fps} sections={sections} entryPath={entryPath} />
 
       {/* Floating toolbar — fixed at bottom, offset left to account for sidebar */}
       <div
         className='fixed bottom-6 flex items-center gap-1.5 rounded-full bg-[#1c1c1c] border border-white/10 px-2 py-1.5 shadow-2xl'
         style={{
-          left: `calc((100% - ${SIDEBAR_WIDTH}px - 0.75rem) / 2)`,
+          left: sidebarOpen ? `calc((100% - ${SIDEBAR_WIDTH}px - 0.75rem) / 2)` : '50%',
           transform: 'translateX(-50%)',
         }}
       >
+        {/* Previous scene (Down) — first item in the toolbar */}
+        <button
+          onClick={goToPrevScene}
+          disabled={!hasPrevScene}
+          className='flex items-center justify-center rounded-full w-7 h-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-zinc-400'
+          title='Previous scene (↓)'
+        >
+          <ChevronDownIcon />
+        </button>
+
+        <ToolbarSeparator />
+
         {/* Entry selector — only shown when multiple MDX files exist */}
         {availableEntries.length > 1 && (
           <>
@@ -1046,28 +1059,6 @@ export function PlayerPage({
 
         <ToolbarSeparator />
 
-        {/* Scene navigation — prev (Down) / next (Up) */}
-        <div className='flex items-center'>
-          <button
-            onClick={goToPrevScene}
-            disabled={!hasPrevScene}
-            className='flex items-center justify-center rounded-full w-7 h-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-zinc-400'
-            title='Previous scene (↓)'
-          >
-            <ChevronDownIcon />
-          </button>
-          <button
-            onClick={goToNextScene}
-            disabled={!hasNextScene}
-            className='flex items-center justify-center rounded-full w-7 h-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-zinc-400'
-            title='Next scene (↑)'
-          >
-            <ChevronUpIcon />
-          </button>
-        </div>
-
-        <ToolbarSeparator />
-
         <LayoutEditor
           playerContainerRef={playerContainerRef}
           playerRef={playerRef}
@@ -1101,6 +1092,18 @@ export function PlayerPage({
             </div>
           </>
         )}
+
+        <ToolbarSeparator />
+
+        {/* Next scene (Up) — last item in the toolbar */}
+        <button
+          onClick={goToNextScene}
+          disabled={!hasNextScene}
+          className='flex items-center justify-center rounded-full w-7 h-7 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default disabled:hover:bg-transparent disabled:hover:text-zinc-400'
+          title='Next scene (↑)'
+        >
+          <ChevronUpIcon />
+        </button>
       </div>
     </div>
   )

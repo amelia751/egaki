@@ -23,6 +23,8 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, createContext, useContext } from 'react'
 import type { PlayerRef } from '@remotion/player'
 import { LayoutContainerContext, useIsPremounting } from './mdx-video.tsx'
+import { setSidebarOpen } from './store.ts'
+import { useSidebarOpen } from './store-hooks.ts'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -530,10 +532,32 @@ export function useTweakpane<T extends ParamSchema>(
 /** Sidebar width constant shared with player-page layout. */
 export const SIDEBAR_WIDTH = 280
 
+/** Lucide-style panel-right icon used for both opening and closing the sidebar. */
+function PanelRightIcon() {
+  return (
+    <svg
+      width='16'
+      height='16'
+      viewBox='0 0 24 24'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='1.5'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+    >
+      <rect x='3' y='3' width='18' height='18' rx='2' />
+      <line x1='15' y1='3' x2='15' y2='21' />
+    </svg>
+  )
+}
+
 /**
- * Right sidebar that hosts the tweakpane Pane. Always visible in the page
- * layout; the Pane mounts into the scrollable inner div. Also provides
- * player metadata (frame, fps, sections) to the copy prompt button.
+ * Right sidebar that hosts the tweakpane Pane. Collapsed by default so the
+ * video takes the full width; a fixed top-right button opens it. The sidebar
+ * container stays mounted while collapsed (hidden via display: none) because
+ * useTweakpane registers controls into it — unmounting would lose all
+ * registrations until components remount. Also provides player metadata
+ * (frame, fps, sections) to the copy prompt button.
  */
 export function TweakpaneRoot({
   playerRef,
@@ -566,28 +590,51 @@ export function TweakpaneRoot({
     }
   }, [playerRef, fps, sections, entryPath])
 
+  const sidebarOpen = useSidebarOpen()
+
   return (
-    <div
-      className='egaki-sidebar'
-      style={{
-        width: SIDEBAR_WIDTH,
-        minWidth: SIDEBAR_WIDTH,
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        background: '#111',
-        borderLeft: '1px solid rgba(255,255,255,0.08)',
-        flexShrink: 0,
-      }}
-    >
-      <CopyChangesButton />
+    <>
+      {!sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          title='Open controls sidebar'
+          className='fixed top-4 right-4 z-10 flex items-center justify-center rounded-lg w-8 h-8 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer'
+        >
+          <PanelRightIcon />
+        </button>
+      )}
       <div
-        ref={containerRefCallback}
-        id='egaki-tweakpane'
-        style={{ width: '100%' }}
-      />
-    </div>
+        className='egaki-sidebar'
+        style={{
+          width: SIDEBAR_WIDTH,
+          minWidth: SIDEBAR_WIDTH,
+          height: '100vh',
+          position: 'sticky',
+          top: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          background: '#111',
+          borderLeft: '1px solid rgba(255,255,255,0.08)',
+          flexShrink: 0,
+          display: sidebarOpen ? undefined : 'none',
+        }}
+      >
+        <div className='flex items-center justify-end px-2 pt-2'>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            title='Close controls sidebar'
+            className='flex items-center justify-center rounded-lg w-8 h-8 text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors cursor-pointer'
+          >
+            <PanelRightIcon />
+          </button>
+        </div>
+        <CopyChangesButton />
+        <div
+          ref={containerRefCallback}
+          id='egaki-tweakpane'
+          style={{ width: '100%' }}
+        />
+      </div>
+    </>
   )
 }

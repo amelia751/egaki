@@ -70,6 +70,10 @@ export interface EgakiClientState {
   /** Recent generation errors from the server progress stream.
    *  Errors auto-clear after ERROR_DISPLAY_DURATION_MS. */
   serverGenerationErrors: GenerationError[]
+
+  /** Whether the right tweakpane sidebar is open. Closed by default so the
+   *  video takes the full width. */
+  sidebarOpen: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -83,8 +87,14 @@ export const egakiStore = createStore<EgakiClientState>()(
     serverGenerationStatus: null as GenerationStatus | null,
     serverGenerationEntries: [] as GenerationProgressEntry[],
     serverGenerationErrors: [] as GenerationError[],
+    sidebarOpen: false as boolean,
   })),
 )
+
+/** Open or close the right tweakpane sidebar. */
+export function setSidebarOpen(open: boolean) {
+  egakiStore.setState({ sidebarOpen: open })
+}
 
 // ---------------------------------------------------------------------------
 // Selectors — derive values from state
