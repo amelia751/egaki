@@ -125,8 +125,7 @@
     "vite": ">=6",
     "motion": ">=12",
     "motion-dom": ">=12",
-    "motion-utils": ">=12",
-    "node-web-audio-api": ">=1"
+    "motion-utils": ">=12"
   },
   "peerDependenciesMeta": {
     "vite": {
@@ -140,10 +139,10 @@
     },
     "motion-utils": {
       "optional": true
-    },
-    "node-web-audio-api": {
-      "optional": true
     }
+  },
+  "optionalDependencies": {
+    "node-web-audio-api": ">=1"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
