@@ -565,6 +565,34 @@ frame-based value.
 <TranslateX from={-140} to={0} duration={15}>
 ```
 
+### Beat-synced music
+
+Align the beat grid to the actual track: measure the track's BPM and the
+time of its **first downbeat**, then trim so the downbeat lands on frame 0.
+
+```mdx
+---
+fps: 30
+bpm: 129.2
+---
+
+{/* First downbeat at 0.372s → trim 11 frames so the grid starts on a beat. */}
+<Audio src="/music.mp3" trimBefore={11} volume={0.5} />
+```
+
+To tighten pacing without breaking beat sync, raise the frontmatter `bpm`
+and speed the music up to match:
+
+```mdx
+---
+bpm: 140
+---
+
+<Audio src="/music.mp3" trimBefore={11} playbackRate={140 / 129.2} />
+```
+
+Scene cuts stay locked to the musical beat while every scene gets shorter.
+
 ## Preamble
 
 Content **before the first `#` heading** is the **preamble**. It renders at
@@ -1164,6 +1192,39 @@ inside the section.
 <Caption words={[...]} />
 ```
 
+### Voiceover pacing
+
+Give every section its own `<GeneratedSpeech>` and make sure the speech
+**never overruns the section**. Check with ffprobe:
+
+```bash
+for f in public/generated/audio/*.wav; do
+  ffprobe -v error -show_entries format=duration -of csv=p=0 "$f"
+done
+```
+
+- **Overrun** → add a beat to the section or shorten the copy.
+- **Dead air** → shorten the section or lengthen the copy.
+- Don't fit VO with the TTS `speed` option: models treat it as a hint, so
+  output duration is nonlinear and varies per generation. Don't use audio
+  `playbackRate` either; it shifts pitch.
+- `seed={2}` rerolls a generation whose length landed wrong.
+- `startInFrames={0.4 * FPS}` adds a breath after a cut so narration
+  doesn't run back to back across scenes.
+
+### Syncing animations to word timestamps
+
+Transcribe the generated speech to drive typewriter reveals or per-word
+highlights:
+
+```bash
+egaki transcribe public/generated/audio/hook-*.wav -m scribe_v1 -o words.json
+```
+
+The output `segments` array has `startSecond`/`endSecond` per word. Feed
+those into your component and reveal each word at `startSec * FPS`.
+Re-transcribe whenever the VO text, speed, or seed changes.
+
 ## DimOverlay pattern
 
 When a preamble `<Video>` plays behind section content, use `DimOverlay` to
@@ -1257,6 +1318,54 @@ const s = Math.round(scale * 1000) / 1000
 Clamping freezes the output at the boundary. Only use `clamp` for bounded
 animations (opacity 0-1, progress bars).
 
+## Light-leak overlay transitions
+
+Overlay a short light-sweep clip (black background, bright streaks) at the
+**end** of each scene so the flash lands right at the cut. With
+`mixBlendMode: 'screen'` black becomes transparent and only the streaks
+overlay the scene; a contrast crush removes the grey veil from compression
+noise.
+
+Find the clip's flash peak once with
+`ffmpeg -i clip.mp4 -vf signalstats -f null -` (look for max `YAVG`), then
+position the peak ~2 frames before the section end:
+
+```tsx
+function LightSwipe({ src, peakSec }: { src: string; peakSec: number }) {
+  const { durationInFrames, fps } = useVideoConfig()
+  const from = Math.max(0, durationInFrames - Math.round(peakSec * fps) - 2)
+  return (
+    <Sequence from={from} layout="none">
+      <Fill style={{ pointerEvents: 'none' }}>
+        <Video src={src} muted style={{
+          width: '100%', height: '100%', objectFit: 'cover',
+          mixBlendMode: 'screen', filter: 'brightness(0.75) contrast(2.2)',
+        }} />
+      </Fill>
+    </Sequence>
+  )
+}
+```
+
+## Screen recordings in scenes
+
+Prep recordings with ffmpeg before dropping them in: crop to the exact app
+window (no desktop background), retime with `setpts` to fit the section,
+and strip audio.
+
+```bash
+ffmpeg -i raw.mov -vf "crop=2048:1152:256:144,setpts=PTS/2.2,scale=1600:900" \
+  -an -r 30 -c:v libx264 -crf 18 public/recordings/demo.mp4
+```
+
+Two presentations that work well:
+
+- **Windowed**: rounded corners, spring entrance, and an ambient glow on a
+  black scene (dark drop shadows are invisible on black; use a faint
+  colored `boxShadow` glow instead).
+- **Full-bleed**: `objectFit: 'cover'` filling the frame, wrapped in a slow
+  scale drift so it never feels static.
+
 ## Zoom and ambient drift
 
 ### Zoom at a specific point
@@ -1344,6 +1453,9 @@ and support backward scrubbing.
   egaki uses HtmlInCanvas (Chromium's `drawElementImage`).
 - **Export is Chromium-only.** Keep the tab in the foreground during export
   (background tabs throttle `requestAnimationFrame`).
+- **Scene-level `<Scale>` must wrap `<Background>` too**, and must never go
+  below 1 (e.g. use `from={1} to={1.2}`). Scaling below 1 shrinks the
+  composition and exposes the black background behind it.
 
 ## MDX LSP autocomplete
 
