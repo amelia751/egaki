@@ -348,6 +348,28 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
 
 <LightSwipe src="/overlays/light-24.mp4" peakSec={0.33} />
 
+# Existing Tools duration=21beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#000000' }} />
+</Background>
+
+<GeneratedSpeech
+  text="egaki works with your existing tools. Generate videos with kimaki or openclaw, from anywhere. The agent can do everything."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+{/* Full-bleed screen recording of a Kimaki Discord thread driving egaki. */}
+
+<DriftZoom to={1.12}>
+  <Fill>
+    <Video src="/recordings/existing-tools.mp4" muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+  </Fill>
+</DriftZoom>
+
+<LightSwipe src="/overlays/light-03.mp4" peakSec={0.25} />
+
 # Outro duration=12beats
 
 <GeneratedSpeech
