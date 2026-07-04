@@ -64,60 +64,6 @@ function resolveSourceToFile(root: string, source: string): string | undefined {
   return undefined
 }
 
-/**
- * Extract raw source text ranges per section directly from the mdast.
- * Works with heading nodes' positions to capture the FULL raw heading
- * text including props like `duration=3s` and `transition=20` that
- * `splitIntoSections` strips during parsing. Each section spans from
- * its heading's start offset to the next heading's start (or EOF).
- */
-function sectionRawTexts(source: string, mdast: any): string[] {
-  // Collect the start offsets of each heading node
-  const headingStarts: number[] = []
-  for (const node of mdast.children) {
-    if (node.type === 'heading' && node.position?.start?.offset != null) {
-      headingStarts.push(node.position.start.offset)
-    }
-  }
-  // Slice source between consecutive headings, trimming trailing whitespace
-  // so boundary changes (adding/removing a following section) don't cause
-  // false positives on the preceding section.
-  return headingStarts.map((start, i) => {
-    const end = i + 1 < headingStarts.length ? headingStarts[i + 1]! : source.length
-    return source.slice(start, end).trimEnd()
-  })
-}
-
-/**
- * Compare old and new MDX sources section-by-section. Returns the index
- * of the first added or edited section, or null if nothing changed (or
- * only deletions occurred, which we skip per design).
- */
-export function findChangedSectionIndex(oldSource: string, newSource: string): number | null {
-  try {
-    const oldTexts = sectionRawTexts(oldSource, mdxParse(oldSource))
-    const newTexts = sectionRawTexts(newSource, mdxParse(newSource))
-
-    const maxLen = Math.max(oldTexts.length, newTexts.length)
-    for (let i = 0; i < maxLen; i++) {
-      if (i >= oldTexts.length) return i // new section added
-      if (i >= newTexts.length) return null // section deleted, skip
-      if (oldTexts[i] !== newTexts[i]) {
-        // Distinguish edit from deletion: if the next old section matches
-        // the current new section, a section was deleted (shifted down).
-        // Look ahead to detect deletions at any position, not just the tail.
-        if (newTexts.length < oldTexts.length && oldTexts[i + 1] === newTexts[i]) {
-          return null // deletion, skip
-        }
-        return i // content changed
-      }
-    }
-    return null // no scene-level change (frontmatter/preamble only)
-  } catch {
-    return null // parse error, don't seek
-  }
-}
-
 /** Discover .mdx files in the project root directory (non-recursive).
  *  Only root-level files become entries to avoid import resolution issues
  *  with nested paths. Returns a map of routePath → absolutePath. */
@@ -160,8 +106,6 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
   let defaultRoute: string = ''
   /** Whether the user's project has `motion` (framer-motion) installed. */
   let hasMotion = false
-  /** Cached previous MDX sources for section-level diff detection, keyed by abs path. */
-  const previousMdxSources: Map<string, string> = new Map()
   /** Set of absolute paths of all entry MDX files for quick lookup. */
   let entryPathSet: Set<string> = new Set()
 
@@ -216,13 +160,6 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
 
       defaultRoute = resolveDefaultRoute(mdxEntries, options?.entry, root)
       entryPathSet = new Set(mdxEntries.values())
-
-      // Seed previous sources for section-level diff detection.
-      for (const [, absPath] of mdxEntries) {
-        try {
-          previousMdxSources.set(absPath, fs.readFileSync(absPath, 'utf-8'))
-        } catch { /* ignore read errors */ }
-      }
 
       // Auto-generate egaki-env.d.ts so MDX LSP knows about built-in
       // components via the global MDXProvidedComponents type. Same
@@ -432,19 +369,7 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
           mdxEntries.set(relPath.replace(/\.mdx$/, ''), absEntry)
         }
         defaultRoute = resolveDefaultRoute(mdxEntries, options?.entry, root)
-        const nextEntryPathSet = new Set(mdxEntries.values())
-
-        // Sync previousMdxSources: seed new entries, prune removed ones.
-        for (const file of previousMdxSources.keys()) {
-          if (!nextEntryPathSet.has(file)) previousMdxSources.delete(file)
-        }
-        for (const file of nextEntryPathSet) {
-          if (!previousMdxSources.has(file)) {
-            try { previousMdxSources.set(file, fs.readFileSync(file, 'utf-8')) }
-            catch { /* file may be mid-write */ }
-          }
-        }
-        entryPathSet = nextEntryPathSet
+        entryPathSet = new Set(mdxEntries.values())
 
         invalidateVirtual([RESOLVED_APP, RESOLVED_MDX, RESOLVED_MODULES])
         if (this.environment.name === 'client') {
@@ -457,26 +382,11 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
         invalidateVirtual([RESOLVED_APP, RESOLVED_MDX])
 
         if (this.environment.name === 'client') {
-          // Section-level diff detection for the changed entry.
-          const newMdxSource = fs.readFileSync(normalizedFile, 'utf-8')
-          const prevSource = previousMdxSources.get(normalizedFile)
-          const changedSection = prevSource != null
-            ? findChangedSectionIndex(prevSource, newMdxSource)
-            : null
-          previousMdxSources.set(normalizedFile, newMdxSource)
-
           ctx.server.environments.client?.hot.send({
             type: 'custom',
             event: 'rsc:update',
             data: { file: ctx.file },
           })
-          if (changedSection != null) {
-            ctx.server.environments.client?.hot.send({
-              type: 'custom',
-              event: 'egaki:scene-changed',
-              data: { sectionIndex: changedSection, file: normalizedFile },
-            })
-          }
         }
         return []
       }

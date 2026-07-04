@@ -43,20 +43,6 @@ import { SectionIndexContext } from './media-duration-store.ts'
 import type { VideoFrontmatter } from './mdx-parse.ts'
 
 // ---------------------------------------------------------------------------
-// HMR scene-changed: store pending seek at module scope so it survives
-// component remounts caused by rsc:update (spiceflow payload swap).
-// The vite plugin sends egaki:scene-changed with { sectionIndex } when
-// the user edits a specific section of the entry MDX.
-// ---------------------------------------------------------------------------
-let pendingSceneSeek: { sectionIndex: number; file: string } | null = null
-/** Cancels the auto-pause listener from a previous scene-seek, so a new
- *  HMR during playback doesn't leave stale listeners that pause the wrong scene. */
-let cancelPreviousAutoPlay: (() => void) | null = null
-/** Monotonic counter to invalidate stale requestAnimationFrame callbacks
- *  when rapid successive HMR edits arrive before the first rAF fires. */
-let sceneSeekVersion = 0
-
-// ---------------------------------------------------------------------------
 // Generation progress client — fetches /api/generation-progress on page
 // load and on every rsc:update using the typed Spiceflow fetch client.
 // The route is an async generator that yields progress events as SSE;
@@ -131,9 +117,6 @@ function connectToProgress() {
 if (typeof window !== 'undefined') connectToProgress()
 
 if (import.meta.hot) {
-  import.meta.hot.on('egaki:scene-changed', (data: { sectionIndex: number; file: string }) => {
-    pendingSceneSeek = data
-  })
   // Reconnect on rsc:update — new generations may have started from
   // MDX edits that trigger server-side rendering of <Server> blocks.
   import.meta.hot.on('rsc:update', () => {
@@ -487,81 +470,6 @@ export function PlayerPage({
       playerContainerRef,
     })
   }, [Component, totalDuration, sections, fps, width, height, scale])
-
-  // Consume pending scene seek after the RSC refetch delivers new sections.
-  // The module-level pendingSceneSeek is set by import.meta.hot.on before
-  // React re-renders; this effect fires after the commit with fresh data.
-  // Seeks to the changed section's start frame, plays it, and pauses at
-  // the section's end so the user sees exactly the content they edited.
-  useEffect(() => {
-    if (pendingSceneSeek == null) return
-    // Ignore scene changes from a different entry MDX file.
-    if (pendingSceneSeek.file !== entryPath) {
-      pendingSceneSeek = null
-      return
-    }
-    const idx = pendingSceneSeek.sectionIndex
-    pendingSceneSeek = null
-
-    // Wait one frame for the Remotion Player to initialize after remount.
-    // Version token ensures stale rAF callbacks from rapid edits are ignored.
-    const version = ++sceneSeekVersion
-    requestAnimationFrame(() => {
-      if (version !== sceneSeekVersion) return
-      const player = playerRef.current
-      if (!player || idx < 0 || idx >= sections.length) return
-
-      // Compute section boundaries from current sections
-      let startFrame = 0
-      for (let i = 0; i < idx; i++) {
-        startFrame += sections[i]!.durationInFrames
-      }
-      const endFrame = startFrame + sections[idx]!.durationInFrames - 1
-
-      player.seekTo(startFrame)
-
-      // Cancel any auto-pause from a previous HMR scene-seek so stale
-      // listeners don't pause playback in the wrong section.
-      cancelPreviousAutoPlay?.()
-      cancelPreviousAutoPlay = null
-
-      // Only auto-play if currently paused (after rsc:update remount
-      // the player always starts paused at frame 0)
-      if (!player.isPlaying()) {
-        player.play()
-
-        // Pause at section end so only the edited section plays.
-        // If the user manually seeks (clicks timeline, arrow keys, etc.)
-        // cancel the auto-pause so we don't randomly stop playback later.
-        let cancelled = false
-        const cleanup = () => {
-          if (cancelled) return
-          cancelled = true
-          cancelPreviousAutoPlay = null
-          player.removeEventListener('frameupdate', onFrame as any)
-          player.removeEventListener('seeked', onSeek as any)
-        }
-        cancelPreviousAutoPlay = cleanup
-        const onFrame = () => {
-          if (cancelled) return
-          if (player.getCurrentFrame() >= endFrame) {
-            player.pause()
-            cleanup()
-          }
-        }
-        const onSeek = (e: any) => {
-          // User seeked away — cancel auto-pause. Ignore seeks within
-          // the target section range (could be our own seekTo settling).
-          const frame = e?.detail?.frame ?? player.getCurrentFrame()
-          if (frame < startFrame || frame > endFrame) {
-            cleanup()
-          }
-        }
-        player.addEventListener('frameupdate', onFrame as any)
-        player.addEventListener('seeked', onSeek as any)
-      }
-    })
-  }, [sections])
 
   // Defer Player mount to client only. Remotion's Player and all composition
   // components (Series, AbsoluteFill, Audio, Video) use React context provided
