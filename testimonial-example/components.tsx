@@ -31,8 +31,8 @@ const impulseOvershoot71 = impulseOvershoot(71)
 // Background visual — full-bleed image with zoom-out animation
 // ---------------------------------------------------------------------------
 
-function BackgroundVisual({ src }: { src: string }) {
-  const { fps } = useVideoConfig()
+function BackgroundVisual({ src, speed = 1 }: { src: string; speed?: number }) {
+  const fps = useVideoConfig().fps / speed
   if (!src) return null
   return (
     <Scale from={1.5} to={1} duration={1.49 * fps} easing={EASE.smooth} label="bg-zoom">
@@ -48,8 +48,8 @@ function BackgroundVisual({ src }: { src: string }) {
 // Frosted card — backdrop blur + white tint, centered via flexbox
 // ---------------------------------------------------------------------------
 
-function FrostedCard() {
-  const { fps } = useVideoConfig()
+function FrostedCard({ speed = 1 }: { speed?: number }) {
+  const fps = useVideoConfig().fps / speed
   return (
     <Fill style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <Scale from={1150 / 675} to={1} duration={1.49 * fps} easing={EASE.smooth} inline label="card-resize">
@@ -75,9 +75,9 @@ function FrostedCard() {
 // Per-word animation, stays as a custom helper.
 // ---------------------------------------------------------------------------
 
-function MaskedWordsText({ text, startSec }: { text: string; startSec: number }) {
+function MaskedWordsText({ text, startSec, speed = 1 }: { text: string; startSec: number; speed?: number }) {
   const frame = useCurrentFrame()
-  const { fps } = useVideoConfig()
+  const fps = useVideoConfig().fps / speed
   const words = text.split(' ')
   return (
     <>
@@ -107,9 +107,9 @@ function MaskedWordsText({ text, startSec }: { text: string; startSec: number })
 // Heart — outline fade-in + circular mask fill reveal + group scale
 // ---------------------------------------------------------------------------
 
-function Heart() {
+function Heart({ speed = 1 }: { speed?: number }) {
   const frame = useCurrentFrame()
-  const { fps } = useVideoConfig()
+  const fps = useVideoConfig().fps / speed
   const maskP = interpolate(frame, [2.125 * fps, 3.21 * fps], [0, 1], {
     easing: EASE.smooth,
     extrapolateLeft: 'clamp',
@@ -167,8 +167,8 @@ function Heart() {
 // Portrait bubble — scale reveal from center
 // ---------------------------------------------------------------------------
 
-function PortraitBubble({ src }: { src: string }) {
-  const { fps } = useVideoConfig()
+function PortraitBubble({ src, speed = 1 }: { src: string; speed?: number }) {
+  const fps = useVideoConfig().fps / speed
   return (
     <div style={{ width: '2.5em', height: '2.5em', borderRadius: '20%', overflow: 'hidden', flexShrink: 0 }}>
       <Scale
@@ -239,6 +239,8 @@ export interface TestimonialCardProps {
   fontFamily?: string
   /** URL for a custom @font-face. If provided, a @font-face rule is injected. */
   fontSrc?: string
+  /** Playback speed multiplier for the whole animation timeline (1 = original). */
+  speed?: number
 }
 
 export function TestimonialCard({
@@ -250,8 +252,9 @@ export function TestimonialCard({
   logo = <DefaultLogo />,
   fontFamily = 'HelveticaNowDisplay-Medium',
   fontSrc = '/fonts/helvetica-now-display-medium.otf',
+  speed = 1,
 }: TestimonialCardProps) {
-  const { fps } = useVideoConfig()
+  const fps = useVideoConfig().fps / speed
 
   return (
     <Fill style={{ fontFamily, overflow: 'hidden' }}>
@@ -266,10 +269,10 @@ export function TestimonialCard({
       )}
 
       {/* Background image with zoom-out */}
-      <BackgroundVisual src={backgroundSrc} />
+      <BackgroundVisual src={backgroundSrc} speed={speed} />
 
       {/* Frosted card layer */}
-      <FrostedCard />
+      <FrostedCard speed={speed} />
 
       {/* Card content — flexbox centered, matches frosted card size */}
       <Fill style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -293,16 +296,16 @@ export function TestimonialCard({
                 <Opacity from={0} to={1} duration={0.23 * fps} startInFrames={0.752 * fps} easing={(t) => t} inline label="quote-mark" style={{ display: 'inline', color: '#ffffff' }}>
                   {'\u201C'}
                 </Opacity>
-                <MaskedWordsText text={`${quote}\u201D`} startSec={0.5} />
+                <MaskedWordsText text={`${quote}\u201D`} startSec={0.5} speed={speed} />
               </div>
 
               {/* Author row: portrait + name + heart */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5em' }}>
-                <PortraitBubble src={portraitSrc} />
+                <PortraitBubble src={portraitSrc} speed={speed} />
                 <div style={{ color: '#ffffff80', flex: 1 }}>
-                  <MaskedWordsText text={author} startSec={1.49} />
+                  <MaskedWordsText text={author} startSec={1.49} speed={speed} />
                 </div>
-                <Heart />
+                <Heart speed={speed} />
               </div>
             </div>
           </Scale>
