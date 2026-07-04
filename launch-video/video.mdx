@@ -66,10 +66,30 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
 
 <LightSwipe src="/overlays/light-03.mp4" peakSec={0.25} />
 
-# Testimonial duration=8beats
+# Written By Agent duration=8beats
+
+<Background>
+  <div style={{ width: '100%', height: '100%', background: '#000000' }} />
+</Background>
 
 <GeneratedSpeech
   text="It was written by a coding agent."
+  model="sonic-3"
+  voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
+/>
+
+<DriftZoom to={1.12}>
+  <TranslateX from={-220} to={0} duration={0.5 * FPS} cutInMotion={0.1}>
+    <ScreenRecording src="/recordings/written-by-agent.mp4" width={1500} aspectRatio={16 / 9} />
+  </TranslateX>
+</DriftZoom>
+
+<LightSwipe src="/overlays/light-24.mp4" peakSec={0.33} />
+
+# Motion Graphics duration=8beats
+
+<GeneratedSpeech
+  text="Complex motion graphics, custom easings."
   model="sonic-3"
   voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
 />
@@ -88,7 +108,7 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
 </TranslateX>
 </Scale>
 
-<LightSwipe src="/overlays/light-24.mp4" peakSec={0.33} />
+<LightSwipe src="/overlays/light-06.mp4" peakSec={0.46} />
 
 # The Source duration=8beats
 
