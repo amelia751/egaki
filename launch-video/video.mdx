@@ -192,12 +192,9 @@ import { TESTIMONIAL_SNIPPET, ANATOMY_SNIPPET } from './snippets'
   voice="e46970a9-7337-44b6-9ce5-905fe3c8790b"
 />
 
-<DriftZoom to={1.05}>
+<DriftZoom to={1.14}>
   <TranslateX from={0} to={260} duration={0.5 * FPS} startInFrames={-0.5 * FPS} cutInMotion={0.25}>
-    <RecordingPlaceholder
-      label="Codex editing video.mdx with the egaki dev server"
-      sublabel="placeholder, real screen recording goes here"
-    />
+    <ScreenRecording src="/recordings/agent-iterating.mp4" width={1500} aspectRatio={16 / 9} />
   </TranslateX>
 </DriftZoom>
 
