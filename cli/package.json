@@ -1,6 +1,6 @@
 {
   "name": "egaki",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "type": "module",
   "description": "AI image, video, and speech generation CLI with MDX-to-video framework",
   "main": "./dist/cli/main.js",

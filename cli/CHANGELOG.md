@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.8.0
+
+1. **`egaki bpm` command** — detect BPM of audio files locally using peak detection and interval analysis. No API call needed, runs entirely on device via `node-web-audio-api`:
+
+   ```bash
+   egaki bpm song.mp3
+   egaki bpm track.wav --json
+   ffmpeg -i video.mp4 -f mp3 - | egaki bpm --stdin
+   ```
+
+   Returns BPM and beat interval in seconds. Useful for syncing music to video sections with `bpm:` frontmatter.
+
+2. **`egaki loudness` command** — measure perceived loudness (LUFS) of audio files locally. Uses K-weighted filtering and two-pass gating inspired by EBU R128:
+
+   ```bash
+   egaki loudness song.mp3
+   egaki loudness track.wav --json
+   ffmpeg -i video.mp4 -f mp3 - | egaki loudness --stdin
+   ```
+
+   Returns integrated, max, min loudness and loudness range. Helpful for normalizing audio levels across video scenes.
+
+3. **Collapsible tweakpane sidebar** — the right-side tweakpane panel is now collapsed by default so the video preview takes the full width. A panel icon button in the top-right corner toggles it open.
+
+4. **Fixed CodeBlock empty frames during export** — shiki highlight was racing with React's batched state updates, causing empty code blocks in screenshots, filmstrips, and video exports. Now uses `delayRender`/`continueRender` correctly via `useLayoutEffect`.
+
+5. **Removed HMR auto-seek on MDX edits** — editing the entry MDX no longer auto-seeks to the changed scene and auto-plays. The behavior was fragile and surprising. MDX edits still hot-reload via RSC update.
+
 ## 0.7.2
 
 1. **Fixed missing `spiceflow` and `@vitejs/plugin-react` dependencies** — both were listed as optional peer dependencies but imported unconditionally by the Vite plugin. Now included as regular dependencies so `egaki/vite` works out of the box without manually installing them.
