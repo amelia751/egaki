@@ -11,6 +11,17 @@ The README covers all MDX video syntax, animation primitives, easing presets,
 LayoutTransition, captions, voice cloning, media components, and CSS rules.
 This AGENTS.md only contains internal development rules and architecture details.
 
+## Deploying the website
+
+The website deploys via Cloudflare Workers (wrangler), not Holocron deploy.
+Run from the `website/` directory:
+
+```bash
+cd website && pnpm deploy
+```
+
+This runs `pnpm build && wrangler deploy`. Never use `holocron deploy` for this project.
+
 ## Code style
 
 **Never use `textShadow`.** It looks bad in video. This applies to all components,
