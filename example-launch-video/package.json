@@ -1,5 +1,5 @@
 {
-  "name": "claude-fusion-launch",
+  "name": "example-launch-video",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,11 +9,15 @@
   "dependencies": {
     "@remotion/media": "4.0.475",
     "@remotion/player": "4.0.475",
+    "example-claude-fusion-launch": "workspace:^",
     "egaki": "workspace:^",
+    "example-mirror": "workspace:^",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "remotion": "4.0.475",
-    "spiceflow": "1.26.0-rsc.7"
+    "spiceflow": "1.26.0-rsc.7",
+    "example-sun-montage": "workspace:^",
+    "example-testimonial": "workspace:^"
   },
   "devDependencies": {
     "@mdx-js/typescript-plugin": "^0.1.3",

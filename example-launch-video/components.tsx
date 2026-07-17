@@ -18,7 +18,7 @@ import { CodeBlock, EASE, Fill, Video, dspring } from 'egaki/video'
 import { TestimonialCard } from 'example-testimonial/components'
 export { TestimonialCard }
 export { MirrorShowcase } from 'example-mirror/components'
-export { WordRevealTitle, PromptCard } from 'claude-fusion-launch/components'
+export { WordRevealTitle, PromptCard } from 'example-claude-fusion-launch/components'
 export { ImageMontage } from 'example-sun-montage/components'
 
 const SERIF = 'Georgia, "Times New Roman", serif'

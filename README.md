@@ -1283,7 +1283,7 @@ Film-style subtitles at the bottom of the frame:
   `opacity`, never conditional rendering
 
 Reference examples: `example-sun-montage/` (film-style),
-`bible-montage/` (editorial cascade with font rotation),
+`example-bible-montage/` (editorial cascade with font rotation),
 `example-captions/` (TikTok highlight style using `@remotion/captions`).
 
 ## Voice cloning and TTS
