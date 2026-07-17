@@ -30,136 +30,6 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  acme-example:
-    dependencies:
-      '@remotion/player':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      egaki:
-        specifier: workspace:^
-        version: link:../cli
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-      react-dom:
-        specifier: 19.2.7
-        version: 19.2.7(react@19.2.7)
-      remotion:
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      spiceflow:
-        specifier: 1.26.0-rsc.7
-        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
-    devDependencies:
-      '@vitejs/plugin-react':
-        specifier: ^6.0.2
-        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.3
-      vite:
-        specifier: ^8.0.10
-        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
-
-  angled-screen-example:
-    dependencies:
-      '@remotion/media':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@remotion/player':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      egaki:
-        specifier: workspace:^
-        version: link:../cli
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-      react-dom:
-        specifier: 19.2.7
-        version: 19.2.7(react@19.2.7)
-      remotion:
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      spiceflow:
-        specifier: 1.26.0-rsc.7
-        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
-    devDependencies:
-      '@vitejs/plugin-react':
-        specifier: ^6.0.2
-        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.3
-      vite:
-        specifier: ^8.0.10
-        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
-
-  animated-search-bar-example:
-    dependencies:
-      '@remotion/player':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      egaki:
-        specifier: workspace:^
-        version: link:../cli
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-      react-dom:
-        specifier: 19.2.7
-        version: 19.2.7(react@19.2.7)
-      remotion:
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      spiceflow:
-        specifier: 1.26.0-rsc.7
-        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
-    devDependencies:
-      '@vitejs/plugin-react':
-        specifier: ^6.0.2
-        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.3
-      vite:
-        specifier: ^8.0.10
-        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
-
-  auto-duration-example:
-    dependencies:
-      '@remotion/media':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@remotion/player':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      egaki:
-        specifier: workspace:^
-        version: link:../cli
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-      react-dom:
-        specifier: 19.2.7
-        version: 19.2.7(react@19.2.7)
-      remotion:
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      spiceflow:
-        specifier: 1.26.0-rsc.7
-        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
-    devDependencies:
-      '@vitejs/plugin-react':
-        specifier: ^6.0.2
-        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.3
-      vite:
-        specifier: ^8.0.10
-        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
-
   bible-montage:
     dependencies:
       '@remotion/media':
@@ -187,74 +57,6 @@ importers:
       '@types/react':
         specifier: ^19.2.17
         version: 19.2.17
-      '@vitejs/plugin-react':
-        specifier: ^6.0.2
-        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.3
-      vite:
-        specifier: ^8.0.10
-        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
-
-  browser-new-example:
-    dependencies:
-      '@remotion/player':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      egaki:
-        specifier: workspace:^
-        version: link:../cli
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-      react-dom:
-        specifier: 19.2.7
-        version: 19.2.7(react@19.2.7)
-      remotion:
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      spiceflow:
-        specifier: 1.26.0-rsc.7
-        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
-    devDependencies:
-      '@vitejs/plugin-react':
-        specifier: ^6.0.2
-        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.3
-      vite:
-        specifier: ^8.0.10
-        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
-
-  captions-example:
-    dependencies:
-      '@remotion/captions':
-        specifier: 4.0.475
-        version: 4.0.475
-      '@remotion/media':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@remotion/player':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      egaki:
-        specifier: workspace:^
-        version: link:../cli
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-      react-dom:
-        specifier: 19.2.7
-        version: 19.2.7(react@19.2.7)
-      remotion:
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      spiceflow:
-        specifier: 1.26.0-rsc.7
-        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
-    devDependencies:
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
@@ -436,7 +238,7 @@ importers:
         specifier: '>=1'
         version: 2.0.0
 
-  code-block-example:
+  example-acme:
     dependencies:
       '@remotion/player':
         specifier: 4.0.475
@@ -467,7 +269,205 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  cut-in-motion-example:
+  example-angled-screen:
+    dependencies:
+      '@remotion/media':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.7
+        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
+  example-animated-search-bar:
+    dependencies:
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.7
+        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
+  example-auto-duration:
+    dependencies:
+      '@remotion/media':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.7
+        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
+  example-browser-new:
+    dependencies:
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.7
+        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
+  example-captions:
+    dependencies:
+      '@remotion/captions':
+        specifier: 4.0.475
+        version: 4.0.475
+      '@remotion/media':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.7
+        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
+  example-code-block:
+    dependencies:
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.7
+        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
+  example-cut-in-motion:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -504,7 +504,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  cylinder-text-example:
+  example-cylinder-text:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -538,7 +538,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  framer-motion-example:
+  example-framer-motion:
     dependencies:
       '@remotion/player':
         specifier: 4.0.475
@@ -581,7 +581,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  framer-spiral-example:
+  example-framer-spiral:
     dependencies:
       '@remotion/player':
         specifier: 4.0.475
@@ -618,29 +618,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  gateway:
-    dependencies:
-      hono:
-        specifier: ^4.7.10
-        version: 4.12.25
-      resend:
-        specifier: ^6.8.0
-        version: 6.12.4
-      stripe:
-        specifier: ^20.2.0
-        version: 20.4.1(@types/node@25.3.0)
-    devDependencies:
-      '@ai-sdk/provider':
-        specifier: 3.0.8
-        version: 3.0.8
-      '@cloudflare/workers-types':
-        specifier: ^4.20250525.0
-        version: 4.20260610.1
-      wrangler:
-        specifier: ^4.19.1
-        version: 4.105.0(@cloudflare/workers-types@4.20260610.1)
-
-  generated-media-example:
+  example-generated-media:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -674,7 +652,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  kaleidoscope-example:
+  example-kaleidoscope:
     dependencies:
       '@remotion/player':
         specifier: 4.0.475
@@ -705,56 +683,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  launch-video:
-    dependencies:
-      '@remotion/media':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@remotion/player':
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      claude-fusion-launch:
-        specifier: workspace:^
-        version: link:../claude-fusion-launch
-      egaki:
-        specifier: workspace:^
-        version: link:../cli
-      mirror-example:
-        specifier: workspace:^
-        version: link:../mirror-example
-      react:
-        specifier: 19.2.7
-        version: 19.2.7
-      react-dom:
-        specifier: 19.2.7
-        version: 19.2.7(react@19.2.7)
-      remotion:
-        specifier: 4.0.475
-        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      spiceflow:
-        specifier: 1.26.0-rsc.7
-        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
-      sun-montage-example:
-        specifier: workspace:^
-        version: link:../sun-montage-example
-      testimonial-example:
-        specifier: workspace:^
-        version: link:../testimonial-example
-    devDependencies:
-      '@mdx-js/typescript-plugin':
-        specifier: ^0.1.3
-        version: 0.1.3
-      '@vitejs/plugin-react':
-        specifier: ^6.0.2
-        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
-      typescript:
-        specifier: ^6.0.2
-        version: 6.0.3
-      vite:
-        specifier: ^8.0.10
-        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
-
-  layout-transition-example:
+  example-layout-transition:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -788,32 +717,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  midjourney:
-    dependencies:
-      '@xmorse/playwright-core':
-        specifier: ^1.52.3
-        version: 1.59.10
-      playwriter:
-        specifier: '>=0.3.0'
-        version: 0.3.1(@types/react@19.2.17)(react@19.2.7)
-      react:
-        specifier: '>=18'
-        version: 19.2.7
-    devDependencies:
-      '@types/react':
-        specifier: ^19.2.17
-        version: 19.2.17
-      egaki:
-        specifier: workspace:^
-        version: link:../cli
-      rimraf:
-        specifier: ^6.0.1
-        version: 6.1.3
-      vitest:
-        specifier: ^4.1.8
-        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@25.3.0)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
-
-  midjourney-example:
+  example-midjourney:
     dependencies:
       '@egaki/midjourney':
         specifier: workspace:^
@@ -847,7 +751,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  mirror-example:
+  example-mirror:
     dependencies:
       '@remotion/player':
         specifier: 4.0.475
@@ -878,7 +782,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  modular-example:
+  example-modular:
     dependencies:
       '@remotion/player':
         specifier: 4.0.475
@@ -909,7 +813,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  playwriter-cloud-example:
+  example-playwriter-cloud:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -946,7 +850,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  rajavarman-example:
+  example-rajavarman:
     dependencies:
       '@remotion/google-fonts':
         specifier: 4.0.475
@@ -980,7 +884,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  release-notes-example:
+  example-release-notes:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -1014,7 +918,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  scrolling-transcript-example:
+  example-scrolling-transcript:
     dependencies:
       '@remotion/player':
         specifier: 4.0.475
@@ -1048,7 +952,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  shader-example:
+  example-shader:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -1085,7 +989,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  showcase-example:
+  example-showcase:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -1122,7 +1026,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  sun-montage-example:
+  example-sun-montage:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -1156,7 +1060,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  testimonial-example:
+  example-testimonial:
     dependencies:
       '@remotion/player':
         specifier: 4.0.475
@@ -1187,7 +1091,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  text-grid-example:
+  example-text-grid:
     dependencies:
       '@remotion/media':
         specifier: 4.0.475
@@ -1221,7 +1125,7 @@ importers:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
 
-  video-example:
+  example-video:
     dependencies:
       '@remotion/player':
         specifier: 4.0.475
@@ -1266,6 +1170,102 @@ importers:
       vite:
         specifier: ^8.0.10
         version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
+  gateway:
+    dependencies:
+      hono:
+        specifier: ^4.7.10
+        version: 4.12.25
+      resend:
+        specifier: ^6.8.0
+        version: 6.12.4
+      stripe:
+        specifier: ^20.2.0
+        version: 20.4.1(@types/node@25.3.0)
+    devDependencies:
+      '@ai-sdk/provider':
+        specifier: 3.0.8
+        version: 3.0.8
+      '@cloudflare/workers-types':
+        specifier: ^4.20250525.0
+        version: 4.20260610.1
+      wrangler:
+        specifier: ^4.19.1
+        version: 4.105.0(@cloudflare/workers-types@4.20260610.1)
+
+  launch-video:
+    dependencies:
+      '@remotion/media':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@remotion/player':
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      claude-fusion-launch:
+        specifier: workspace:^
+        version: link:../claude-fusion-launch
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      example-mirror:
+        specifier: workspace:^
+        version: link:../example-mirror
+      example-sun-montage:
+        specifier: workspace:^
+        version: link:../example-sun-montage
+      example-testimonial:
+        specifier: workspace:^
+        version: link:../example-testimonial
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.7)
+      remotion:
+        specifier: 4.0.475
+        version: 4.0.475(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      spiceflow:
+        specifier: 1.26.0-rsc.7
+        version: 1.26.0-rsc.7(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@types/react@19.2.17)(hono@4.12.25)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(zod@4.4.3)
+    devDependencies:
+      '@mdx-js/typescript-plugin':
+        specifier: ^0.1.3
+        version: 0.1.3
+      '@vitejs/plugin-react':
+        specifier: ^6.0.2
+        version: 6.0.2(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      typescript:
+        specifier: ^6.0.2
+        version: 6.0.3
+      vite:
+        specifier: ^8.0.10
+        version: 8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)
+
+  midjourney:
+    dependencies:
+      '@xmorse/playwright-core':
+        specifier: ^1.52.3
+        version: 1.59.10
+      playwriter:
+        specifier: '>=0.3.0'
+        version: 0.3.1(@types/react@19.2.17)(react@19.2.7)
+      react:
+        specifier: '>=18'
+        version: 19.2.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      egaki:
+        specifier: workspace:^
+        version: link:../cli
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@opentelemetry/api@1.9.0)(@types/node@25.3.0)(vite@8.0.16(@types/node@25.3.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
 
   website:
     dependencies:

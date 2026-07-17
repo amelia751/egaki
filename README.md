@@ -784,7 +784,7 @@ Pattern:
 </TranslateX>
 ```
 
-See `cut-in-motion-example/` and `shader-example/` for working demos.
+See `example-cut-in-motion/` and `example-shader/` for working demos.
 
 ### Composing enter and exit moves
 
@@ -1005,7 +1005,7 @@ them.
 </div>
 ```
 
-Demo: `layout-transition-example/` project.
+Demo: `example-layout-transition/` project.
 
 ## `<Server>` component slots
 
@@ -1282,9 +1282,9 @@ Film-style subtitles at the bottom of the frame:
 - **No layout shift**: render ALL words always, toggle visibility with
   `opacity`, never conditional rendering
 
-Reference examples: `sun-montage-example/` (film-style),
+Reference examples: `example-sun-montage/` (film-style),
 `bible-montage/` (editorial cascade with font rotation),
-`captions-example/` (TikTok highlight style using `@remotion/captions`).
+`example-captions/` (TikTok highlight style using `@remotion/captions`).
 
 ## Voice cloning and TTS
 

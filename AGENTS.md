@@ -456,10 +456,10 @@ Main suite: `cli/src/vite/mdx-video.test.tsx`, `cli/src/vite/easing-curves.test.
 **Example app + e2e**:
 
 ```bash
-cd video-example && pnpm run test-e2e
+cd example-video && pnpm run test-e2e
 ```
 
-Playwright starts Vite on port **5199**, runs `video-example/e2e/hmr.test.ts`
+Playwright starts Vite on port **5199**, runs `example-video/e2e/hmr.test.ts`
 serially. Reuses an existing server on 5199 when not in CI.
 
 ## Agent SDK (`window.egakiSDK`)

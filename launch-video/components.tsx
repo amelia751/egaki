@@ -15,11 +15,11 @@ import { CodeBlock, EASE, Fill, Video, dspring } from 'egaki/video'
 
 // --- Reused scene components from other examples (workspace deps) ----------
 
-import { TestimonialCard } from 'testimonial-example/components'
+import { TestimonialCard } from 'example-testimonial/components'
 export { TestimonialCard }
-export { MirrorShowcase } from 'mirror-example/components'
+export { MirrorShowcase } from 'example-mirror/components'
 export { WordRevealTitle, PromptCard } from 'claude-fusion-launch/components'
-export { ImageMontage } from 'sun-montage-example/components'
+export { ImageMontage } from 'example-sun-montage/components'
 
 const SERIF = 'Georgia, "Times New Roman", serif'
 const MONO = '"SF Mono", "Roboto Mono", Menlo, monospace'
