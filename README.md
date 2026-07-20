@@ -856,6 +856,49 @@ for video content. Children **stretch horizontally** to fill the frame and
 **center vertically**. Available in MDX without imports. Accepts `style` to
 override alignment. Prefer `<Fill>` over raw `<AbsoluteFill>`.
 
+## `<AngledScreen>`
+
+WebGL 3D screen with **true depth-of-field**. Children DOM is captured per
+frame (HTML-in-canvas) and rendered as a perspective-tilted plane in a
+fragment shader: parts of the plane further from the camera get progressively
+more bokeh blur, plus fog toward `backgroundColor` and subtle film grain.
+Available in MDX without imports:
+
+```mdx
+# Hero duration=5s
+
+<AngledScreen rotateX={9} rotateY={-17} translateZ={120} backgroundColor="#0a0608">
+  <Img src="/screenshot.png" style={{ width: '100%', borderRadius: 14 }} />
+</AngledScreen>
+```
+
+Depth of field uses the exact **Three.js BokehShader** algorithm with the same
+defaults as the original plugin, so the cinematic look is on by default: blur
+grows linearly with distance from the focus plane and saturates at `maxBlur`,
+sampled with a 41-tap ring kernel in screen space (plane edges melt into the
+background where out of focus).
+
+Props: `perspective` (camera distance px, default 1200), `rotateX`/`rotateY`/`rotateZ`
+(degrees, CSS semantics), `translateX` (px horizontal shift), `translateZ` (px
+toward camera), `bokeh` (default true),
+`aperture` (shallower DOF with bigger values, default 0.5), `maxBlur` (blur
+saturation cap in screen-UV units, default 0.12), `focus` (focus distance as a
+fraction of `perspective`; default 0 = auto: near side sharp, blur ramps
+progressively from mid-image to the far edge), `fog` (fade to
+background with depth, default 0.35), `grainIntensity` (default 0.02),
+`backgroundColor`, `width`/`height` (content wrapper size, default `80%`/`auto`),
+`debug` (grayscale depth view). All props are editable live in the tweakpane panel.
+
+The defaults need no tuning: the near half stays sharp and only the far side
+melts. Raise `aperture` for an earlier, heavier falloff, or set an explicit
+`focus` to place the sharp plane manually (Three.js BokehPass semantics).
+
+Requires Chrome 149+ with `chrome://flags/#canvas-draw-element` enabled.
+When unsupported it falls back automatically to `BasicAngledScreen`, the
+**deprecated** CSS-only predecessor (same transform props, directional
+`backdrop-filter` blur instead of true depth-of-field). Don't use it
+directly in new videos; the fallback is automatic.
+
 ## Easing presets
 
 Import from `egaki/video`. **Always use `cubicBezier()` from `egaki/video`

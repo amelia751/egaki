@@ -71,7 +71,7 @@ export interface ShaderConfig {
 // ---------------------------------------------------------------------------
 
 /** Parse a hex color string (#RGB, #RRGGBB, #RRGGBBAA) to [r, g, b, a] in 0-1 range. */
-function parseHexColor(hex: string): [number, number, number, number] {
+export function parseHexColor(hex: string): [number, number, number, number] {
   let h = hex.replace('#', '')
   if (h.length === 3 || h.length === 4) {
     h = h
@@ -172,7 +172,7 @@ function generateFragmentSource(
 // WebGL helpers
 // ---------------------------------------------------------------------------
 
-function compileGlShader(
+export function compileGlShader(
   gl: WebGL2RenderingContext,
   type: number,
   source: string,
@@ -189,7 +189,7 @@ function compileGlShader(
   return shader
 }
 
-function linkGlProgram(
+export function linkGlProgram(
   gl: WebGL2RenderingContext,
   vs: WebGLShader,
   fs: WebGLShader,

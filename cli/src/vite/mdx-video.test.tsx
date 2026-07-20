@@ -27,6 +27,7 @@ describe('MDX_BUILTIN_COMPONENTS', () => {
         "Audio",
         "Background",
         "BandsShader",
+        "BasicAngledScreen",
         "Blur",
         "BlurReveal",
         "CodeBlock",

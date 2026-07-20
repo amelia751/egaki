@@ -1,7 +1,11 @@
 'use client'
 
 /**
- * AngledScreen — CSS 3D perspective wrapper with fake bokeh depth-of-field.
+ * BasicAngledScreen — CSS 3D perspective wrapper with fake bokeh depth-of-field.
+ *
+ * The shader-based version (true depth-of-field via WebGL) lives in
+ * angled-screen-shader.tsx and is exported as AngledScreen. This CSS version
+ * is kept as a lightweight fallback that works without HTML-in-canvas support.
  *
  * Wraps any children (images, videos, divs) in a 3D-transformed plane using
  * CSS `perspective` + `transform: rotateX/Y/Z`. Simulates depth-of-field
@@ -23,7 +27,7 @@
 import { type CSSProperties, type ReactNode } from 'react'
 import { useTweakpane } from './tweakpane-hook.tsx'
 
-export interface AngledScreenProps {
+export interface BasicAngledScreenProps {
   children: ReactNode
 
   // --- 3D transform ---
@@ -91,7 +95,12 @@ function autoDirection(rotateX: number, rotateY: number): 'top' | 'bottom' | 'le
   return rotateX > 0 ? 'bottom' : 'top'
 }
 
-export function AngledScreen(props: AngledScreenProps) {
+/**
+ * @deprecated Use `AngledScreen` (angled-screen-shader.tsx) instead — the
+ * WebGL version with true depth-of-field. This CSS version only remains as
+ * the automatic fallback for browsers without HTML-in-canvas support.
+ */
+export function BasicAngledScreen(props: BasicAngledScreenProps) {
   const {
     children,
     transformOrigin = '50% 50%',
@@ -102,7 +111,7 @@ export function AngledScreen(props: AngledScreenProps) {
     style,
   } = props
 
-  const tp = useTweakpane('AngledScreen', {
+  const tp = useTweakpane('BasicAngledScreen', {
     perspective: { value: props.perspective ?? 1200, min: 100, max: 3000, step: 10 },
     rotateX: { value: props.rotateX ?? 8, min: -90, max: 90, step: 0.5 },
     rotateY: { value: props.rotateY ?? -12, min: -90, max: 90, step: 0.5 },

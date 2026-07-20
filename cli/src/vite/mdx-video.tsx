@@ -29,7 +29,8 @@ import {
   StaggeredFadeUp,
   ShimmerSweep,
 } from './components.tsx'
-import { AngledScreen } from './angled-screen.tsx'
+import { BasicAngledScreen } from './angled-screen.tsx'
+import { AngledScreen } from './angled-screen-shader.tsx'
 import { CodeBlock, CODE_THEMES } from './code-block.tsx'
 import { BandsShader } from './bands-shader.tsx'
 import { WaveGradientShader } from './wave-gradient-shader.tsx'
@@ -924,6 +925,7 @@ export {
   StaggeredFadeUp,
   ShimmerSweep,
   AngledScreen,
+  BasicAngledScreen,
   CodeBlock,
   CODE_THEMES,
   BandsShader,
@@ -953,6 +955,7 @@ export const MDX_BUILTIN_COMPONENTS = {
   Background,
   LayoutTransition,
   AngledScreen,
+  BasicAngledScreen,
   BandsShader,
   WaveGradientShader,
   LiquidGradientShader,

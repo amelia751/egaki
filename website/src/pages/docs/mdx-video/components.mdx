@@ -10,7 +10,7 @@ icon: lucide:component
 
 egaki ships a set of visual components that are available in MDX **without
 imports**. The full built-in map is: `Fill`, `Background`, `LayoutTransition`,
-`AngledScreen`, `BandsShader`, `WaveGradientShader`, `LiquidGradientShader`,
+`AngledScreen`, `BasicAngledScreen`, `BandsShader`, `WaveGradientShader`, `LiquidGradientShader`,
 `DispersionRingsShader`, `BlurReveal`, `MaskedSlideReveal`, `StaggeredFadeUp`,
 `CodeBlock`, `ShimmerSweep`, `Img`, `Audio`, `Video`, `Opacity`, `Scale`,
 `TranslateX`, `TranslateY`, `Blur`, `GeneratedImage`, `GeneratedVideo`, and
@@ -95,15 +95,52 @@ themes and window chrome styles:
 
 ## AngledScreen
 
-CSS 3D perspective wrapper with fake depth-of-field. Wraps any children
-(images, videos, divs) in a 3D-rotated plane; the far edge is blurred
-automatically based on the rotation direction:
+WebGL 3D screen with **true depth-of-field**. Children DOM is captured per
+frame (HTML-in-canvas) and rendered as a perspective-tilted plane in a
+fragment shader. Depth of field uses the exact **Three.js BokehShader**
+algorithm (41-tap ring kernel in screen space): blur grows linearly with
+distance from the focus plane, out-of-focus plane edges melt into the
+background, plus fog and subtle film grain. The cinematic look is on by
+default — no blur props needed:
 
 ```mdx
-<AngledScreen rotateY={-20}>
-  <Img src="/screenshot.png" style={{ width: '100%' }} />
+# Hero duration=5s
+
+<AngledScreen rotateX={9} rotateY={-17} translateZ={120} backgroundColor="#0a0608">
+  <Img src="/screenshot.png" style={{ width: '100%', borderRadius: 14 }} />
 </AngledScreen>
 ```
+
+Every prop is editable live in the tweakpane panel while previewing.
+
+| Prop | Default | Description |
+| --- | --- | --- |
+| `perspective` | `1200` | Camera distance in px. Smaller = more dramatic wide-angle |
+| `rotateX` / `rotateY` / `rotateZ` | `8` / `-12` / `0` | Plane rotation in degrees, same semantics as CSS transforms |
+| `translateX` | `0` | Shift the plane horizontally in px (positive = right) |
+| `translateZ` | `0` | Push the plane toward the camera (positive = closer/larger) |
+| `bokeh` | `true` | Enable depth-of-field |
+| `aperture` | `0.5` | Bigger values = shallower depth of field (Three BokehPass semantics) |
+| `maxBlur` | `0.12` | Blur saturation cap in screen-UV units (fraction of frame size) |
+| `focus` | `0` (auto) | Fraction of `perspective`; auto keeps the near side sharp with blur ramping from mid-image to the far edge |
+| `fog` | `0.35` | Fade toward `backgroundColor` with depth (0–1) |
+| `grainIntensity` | `0.02` | Film grain strength |
+| `backgroundColor` | `'#000000'` | Color behind and around the tilted plane |
+| `width` / `height` | `'80%'` / `'auto'` | Size of the inner content wrapper |
+| `debug` | `false` | Render normalized depth as grayscale to tune the focus |
+
+Tips:
+
+- The defaults need no tuning: near half sharp, far side melts progressively.
+- Raise `aperture` for an earlier, heavier falloff; set an explicit `focus` to place the sharp plane manually.
+- Use a dark `backgroundColor` matching the scene and raise `fog` (0.4–0.55) so the far edge melts into it.
+
+Requires Chrome 149+ with the `chrome://flags/#canvas-draw-element` flag
+enabled. When unsupported, it automatically falls back to
+`BasicAngledScreen` — the **deprecated** CSS-only predecessor (same transform
+props, directional `backdrop-filter` blur instead of true depth-of-field).
+Don't use `BasicAngledScreen` directly in new videos; the fallback is applied
+automatically when needed.
 
 ## Img and Video
 

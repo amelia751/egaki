@@ -7,14 +7,14 @@
     "dev": "vite"
   },
   "dependencies": {
-    "@remotion/player": "4.0.475",
+    "@remotion/player": "4.0.494",
     "egaki": "workspace:^",
     "motion": "^12.39.0",
     "motion-dom": "^12.39.0",
     "motion-utils": "^12.39.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "remotion": "4.0.475",
+    "remotion": "4.0.494",
     "spiceflow": "1.26.0-rsc.7"
   },
   "devDependencies": {
