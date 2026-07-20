@@ -18,6 +18,14 @@
  * Tweakpane is pure DOM (no React dependency), so there are no dual-React
  * or SSR issues. During SSR (typeof window === 'undefined') the hook
  * returns the raw default values and skips all DOM work.
+ *
+ * Live props vs user overrides: each param follows the LIVE schema value
+ * passed on every render (so animated props like translateX={interpolate(...)}
+ * work) until the user touches that control in the pane. Once touched, the
+ * user's value wins for that key until the component remounts. Untouched
+ * controls are refreshed in the pane every render so animated values are
+ * visible while playing. Programmatic refreshes are guarded so tweakpane's
+ * change events (which fire on refresh() too) don't mark keys as touched.
  */
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, createContext, useContext } from 'react'
@@ -129,6 +137,10 @@ interface FolderEntry {
   params: Record<string, unknown>
   /** The original default values for diffing. */
   defaults: Record<string, unknown>
+  /** Keys the user changed via the pane UI. Only these count as "changed"
+   *  in the copy prompt — untouched keys track live (possibly animated)
+   *  props, so diffing them against mount-time defaults would be noise. */
+  touched: Set<string>
 }
 const activeFolders = new Map<string, FolderEntry>()
 
@@ -144,6 +156,22 @@ function cloneValue<T>(value: T): T {
   if (Array.isArray(value)) return [...value] as T
   if (typeof value === 'object' && value !== null) return { ...value } as T
   return value
+}
+
+/** Deep-equal for param values: primitives, small arrays (bezier tuples),
+ *  and flat objects (range {min, max}). */
+function valuesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((x, i) => x === b[i])
+  }
+  if (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null) {
+    const ra = a as Record<string, unknown>
+    const rb = b as Record<string, unknown>
+    const ka = Object.keys(ra)
+    return ka.length === Object.keys(rb).length && ka.every((k) => ra[k] === rb[k])
+  }
+  return false
 }
 
 function resolveDefault(v: ParamValue): number | boolean | string | [number, number, number, number] | { min: number; max: number } {
@@ -279,7 +307,10 @@ function serializeTweakpanePrompt(
     const changed: string[] = []
     for (const [key, current] of Object.entries(entry.params)) {
       const def = entry.defaults[key]
-      if (current !== def) {
+      // Only user-touched keys count as changed. Untouched keys mirror live
+      // (possibly animated) props, so comparing them to mount-time defaults
+      // would produce false positives on every playing frame.
+      if (entry.touched.has(key) && !valuesEqual(current, def)) {
         changed.push(`  ${key}: ${formatValue(current)}`)
       }
     }
@@ -380,6 +411,12 @@ function CopyChangesButton() {
  * Returns a reactive object with current values. Updating a control in the
  * pane immediately triggers a React re-render with fresh values.
  *
+ * Values follow live props: each key returns the schema value from the
+ * CURRENT render until the user touches that control in the pane, so
+ * animated props (e.g. `translateX={interpolate(frame, ...)}`) flow through
+ * every frame. Once touched, the user's pane value wins for that key until
+ * the component remounts.
+ *
  * On unmount the folder is disposed and removed from the pane.
  */
 export function useTweakpane<T extends ParamSchema>(
@@ -408,6 +445,22 @@ export function useTweakpane<T extends ParamSchema>(
   const schemaRef = useRef(schema)
   schemaRef.current = schema
 
+  // Keys the user changed via the pane UI. Untouched keys follow the live
+  // schema value on every render (so animated props work); touched keys keep
+  // the user's pane value until remount.
+  const touchedRef = useRef<Set<string>>(new Set())
+  // Latest user override values, mirrored from state so the mount effect can
+  // seed rebuilt folders without re-running on every pane change.
+  const valuesRef = useRef(values)
+  valuesRef.current = values
+  // Live handles to the mounted folder + bound params, used by the per-render
+  // sync effect below to push animated prop values into the pane.
+  const liveRef = useRef<{ folder: import('tweakpane').FolderApi; params: Record<string, unknown> } | null>(null)
+  // True while we call folder.refresh() programmatically. tweakpane emits
+  // change events on refresh() too, so handlers must ignore those or every
+  // animated frame would mark keys as user-touched.
+  const refreshingRef = useRef(false)
+
   // Stable ID for this hook instance
   const idRef = useRef(`${label}-${Math.random().toString(36).slice(2, 8)}`)
 
@@ -425,7 +478,10 @@ export function useTweakpane<T extends ParamSchema>(
       const def = resolveDefault(param)
       // Clone object/array values so tweakpane's in-place mutations on params
       // don't corrupt the defaults (used by "Copy changes" diffing).
-      params[key] = cloneValue(def)
+      // Touched keys keep the user's override when the folder is rebuilt
+      // (e.g. premount → active transition re-runs this effect).
+      const touched = touchedRef.current.has(key)
+      params[key] = cloneValue(touched ? valuesRef.current[key] : def)
       defaults[key] = cloneValue(def)
     }
 
@@ -449,6 +505,7 @@ export function useTweakpane<T extends ParamSchema>(
             picker: 'inline',
           } as any)
           ;(blade as any).on('change', (ev: any) => {
+            if (refreshingRef.current) return
             const val = ev.value
             const tuple: [number, number, number, number] = [
               Math.round(val.x1 * 1000) / 1000,
@@ -457,6 +514,7 @@ export function useTweakpane<T extends ParamSchema>(
               Math.round(val.y2 * 1000) / 1000,
             ]
             params[key] = tuple
+            touchedRef.current.add(key)
             setValues((prev) => ({ ...prev, [key]: tuple }))
           })
           continue
@@ -468,7 +526,9 @@ export function useTweakpane<T extends ParamSchema>(
             max: param.max,
             step: param.step,
           }).on('change', (ev) => {
+            if (refreshingRef.current) return
             const val = ev.value as { min: number; max: number }
+            touchedRef.current.add(key)
             setValues((prev) => ({ ...prev, [key]: { min: val.min, max: val.max } }))
           })
           continue
@@ -497,17 +557,22 @@ export function useTweakpane<T extends ParamSchema>(
         }
 
         folder.addBinding(params, key, opts).on('change', (ev) => {
+          if (refreshingRef.current) return
+          touchedRef.current.add(key)
           setValues((prev) => ({ ...prev, [key]: ev.value }))
         })
       }
 
+      liveRef.current = { folder, params }
+
       // Register for copy prompt
-      activeFolders.set(id, { label, params, defaults })
+      activeFolders.set(id, { label, params, defaults, touched: touchedRef.current })
       notifyFolderListeners()
     })()
 
     return () => {
       disposed = true
+      liveRef.current = null
       if (folder) {
         folder.dispose()
         folder = null
@@ -522,7 +587,40 @@ export function useTweakpane<T extends ParamSchema>(
     }
   }, [label, skip])
 
-  return values as ResolvedValues<T>
+  // Push live (possibly animated) prop values into the pane for untouched
+  // keys. Runs after every render — during playback the component re-renders
+  // each frame, so animated values are visible moving in the pane UI.
+  // folder.refresh() emits change events; refreshingRef makes handlers
+  // ignore them so refreshes never mark keys as touched.
+  useEffect(() => {
+    const live = liveRef.current
+    if (!live) return
+    let dirty = false
+    for (const [key, param] of Object.entries(schemaRef.current)) {
+      if (touchedRef.current.has(key)) continue
+      // Bezier blades are not bindings — refresh() won't read params for
+      // them. The returned value still follows live props below.
+      if (isCubicBezierParam(param)) continue
+      const liveVal = resolveDefault(param)
+      if (!valuesEqual(live.params[key], liveVal)) {
+        live.params[key] = cloneValue(liveVal)
+        dirty = true
+      }
+    }
+    if (dirty) {
+      refreshingRef.current = true
+      live.folder.refresh()
+      refreshingRef.current = false
+    }
+  })
+
+  // Merge: user-touched keys return the pane value, untouched keys follow
+  // the live schema value so animated props work without any extra wiring.
+  const merged: Record<string, unknown> = {}
+  for (const [key, param] of Object.entries(schema)) {
+    merged[key] = touchedRef.current.has(key) ? values[key] : resolveDefault(param)
+  }
+  return merged as ResolvedValues<T>
 }
 
 // ---------------------------------------------------------------------------
