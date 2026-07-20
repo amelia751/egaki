@@ -353,7 +353,7 @@ Searched Remotion source for premount detection mechanism. **FINDING: No public 
 
 ### Chromium HTML-in-canvas API is unstable across builds
 
-Canary 152.0.7959 changed `texElementImage2D` to a 3-arg form `(target, sizedInternalformat, element)` requiring RGBA8/SRGB8_ALPHA8/RGBA16F/RGBA32F; Chrome 149-151 use the 6-arg form from Remotion docs. Feature-detect via `gl.texElementImage2D.length <= 3` (see angled-screen-shader.tsx). Same Canary also broke Remotion 4.0.494's nested-capture probe (inner canvas `paint` event never fires), so web-renderer exports of nested `<HtmlInCanvas>` fall back to the DOM composer and lose shader output.
+Canary 152.0.7959 changed `texElementImage2D` to a 3-arg form `(target, sizedInternalformat, element)` requiring RGBA8/SRGB8_ALPHA8/RGBA16F/RGBA32F; Chrome 149-151 use the 6-arg form from Remotion docs. Feature-detect via `gl.texElementImage2D.length <= 3` (see angled-screen-shader.tsx). Same Canary also broke Remotion 4.0.494's nested-capture probe, so web-renderer exports of nested `<HtmlInCanvas>` use the DOM composer; egaki survives that path via mirror canvas + visibility:visible override + scoped useDelayRender (see angled-screen-shader.tsx header).
 
 ### remotion < 4.0.491 blocks WebGL in HtmlInCanvas onInit
 
@@ -362,3 +362,7 @@ Remotion 4.0.475 acquired a `2d` context on the offscreen canvas before calling 
 ### useTweakpane now follows live props unless user-overridden
 
 Params return the live schema value every render (animated props like translateX={interpolate(...)} work); a key freezes to the pane value only after the user touches that control. Pane refreshes are guarded because tweakpane's refresh() emits change events.
+
+### Remotion HtmlInCanvas delayRender scoping bug (through 4.0.495)
+
+HtmlInCanvasContent calls global delayRender() (window scope) but continues via scoped useDelayRender(); web-renderer's scaffold waitForReady only polls its own delayRenderScope, so exports never wait for nested canvas paints. Also scaffold's visibility:hidden wrapper suppresses paint records, making captureElementImage throw (silently swallowed). Worth reporting upstream.

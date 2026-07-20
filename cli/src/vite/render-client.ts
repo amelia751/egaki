@@ -24,7 +24,7 @@ import React from 'react'
  * scaffold's -9999) that visually hides the rendering without touching
  * the scaffold's layout or paint properties.
  */
-function injectScaffoldCover(): () => void {
+export function injectScaffoldCover(): () => void {
   const cover = document.createElement('div')
   cover.style.cssText = [
     'position:fixed',
@@ -35,6 +35,28 @@ function injectScaffoldCover(): () => void {
   ].join(';')
   document.body.appendChild(cover)
   return () => cover.remove()
+}
+
+/**
+ * Wrap a composition for web-renderer entry points (export, screenshot,
+ * filmstrip). The scaffold wrapper is visibility:hidden and Chromium creates
+ * no paint records for hidden subtrees, which breaks captureElementImage()
+ * inside nested <HtmlInCanvas> (AngledScreen): onInit/onPaint silently never
+ * run and exports come out flat. visibility is overridable by descendants,
+ * so a visibility:visible div at the composition root restores paint records
+ * for the whole tree while deeper visibility:hidden ancestors (e.g.
+ * LayoutTransition's inactive instances) keep hiding their subtrees
+ * relative to this root. Pair with injectScaffoldCover() so the now-visible
+ * tree cannot peek through on the page.
+ */
+export function wrapForWebRenderer(component: React.FC): React.FC {
+  const Wrapped: React.FC = () =>
+    React.createElement(
+      'div',
+      { style: { visibility: 'visible', position: 'relative', width: '100%', height: '100%' } },
+      React.createElement(component),
+    )
+  return Wrapped
 }
 
 export async function renderInBrowser(options: {
@@ -57,7 +79,7 @@ export async function renderInBrowser(options: {
   try {
     const { getBlob } = await renderMediaOnWeb({
       composition: {
-        component: ExportWrapped,
+        component: wrapForWebRenderer(ExportWrapped),
         durationInFrames: options.durationInFrames,
         fps: options.fps ?? 30,
         width: options.width ?? 1920,
