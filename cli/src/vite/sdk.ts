@@ -13,7 +13,7 @@
 
 import React from 'react'
 import { renderStillOnWeb, renderMediaOnWeb } from '@remotion/web-renderer'
-import { injectScaffoldCover, wrapForWebRenderer } from './render-client.ts'
+import { wrapForWebRenderer } from './render-client.ts'
 import { ExportContext } from './mdx-video.tsx'
 import type {
   FrameRange,
@@ -402,31 +402,26 @@ class EgakiSDK {
     const c = this.getConfig()
     const format = options.format ?? 'png'
 
-    const removeCover = injectScaffoldCover()
-    try {
-      const still = await renderStillOnWeb({
-        composition: {
-          component: wrapForWebRenderer(c.component),
-          durationInFrames: c.totalDuration,
-          fps: c.fps,
-          width: c.width,
-          height: c.height,
-          id: 'EgakiSDK',
-          calculateMetadata: null,
-        },
-        frame: options.frame ?? 0,
-        scale: options.scale ?? c.scale,
-        allowHtmlInCanvas: options.allowHtmlInCanvas ?? true,
-      })
+    const still = await renderStillOnWeb({
+      composition: {
+        component: wrapForWebRenderer(c.component),
+        durationInFrames: c.totalDuration,
+        fps: c.fps,
+        width: c.width,
+        height: c.height,
+        id: 'EgakiSDK',
+        calculateMetadata: null,
+      },
+      frame: options.frame ?? 0,
+      scale: options.scale ?? c.scale,
+      allowHtmlInCanvas: options.allowHtmlInCanvas ?? true,
+    })
 
-      const blob = await still.blob({
-        format,
-        quality: options.quality,
-      })
-      return blobToDataUrl(blob)
-    } finally {
-      removeCover()
-    }
+    const blob = await still.blob({
+      format,
+      quality: options.quality,
+    })
+    return blobToDataUrl(blob)
   }
 
   /**
@@ -505,34 +500,29 @@ class EgakiSDK {
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, canvasW, canvasH)
 
-    const removeCover = injectScaffoldCover()
-    try {
-      for (let i = 0; i < framesToCapture.length; i++) {
-        const still = await renderStillOnWeb({
-          composition: {
-            component: wrapForWebRenderer(c.component),
-            durationInFrames: c.totalDuration,
-            fps: c.fps,
-            width: c.width,
-            height: c.height,
-            id: 'EgakiSDK',
-            calculateMetadata: null,
-          },
-          frame: framesToCapture[i]!,
-          scale: renderScale,
-          allowHtmlInCanvas: options.allowHtmlInCanvas ?? true,
-        })
-        // Draw directly from the rendered OffscreenCanvas to the grid canvas.
-        // No PNG encode/decode roundtrip, no intermediate ImageBitmap storage.
-        const tileCanvas = await still.canvas()
-        const col = i % cols
-        const row = Math.floor(i / cols)
-        const x = gap + col * (tileW + gap)
-        const y = gap + row * (tileH + gap)
-        ctx.drawImage(tileCanvas, x, y, tileW, tileH)
-      }
-    } finally {
-      removeCover()
+    for (let i = 0; i < framesToCapture.length; i++) {
+      const still = await renderStillOnWeb({
+        composition: {
+          component: wrapForWebRenderer(c.component),
+          durationInFrames: c.totalDuration,
+          fps: c.fps,
+          width: c.width,
+          height: c.height,
+          id: 'EgakiSDK',
+          calculateMetadata: null,
+        },
+        frame: framesToCapture[i]!,
+        scale: renderScale,
+        allowHtmlInCanvas: options.allowHtmlInCanvas ?? true,
+      })
+      // Draw directly from the rendered OffscreenCanvas to the grid canvas.
+      // No PNG encode/decode roundtrip, no intermediate ImageBitmap storage.
+      const tileCanvas = await still.canvas()
+      const col = i % cols
+      const row = Math.floor(i / cols)
+      const x = gap + col * (tileW + gap)
+      const y = gap + row * (tileH + gap)
+      ctx.drawImage(tileCanvas, x, y, tileW, tileH)
     }
 
     // Convert to data URL
@@ -551,45 +541,40 @@ class EgakiSDK {
   async export(options: ExportOptions = {}): Promise<string> {
     const c = this.getConfig()
 
-    const removeCover = injectScaffoldCover()
-    try {
-      const { getBlob } = await renderMediaOnWeb({
-        composition: {
-          component: wrapForWebRenderer(this.wrapForExport(c.component)),
-          durationInFrames: c.totalDuration,
-          fps: c.fps,
-          width: c.width,
-          height: c.height,
-          id: 'EgakiSDK',
-          calculateMetadata: null,
-        },
-        inputProps: {},
-        container: options.container ?? 'mp4',
-        videoCodec: options.videoCodec,
-        videoBitrate: options.videoBitrate ?? 'high',
-        audioCodec: options.audioCodec,
-        audioBitrate: options.audioBitrate,
-        sampleRate: options.sampleRate,
-        muted: options.muted,
-        transparent: options.transparent,
-        scale: options.scale ?? c.scale,
-        keyframeIntervalInSeconds: options.keyframeIntervalInSeconds,
-        hardwareAcceleration: options.hardwareAcceleration,
-        frameRange: options.frameRange ?? undefined,
-        allowHtmlInCanvas: options.allowHtmlInCanvas ?? true,
-        onProgress: options.onProgress,
-      })
+    const { getBlob } = await renderMediaOnWeb({
+      composition: {
+        component: wrapForWebRenderer(this.wrapForExport(c.component)),
+        durationInFrames: c.totalDuration,
+        fps: c.fps,
+        width: c.width,
+        height: c.height,
+        id: 'EgakiSDK',
+        calculateMetadata: null,
+      },
+      inputProps: {},
+      container: options.container ?? 'mp4',
+      videoCodec: options.videoCodec,
+      videoBitrate: options.videoBitrate ?? 'high',
+      audioCodec: options.audioCodec,
+      audioBitrate: options.audioBitrate,
+      sampleRate: options.sampleRate,
+      muted: options.muted,
+      transparent: options.transparent,
+      scale: options.scale ?? c.scale,
+      keyframeIntervalInSeconds: options.keyframeIntervalInSeconds,
+      hardwareAcceleration: options.hardwareAcceleration,
+      frameRange: options.frameRange ?? undefined,
+      allowHtmlInCanvas: options.allowHtmlInCanvas ?? true,
+      onProgress: options.onProgress,
+    })
 
-      const blob = await getBlob()
+    const blob = await getBlob()
 
-      if (options.path) {
-        triggerDownload(blob, options.path)
-      }
-
-      return blobToDataUrl(blob)
-    } finally {
-      removeCover()
+    if (options.path) {
+      triggerDownload(blob, options.path)
     }
+
+    return blobToDataUrl(blob)
   }
 }
 

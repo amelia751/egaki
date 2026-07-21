@@ -366,3 +366,11 @@ Params return the live schema value every render (animated props like translateX
 ### Remotion HtmlInCanvas delayRender scoping bug (through 4.0.495)
 
 HtmlInCanvasContent calls global delayRender() (window scope) but continues via scoped useDelayRender(); web-renderer's scaffold waitForReady only polls its own delayRenderScope, so exports never wait for nested canvas paints. Also scaffold's visibility:hidden wrapper suppresses paint records, making captureElementImage throw (silently swallowed). Worth reporting upstream.
+
+### delayRender + HtmlInCanvas paint can deadlock exports
+
+Any delayRender handle released from an HtmlInCanvas onPaint callback hangs the export if the canvas sits under a visibility:hidden ancestor (Chromium creates no paint records for hidden subtrees, so paint never fires). LayoutTransition ghosts/inactive instances hide via visibility:hidden (deadlock); remotion premount hides via opacity:0 (safe, paint still fires). Gate handle registration on getComputedStyle(canvas).visibility — see angled-screen-shader.tsx.
+
+### Browser testing: user's Canary is pre-configured, use plain playwriter
+
+Tommy's Chrome Canary already has canvas-draw-element enabled AND the playwriter extension. Never launch a separate Canary (--user-data-dir/--remote-debugging-port) and never use PLAYWRITER_DIRECT — direct CDP mode causes relay conflicts and lost sessions. Plain `playwriter session new` + browser picker is the correct flow (also documented in AGENTS.md).

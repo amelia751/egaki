@@ -601,8 +601,15 @@ export function AngledScreen(props: AngledScreenProps) {
   // flushSync time update, before waitForReady() first checks the scope.
   // Gated on `supported`: the CSS BasicAngledScreen fallback never paints,
   // so registering a handle there would hang the export until timeout.
+  // Also gated on computed visibility: instances under visibility:hidden
+  // ancestors (LayoutTransition ghosts and inactive timed instances) get no
+  // Chromium paint records, so their HtmlInCanvas never fires paint and a
+  // registered handle would hang the export. Premounted sections are fine —
+  // remotion premount hides via opacity:0, which keeps paint records.
   useLayoutEffect(() => {
     if (!isRendering || !supported) return
+    const canvas = layoutCanvasRef.current
+    if (!canvas || getComputedStyle(canvas).visibility === 'hidden') return
     const handle = delayRender('AngledScreen: waiting for shader paint')
     pendingPaintHandleRef.current = handle
     layoutCanvasRef.current?.requestPaint?.()
