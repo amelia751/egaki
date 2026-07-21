@@ -48,6 +48,9 @@
  *      registers its own properly-scoped useDelayRender() handle per frame
  *      while isRendering, calls requestPaint(), and releases the handle only
  *      after onPaint has drawn and blitted the frame.
+ *      TODO: remove the scoped-delayRender workaround (and re-evaluate the
+ *      visibility wrapper in render-client.ts) once this upstream issue is
+ *      fixed: https://github.com/remotion-dev/remotion/issues/9367
  *   3. The DOM composer cannot read the transferred placeholder canvas, so
  *      every painted GL frame is blitted into a plain 2D mirror canvas that
  *      the composer picks up like any regular canvas.
@@ -361,6 +364,8 @@ export function AngledScreen(props: AngledScreenProps) {
   // waitForReady() blocks until the shader output for THIS frame exists.
   // Needed because remotion's own "waiting for first paint" delayRender
   // registers on the window scope, which the export scaffold ignores.
+  // TODO: remove once fixed upstream:
+  // https://github.com/remotion-dev/remotion/issues/9367
   const { isRendering } = useRemotionEnvironment()
   const { delayRender, continueRender } = useDelayRender()
   const continueRenderRef = useRef(continueRender)

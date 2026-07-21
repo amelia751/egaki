@@ -29,6 +29,10 @@ import React from 'react'
  *     paint pipeline (black frames — learned June 2026, commit e501ca5)
  *   - visibility:hidden kills paint records entirely (the original bug)
  * An opaque page background or full-viewport player UI fully occludes it.
+ *
+ * TODO: re-evaluate whether this wrapper is still needed once remotion
+ * fixes the HtmlInCanvas delayRender scoping / hidden-scaffold capture bug:
+ * https://github.com/remotion-dev/remotion/issues/9367
  */
 export function wrapForWebRenderer(component: React.FC): React.FC {
   const Wrapped: React.FC = () =>
