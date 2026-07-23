@@ -363,6 +363,7 @@ egaki unsubscribe
 
 | Command | What it does |
 |---|---|
+| `egaki dev` | Zero-config MDX video dev server (just pass an .mdx file) |
 | `egaki image` | Generate/edit images (Imagen, Gemini, GPT, Fal, xAI) |
 | `egaki video` | Generate videos (Veo, Kling, Wan, Seedance, xAI) |
 | `egaki speech` | Text-to-speech (OpenAI, ElevenLabs, Cartesia) |
@@ -473,13 +474,19 @@ to MP4 directly in the browser via WebCodecs.
 
 ## Getting started
 
-Create a new video project:
+The fastest way is **zero setup**: point `egaki dev` at an `.mdx` file. No
+package.json, vite.config.ts, or npm install needed — react, remotion, and
+vite all come from the egaki CLI's own installation.
 
 ```bash
-mkdir my-video && cd my-video
-pnpm init
-pnpm add egaki remotion @remotion/media react react-dom
+egaki dev video.mdx          # serve one file, random free port
+egaki dev                    # serve current dir (auto-discovers video.mdx)
+egaki dev intro.mdx --port 5199 --open
 ```
+
+`egaki dev` creates a small `node_modules` in the folder containing symlinks
+into the CLI's install (marked with a `.egaki-shim` file, safe to delete).
+This also makes editor TypeScript resolution work in the scratch folder.
 
 Create `video.mdx`:
 
@@ -504,18 +511,32 @@ bpm: 120
 </Opacity>
 ```
 
+Run `egaki dev video.mdx` and open the printed URL to see the player with
+controls and export.
+
+### Full project setup (optional)
+
+For a real project with its own dependency versions, create a package and a
+vite config instead:
+
+```bash
+mkdir my-video && cd my-video
+pnpm init
+pnpm add egaki remotion @remotion/media react react-dom vite
+```
+
 Create `vite.config.ts`:
 
 ```ts
 import { defineConfig } from 'vite'
-import { egakiPlugin } from 'egaki/vite'
+import { video } from 'egaki/vite'
 
 export default defineConfig({
-  plugins: [egakiPlugin({ entry: './video.mdx' })],
+  plugins: [video({ entry: './video.mdx' })],
 })
 ```
 
-Run `pnpm dev` and open the browser to see the player with controls and export.
+Run `vite` (or a `dev` script) and open the browser.
 
 ## How it works
 

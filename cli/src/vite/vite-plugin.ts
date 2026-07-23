@@ -277,7 +277,7 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
             const fullPath = path.join(dir, entry.name)
             if (entry.isDirectory()) {
               walkDir(fullPath)
-            } else if (/\.(tsx?|jsx?|mdx?)$/.test(entry.name) && !/\.(test|spec|config)\./.test(entry.name)) {
+            } else if (/\.(tsx?|jsx?|mdx?)$/.test(entry.name) && !/\.(test|spec|config)\./.test(entry.name) && !/\.d\.ts$/.test(entry.name)) {
               // Entry MDX files are NOT skipped: they may be imported as
               // partials by other MDX files (e.g. `import Intro from './intro.mdx'`).
               // Self-import is a user error and harmless (safe-mdx handles it).

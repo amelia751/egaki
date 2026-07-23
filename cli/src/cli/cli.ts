@@ -244,6 +244,56 @@ cli
     await showUsage()
   })
 
+// ─── dev command ─────────────────────────────────────────────────────────────
+
+cli
+  .command(
+    'dev [entry]',
+    dedent`
+      Start the MDX video dev server with zero setup.
+      Pass an .mdx file (or a directory containing one) — no package.json,
+      vite.config.ts, or npm install needed. All dependencies (react,
+      remotion, vite) come from the egaki CLI's own installation.
+      Uses a random free port unless --port is given.
+    `,
+  )
+  .option(
+    '-p, --port [port]',
+    z.coerce.number().int().describe('Fixed port (default: random free port)'),
+  )
+  .option(
+    '--host [host]',
+    z.string().describe('Host to bind (default: localhost)'),
+  )
+  .option('--open', 'Open the player in the default browser')
+  .example('# Serve a single MDX file, no project setup')
+  .example('egaki dev video.mdx')
+  .example('# Serve the current directory (auto-discovers video.mdx)')
+  .example('egaki dev')
+  .example('# Fixed port + open browser')
+  .example('egaki dev intro.mdx --port 5199 --open')
+  .action(async (entry, options) => {
+    const { startDevServer } = await import('./dev-server.js')
+    const result = await startDevServer({
+      entry,
+      port: options.port,
+      host: options.host,
+    })
+    if (result instanceof Error) {
+      console.error(pc.red(result.message))
+      process.exit(1)
+    }
+    console.log()
+    console.log(`  ${pc.green('➜')}  egaki dev server running`)
+    console.log(`  ${pc.dim('root:')} ${result.root}`)
+    console.log(`  ${pc.dim('url:')}  ${pc.cyan(result.url)}`)
+    console.log()
+    if (options.open) {
+      const { openUrlInBrowser } = await import('./open-browser.js')
+      await openUrlInBrowser(result.url)
+    }
+  })
+
 // ─── image command ───────────────────────────────────────────────────────────
 
 cli

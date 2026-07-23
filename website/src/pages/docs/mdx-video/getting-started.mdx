@@ -8,7 +8,25 @@ icon: lucide:play
 
 # Getting Started
 
-## Create a project
+## Zero-config: just run the CLI
+
+The fastest way to preview a video is passing an `.mdx` file to `egaki dev`.
+No package.json, vite config, or install step needed — react, remotion, and
+vite come from the egaki CLI's own installation:
+
+```bash
+npm install -g egaki
+egaki dev video.mdx          # random free port
+egaki dev                    # serve current dir (auto-discovers video.mdx)
+egaki dev intro.mdx --port 5199 --open
+```
+
+`egaki dev` creates a small `node_modules` of symlinks in the folder (marked
+with a `.egaki-shim` file, safe to delete) so editor TypeScript resolution
+works too. For a full project with pinned dependency versions, follow the
+manual setup below.
+
+## Create a project (manual setup)
 
 ```bash
 mkdir my-video && cd my-video
