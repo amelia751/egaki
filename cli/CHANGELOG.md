@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.10.0
+
+1. **New `egaki dev` command — zero-config MDX video dev server.** Serve an `.mdx` file with no project setup at all: no `package.json`, no `vite.config.ts`, no `npm install`. All dependencies (react, remotion, vite) come from the egaki CLI's own installation:
+
+   ```bash
+   # Serve a single MDX file, no project setup
+   egaki dev video.mdx
+
+   # Serve the current directory (auto-discovers video.mdx > index.mdx > first .mdx)
+   egaki dev
+
+   # Fixed port + open browser
+   egaki dev intro.mdx --port 5199 --open
+   ```
+
+   Uses a random free port by default; `--port`, `--host`, and `--open` are available. Under the hood a shim `node_modules` with symlinks to egaki's own dependencies is created in the folder, so Vite's dep optimizer, Tailwind scans, and even editor TypeScript resolution work in scratch folders. If the folder has a foreign `node_modules` without egaki, you get a clear error with guidance.
+
+2. **SDK usage instructions printed on dev server startup** — after Vite's ready banner, the dev server prints copy-pasteable `window.egakiSDK` examples (getInfo, screenshot, filmstrip, export, seekTo via Playwriter) so agents reading terminal output immediately know how to control the running player.
+
+3. **`<AngledScreen>` hexagonal iris bokeh + new `chromaticAberration` prop** — the depth-of-field kernel is now a sparse 6-blade hexagonal iris, so bright points form hard-edged aperture disks instead of smoothing into a gaussian. The new `chromaticAberration` prop (default `0.45`) adds a radial R/B channel split that scales with local blur, so purple/cyan fringing reads strongest in the bokeh like a real lens.
+
+4. **Fixed "No video config found" with duplicate remotion copies** — under pnpm, when remotion was only a transitive dep of egaki (or the app installed remotion directly while `file:`-linking egaki), two physical copies split the Player context from `useVideoConfig`. All `remotion`, `@remotion/*`, and `motion` imports now converge on a single copy.
+
+5. **Fixed browser crash `"does not provide an export named 'default'"`** on portable npm installs of egaki — nested pure-CJS packages under safe-mdx (format, fault, micromark chain) were split into named-only ESM chunks by the dep optimizer. They now stay internalized with correct CJS interop.
+
 ## 0.9.0
 
 1. **`<AngledScreen>` with true WebGL depth-of-field** — the 3D tilted screen component is now shader-based. Children DOM is captured per frame with Chromium's HTML-in-canvas API and rendered as a perspective-tilted plane in a WebGL2 fragment shader, giving true per-pixel depth. Depth drives bokeh blur (the exact Three.js BokehShader 41-tap ring kernel), fog toward `backgroundColor`, and subtle film grain. Available in MDX without imports:
