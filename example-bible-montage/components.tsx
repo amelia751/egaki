@@ -25,6 +25,8 @@ const VIDEO_CLIPS = Array.from({ length: 18 }, (_, i) => {
   return `/videos/animated-${idx}.mp4`
 })
 
+
+
 interface RapidMontageProps {
   /** Duration each image is shown, in frames */
   clipDuration?: number
@@ -213,7 +215,7 @@ export function BlackScreen({ children }: { children?: React.ReactNode }) {
   )
 }
 
-export function RapidMontage({ clipDuration = 45 }: RapidMontageProps) {
+export function RapidMontage({ clipDuration = 20 }: RapidMontageProps) {
   const absoluteFrame = useAbsoluteCurrentFrame()
 
   const currentIndex = Math.floor(absoluteFrame / clipDuration) % CLEANED_IMAGES.length
@@ -225,22 +227,7 @@ export function RapidMontage({ clipDuration = 45 }: RapidMontageProps) {
 
   return (
     <AbsoluteFill>
-      {/* Raw video frame as blurred background */}
-      <AbsoluteFill>
-        <Img
-          src={RAW_FRAMES[currentIndex]}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            filter: 'blur(20px) brightness(0.4)',
-            transform: `scale(${Math.round(1.1 * s * 1000) / 1000})`,
-            willChange: 'transform',
-          }}
-        />
-      </AbsoluteFill>
-
-      {/* Cleaned foreground image */}
+      {/* Oval mask with foreground image */}
       <AbsoluteFill
         style={{
           display: 'flex',
@@ -248,17 +235,30 @@ export function RapidMontage({ clipDuration = 45 }: RapidMontageProps) {
           justifyContent: 'center',
         }}
       >
-        <Img
-          src={CLEANED_IMAGES[currentIndex]}
+        <div
           style={{
-            maxWidth: '90%',
-            maxHeight: '90%',
-            objectFit: 'contain',
-            transform: `scale(${s})`,
-            willChange: 'transform',
+            width: '75%',
+            height: '60%',
+            borderRadius: '50%',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-        />
+        >
+          <Img
+            src={CLEANED_IMAGES[currentIndex]}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              transform: `scale(${s})`,
+              willChange: 'transform',
+            }}
+          />
+        </div>
       </AbsoluteFill>
+
     </AbsoluteFill>
   )
 }

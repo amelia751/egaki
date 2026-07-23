@@ -8,6 +8,13 @@ height: 1920
 import { RapidMontage, Caption, WordFlash, BlackScreen } from './components'
 
 <Audio src="/locrian.mp3" startFrom={65 * FPS} volume={0.3} />
+<LiquidGradientShader
+  colors={['#0a0a0a', '#1a0a00', '#0a0512', '#050505']}
+  speed={0.15}
+  seed={42}
+  noiseScale={1.2}
+  brightness={0.3}
+/>
 <RapidMontage clipDuration={1.5 * FPS} />
 
 # P1
