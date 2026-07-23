@@ -44,6 +44,25 @@ const RESOLVED_MODULES = '\0' + VIRTUAL_MODULES
 
 const PKG_NAME = 'egaki'
 
+// Packages that must resolve to a single physical copy (same pattern as
+// spiceflow:dedupe-singleton). Remotion Player + useVideoConfig share React
+// context; two copies → "No video config found". Motion patches need one
+// JSAnimation class. resolve.dedupe alone fails under pnpm when the package
+// is only a transitive dep of egaki (not hoisted to the consumer root).
+const dedupePackages = new Set([
+  'remotion',
+  '@remotion/player',
+  '@remotion/media',
+  '@remotion/web-renderer',
+  'motion',
+  'motion-dom',
+  'motion-utils',
+])
+
+// Fake importer anchored inside egaki's package so this.resolve() finds the
+// same remotion/motion copy egaki itself depends on.
+const dedupeImporter = path.join(__pkgRoot, '_dedupe_importer_.js')
+
 export interface VideoPluginOptions {
   /** Path to the default MDX entry file (relative to vite root or absolute).
    *  When omitted, auto-discovers: video.mdx > index.mdx > first .mdx found.
@@ -440,16 +459,13 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
       arr.push(/^tweakpane/)
       config.resolve.noExternal = arr
 
-      // Deduplicate motion packages so egaki's motion-timing virtual module
-      // patches the same JSAnimation class that motion/react uses. Without
-      // this, Vite can resolve motion-dom to different instances and
-      // prototype patches won't affect the user's animations.
-      // Always applied (not gated by hasMotion) because configEnvironment
-      // runs before configResolved where hasMotion is set. Harmless when
-      // motion isn't installed — dedupe on missing packages is a no-op.
+      // Baseline hint for Vite's built-in resolver (same list as the
+      // resolveId singleton plugin below). Real enforcement is the
+      // egaki:dedupe-singleton plugin — resolve.dedupe alone is not enough
+      // under pnpm when remotion is only a transitive dep of egaki.
       config.resolve.dedupe = mergeUnique(
         config.resolve.dedupe as string[] | undefined,
-        ['motion', 'motion-dom', 'motion-utils'],
+        [...dedupePackages],
       )
 
       if (name === 'client') {
@@ -489,9 +505,44 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
     },
   }
 
+  // Force remotion / motion to a single copy across all importers, even when
+  // egaki is a transitive or file:-linked dep under pnpm. Mirrors
+  // spiceflow:dedupe-singleton (spiceflow/src/vite.tsx).
+  //
+  // Vite's resolve.dedupe sets basedir=root then walks node_modules/, but
+  // pnpm only symlinks direct deps at the root. Transitive deps stay buried
+  // in .pnpm/, so dedupe silently falls back to importer-based resolution
+  // and Player vs useVideoConfig load different remotion instances.
+  const dedupeSingletonPlugin: Plugin = {
+    name: 'egaki:dedupe-singleton',
+    enforce: 'pre',
+    async resolveId(id, _importer, options) {
+      if (
+        id.startsWith('.') ||
+        id.startsWith('/') ||
+        id.startsWith('\0') ||
+        id.includes('?')
+      ) {
+        return null
+      }
+
+      const pkgName = id.startsWith('@')
+        ? id.split('/').slice(0, 2).join('/')
+        : (id.split('/')[0] ?? id)
+
+      if (!dedupePackages.has(pkgName)) return null
+
+      return this.resolve(id, dedupeImporter, {
+        ...options,
+        skipSelf: true,
+      })
+    },
+  }
+
   return [
     videoPlugin,
     rscPackagePlugin,
+    dedupeSingletonPlugin,
     tailwindcss(),
     spiceflowPlugin({ entry: VIRTUAL_APP }),
     react(),
