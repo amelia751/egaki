@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.9.0
+
+1. **`<AngledScreen>` with true WebGL depth-of-field** — the 3D tilted screen component is now shader-based. Children DOM is captured per frame with Chromium's HTML-in-canvas API and rendered as a perspective-tilted plane in a WebGL2 fragment shader, giving true per-pixel depth. Depth drives bokeh blur (the exact Three.js BokehShader 41-tap ring kernel), fog toward `backgroundColor`, and subtle film grain. Available in MDX without imports:
+
+   ```mdx
+   # Hero duration=5s
+
+   <AngledScreen rotateX={9} rotateY={-17} translateZ={120} backgroundColor="#0a0608">
+     <Img src="/screenshot.png" style={{ width: '100%', borderRadius: 14 }} />
+   </AngledScreen>
+   ```
+
+   New depth-of-field props: `bokeh`, `aperture` (default 0.5), `maxBlur` (default 0.12), `focus` (default 0 = auto-track the near side so blur ramps toward the far edge), plus `fog` and `grainIntensity`. Transform props (`perspective`, `rotateX/Y/Z`, `translateX`, `translateZ`) keep the same semantics as before.
+
+   Requires Chrome 149+ with `chrome://flags/#canvas-draw-element`. When HTML-in-canvas is unsupported, the previous CSS version renders automatically as a fallback (also exported directly as `BasicAngledScreen`).
+
+2. **Tweakpane controls now follow animated props** — `useTweakpane`-backed components (like `AngledScreen`) previously froze all values at mount, so animated props like `translateX={interpolate(frame, ...)}` stayed stuck at frame 0. Untouched keys now return the live value every frame and their sliders visibly animate during playback. Once you touch a control, that key freezes to your value until remount, so manual overrides survive seeks. "Copy changes" now only reports keys you actually edited.
+
+3. **Fixed flat exports and screenshots of shader scenes** — web-renderer exports, SDK `screenshot()`, `filmstrip()`, and `export()` of scenes with HTML-in-canvas shaders came out without the shader output (the export scaffold is hidden, so Chromium produced no paint records for the capture). The composition root is now wrapped in a visible container for all web-renderer entry points, restoring shader output in every export path.
+
+4. **Fixed export hang with hidden `<AngledScreen>` instances** — instances inside hidden ancestors (LayoutTransition ghosts, inactive timed instances) never fired their paint callback, leaving an unreleased delayRender handle that stalled exports ~28s per frame. Handle registration is now gated on actual visibility.
+
+5. **Remotion bumped to 4.0.494** — required for WebGL contexts inside HTML-in-canvas components (earlier versions grabbed a 2D context on the offscreen canvas first, blocking WebGL).
+
 ## 0.8.0
 
 1. **`egaki bpm` command** — detect BPM of audio files locally using peak detection and interval analysis. No API call needed, runs entirely on device via `node-web-audio-api`:
