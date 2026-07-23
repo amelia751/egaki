@@ -458,6 +458,14 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
           config.optimizeDeps.exclude,
           [PKG_NAME],
         )
+        // Prebundle safe-mdx as a single entry so its pure-CJS leaves
+        // (format via fault/micromark) stay internalized with CJS interop.
+        // Do NOT list format/fault as separate optimizeDeps entries — that
+        // splits them into named-only ESM chunks and the browser crashes with
+        // "does not provide an export named 'default'" (same bug Holocron hit
+        // when safe-mdx leaked to the client; see holocron vite CHANGELOG).
+        // Holocron's clean fix is keep safe-mdx server-only; egaki needs it on
+        // the client for MDX-in-browser, so correct prebundling is the fix.
         config.optimizeDeps.include = mergeUnique(
           config.optimizeDeps.include,
           [
@@ -465,6 +473,8 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
             `${PKG_NAME} > remotion`,
             `${PKG_NAME} > @remotion/player`,
             `${PKG_NAME} > safe-mdx`,
+            'safe-mdx',
+            'safe-mdx/parse',
           ],
         )
       }
