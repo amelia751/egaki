@@ -11,7 +11,10 @@
  *   intersection → plane-local UV → sample DOM texture
  *
  * The intersection distance gives true per-pixel depth, which drives:
- *   - bokeh blur (poisson-disc, radius grows with distance from focus)
+ *   - bokeh blur (sparse 6-blade hex iris, radius grows with distance from
+ *     focus — fewer taps so the aperture shape reads as hard disks instead
+ *     of smoothing into a gaussian)
+ *   - chromatic aberration (radial R/B split, stronger in the bokeh)
  *   - fog toward backgroundColor (like the original Three.js plugin's
  *     scene fog, unframer-private/plugin-angled-screen BokehPass setup)
  *   - film grain (from the plugin's filmGrainShader, u_time-seeded)
@@ -113,6 +116,11 @@ export interface AngledScreenProps {
   fog?: number
   /** Film grain intensity. Default 0.02. */
   grainIntensity?: number
+  /** Chromatic aberration strength. RGB channels separate along the radial
+   *  axis from frame center, scaled up by local blur so fringing reads
+   *  strongest in the bokeh (like real lens CA on the reference photos).
+   *  0 = off. Default 0.45. */
+  chromaticAberration?: number
 
   /** Background color behind the tilted screen. Default '#000000'. */
   backgroundColor?: string
@@ -159,6 +167,7 @@ uniform float u_focusDist;  // focus distance in px along the ray
 uniform float u_aspect;     // width / height, for circular bokeh
 uniform float u_fog;
 uniform float u_grain;
+uniform float u_ca;         // chromatic aberration strength
 uniform vec4 u_background;
 uniform float u_debug;
 uniform float u_time;
@@ -170,21 +179,26 @@ float rand(vec2 co) {
   return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-// Three.js BokehShader ring kernel (Martins Upitis lens blur):
-// 16 taps at radius 1.0, 8 at 0.9, 8 at 0.7, 8 at 0.4, plus center = 41.
-const vec2 RING1[16] = vec2[](
-  vec2(0.0, 0.4), vec2(0.15, 0.37), vec2(0.29, 0.29), vec2(-0.37, 0.15),
-  vec2(0.40, 0.0), vec2(0.37, -0.15), vec2(0.29, -0.29), vec2(-0.15, -0.37),
-  vec2(0.0, -0.4), vec2(-0.15, 0.37), vec2(-0.29, 0.29), vec2(0.37, 0.15),
-  vec2(-0.4, 0.0), vec2(-0.37, -0.15), vec2(-0.29, -0.29), vec2(0.15, -0.37)
+// Sparse 6-blade hexagonal iris. Far fewer taps than the 41-sample Martins
+// Upitis kernel so the aperture SHAPE reads as discrete hex disks instead of
+// smoothing into a gaussian. Outer ring is weighted heavier so bright points
+// form hard-edged bokeh blobs (the look of real lens DOF on the refs).
+// Unit circle coords at radius 1.0 / 0.55.
+const vec2 HEX_OUTER[6] = vec2[](
+  vec2( 1.0000,  0.0000),
+  vec2( 0.5000,  0.8660),
+  vec2(-0.5000,  0.8660),
+  vec2(-1.0000,  0.0000),
+  vec2(-0.5000, -0.8660),
+  vec2( 0.5000, -0.8660)
 );
-const vec2 RING9[8] = vec2[](
-  vec2(0.15, 0.37), vec2(-0.37, 0.15), vec2(0.37, -0.15), vec2(-0.15, -0.37),
-  vec2(-0.15, 0.37), vec2(0.37, 0.15), vec2(-0.37, -0.15), vec2(0.15, -0.37)
-);
-const vec2 RING7[8] = vec2[](
-  vec2(0.29, 0.29), vec2(0.40, 0.0), vec2(0.29, -0.29), vec2(0.0, -0.4),
-  vec2(-0.29, 0.29), vec2(-0.4, 0.0), vec2(-0.29, -0.29), vec2(0.0, 0.4)
+const vec2 HEX_MID[6] = vec2[](
+  vec2( 0.5500,  0.0000),
+  vec2( 0.2750,  0.4763),
+  vec2(-0.2750,  0.4763),
+  vec2(-0.5500,  0.0000),
+  vec2(-0.2750, -0.4763),
+  vec2( 0.2750, -0.4763)
 );
 
 // Intersect the camera ray through screen uv suv with the tilted plane.
@@ -219,6 +233,17 @@ vec4 sampleScene(vec2 suv) {
   return mix(u_background, c, coverage);
 }
 
+// Per-channel sample with chromatic aberration: R and B pull apart along
+// the radial axis from frame center (classic lens CA purple/cyan fringing).
+vec4 sampleSceneCA(vec2 suv, vec2 caOffset) {
+  float r = sampleScene(suv + caOffset).r;
+  float g = sampleScene(suv).g;
+  float b = sampleScene(suv - caOffset).b;
+  // Coverage/alpha from the green (unshifted) sample keeps silhouette stable.
+  vec4 mid = sampleScene(suv);
+  return vec4(r, g, b, mid.a);
+}
+
 void main() {
   vec4 bg = u_background;
 
@@ -243,27 +268,41 @@ void main() {
   // stays tack sharp. Background pixels (no hit) count as far away, so the
   // plane silhouette melts softly where it is out of focus.
   float factor = hit ? max(t - u_focusDist, 0.0) / u_perspective : 1.0;
-  vec2 dofblur = vec2(clamp(factor * u_aperture, 0.0, u_maxblur)) * u_bokehEnabled;
+  float blurAmt = clamp(factor * u_aperture, 0.0, u_maxblur) * u_bokehEnabled;
+  vec2 dofblur = vec2(blurAmt);
 
   vec2 aspectcorrect = vec2(1.0, u_aspect);
-  vec2 dofblur9 = dofblur * 0.9;
-  vec2 dofblur7 = dofblur * 0.7;
-  vec2 dofblur4 = dofblur * 0.4;
 
-  vec4 col = sampleScene(v_uv);
-  for (int i = 0; i < 16; i++) {
-    col += sampleScene(v_uv + RING1[i] * aspectcorrect * dofblur);
+  // Radial CA direction from frame center. Strength grows with local blur so
+  // sharp regions stay clean and only the bokeh fringes with purple/cyan.
+  vec2 fromCenter = v_uv - 0.5;
+  float radial = length(fromCenter);
+  vec2 caDir = radial > 1e-5 ? fromCenter / radial : vec2(1.0, 0.0);
+  // Base fringe + blur-scaled fringe. u_ca ~0.45 reads like a real lens on
+  // the reference photos without turning the whole frame into a prism.
+  float caAmt = u_ca * (0.0015 + blurAmt * 0.55);
+  vec2 caOffset = caDir * caAmt * aspectcorrect;
+
+  // Sparse hex gather. Outer ring weight 2.0 so the 6-blade iris is visible
+  // as hard bokeh disks; mid ring 1.0 fills the disk; center 1.0 anchors.
+  // Total weight = 6*2 + 6*1 + 1 = 19.
+  const float W_OUTER = 2.0;
+  const float W_MID = 1.0;
+  const float W_CENTER = 1.0;
+  vec4 col = sampleSceneCA(v_uv, caOffset) * W_CENTER;
+  for (int i = 0; i < 6; i++) {
+    col += sampleSceneCA(v_uv + HEX_OUTER[i] * aspectcorrect * dofblur, caOffset) * W_OUTER;
   }
-  for (int i = 0; i < 8; i++) {
-    col += sampleScene(v_uv + RING9[i] * aspectcorrect * dofblur9);
+  for (int i = 0; i < 6; i++) {
+    col += sampleSceneCA(v_uv + HEX_MID[i] * aspectcorrect * dofblur, caOffset) * W_MID;
   }
-  for (int i = 0; i < 8; i++) {
-    col += sampleScene(v_uv + RING7[i] * aspectcorrect * dofblur7);
-  }
-  for (int i = 0; i < 8; i++) {
-    col += sampleScene(v_uv + RING7[i] * aspectcorrect * dofblur4);
-  }
-  col /= 41.0;
+  col /= (6.0 * W_OUTER + 6.0 * W_MID + W_CENTER);
+
+  // Mild highlight bias: bright samples punch through more (classic optical
+  // bokeh where speculars form bright disks instead of averaging down).
+  // Applied as a soft lift so it doesn't blow whites on already-bright UI.
+  float luma = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+  col.rgb += col.rgb * blurAmt * 1.8 * smoothstep(0.55, 0.95, luma);
 
   // Fog toward background with depth (plugin's THREE.Fog equivalent)
   col.rgb = mix(col.rgb, bg.rgb, u_fog * depth01 * (hit ? 1.0 : 0.0));
@@ -305,6 +344,7 @@ const UNIFORM_NAMES = [
   'u_aspect',
   'u_fog',
   'u_grain',
+  'u_ca',
   'u_background',
   'u_debug',
   'u_time',
@@ -393,13 +433,19 @@ export function AngledScreen(props: AngledScreenProps) {
       step: 0.01,
     },
     fog: { value: props.fog ?? 0.35, min: 0, max: 1, step: 0.01 },
-    grainIntensity: { value: props.grainIntensity ?? 0.02, min: 0, max: 0.2, step: 0.005 },
+    grainIntensity: { value: props.grainIntensity ?? 0.02, min: 0, max: 0.3, step: 0.005 },
+    chromaticAberration: {
+      value: props.chromaticAberration ?? 0.45,
+      min: 0,
+      max: 2,
+      step: 0.01,
+    },
     backgroundColor: props.backgroundColor ?? '#000000',
     debug: props.debug ?? false,
   })
 
   const { perspective, rotateX, rotateY, rotateZ, translateX, translateZ } = tp
-  const { aperture, maxBlur, focus, fog, grainIntensity } = tp
+  const { aperture, maxBlur, focus, fog, grainIntensity, chromaticAberration } = tp
   const { bokeh, debug, backgroundColor } = tp
   const time = frame / fps
 
@@ -557,6 +603,7 @@ export function AngledScreen(props: AngledScreenProps) {
       if (locs.u_aspect) gl.uniform1f(locs.u_aspect, compW / compH)
       if (locs.u_fog) gl.uniform1f(locs.u_fog, fog)
       if (locs.u_grain) gl.uniform1f(locs.u_grain, grainIntensity)
+      if (locs.u_ca) gl.uniform1f(locs.u_ca, chromaticAberration)
       if (locs.u_background) gl.uniform4fv(locs.u_background, parseHexColor(backgroundColor))
       if (locs.u_debug) gl.uniform1f(locs.u_debug, debug ? 1 : 0)
       if (locs.u_time) gl.uniform1f(locs.u_time, time)
@@ -594,7 +641,7 @@ export function AngledScreen(props: AngledScreenProps) {
     },
     [
       compW, compH, perspective, rotateX, rotateY, rotateZ, translateX, translateZ,
-      bokeh, aperture, maxBlur, focus, fog, grainIntensity,
+      bokeh, aperture, maxBlur, focus, fog, grainIntensity, chromaticAberration,
       backgroundColor, debug, time,
     ],
   )

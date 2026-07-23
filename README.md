@@ -886,8 +886,13 @@ saturation cap in screen-UV units, default 0.12), `focus` (focus distance as a
 fraction of `perspective`; default 0 = auto: near side sharp, blur ramps
 progressively from mid-image to the far edge), `fog` (fade to
 background with depth, default 0.35), `grainIntensity` (default 0.02),
+`chromaticAberration` (radial R/B split, stronger in the bokeh, default 0.45),
 `backgroundColor`, `width`/`height` (content wrapper size, default `80%`/`auto`),
 `debug` (grayscale depth view). All props are editable live in the tweakpane panel.
+
+Bokeh uses a **sparse 6-blade hexagonal iris** (13 weighted taps) so the aperture
+shape reads as hard disks instead of a smooth gaussian. Raise
+`chromaticAberration` for purple/cyan fringing like a real lens.
 
 The defaults need no tuning: the near half stays sharp and only the far side
 melts. Raise `aperture` for an earlier, heavier falloff, or set an explicit
