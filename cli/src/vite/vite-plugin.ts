@@ -20,6 +20,7 @@ import type { Plugin, PluginOption } from 'vite'
 import { spiceflowPlugin } from 'spiceflow/vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import pc from 'picocolors'
 import { mdxParse } from 'safe-mdx/parse'
 import { collectServerImportSources } from './server-mdx.ts'
 import { parseFrontmatter } from './mdx-parse.ts'
@@ -331,6 +332,52 @@ export function video(options?: VideoPluginOptions): PluginOption[] {
           `export { app }`,
         ].join('\n')
       }
+    },
+
+    // Print SDK usage instructions after Vite's startup banner.
+    // Agents read terminal output to learn how to interact with the
+    // running dev server via Playwriter + window.egakiSDK.
+    configureServer(server) {
+      server.httpServer?.on('listening', () => {
+        const log = server.config.logger
+        const p = (s: string) => log.info(s)
+        // Small delay so our block prints after Vite's "ready in" + URL lines
+        setTimeout(() => {
+          const title = `  ${pc.cyan(pc.bold('egaki SDK'))} ${pc.dim('—')} ${pc.white('programmatic control via')} ${pc.yellow('window.egakiSDK')}`
+          const sep = pc.dim('  ─'.padEnd(72, '─'))
+
+          p('')
+          p(title)
+          p(sep)
+          p('')
+          p(`  ${pc.green('●')} ${pc.bold('Get info')}        ${pc.dim('composition metadata, sections, fps')}`)
+          p(`    ${pc.cyan(`playwriter -s 1 -e 'console.log(await state.page.evaluate(() => window.egakiSDK.getInfo()))'`)}`)
+          p('')
+          p(`  ${pc.green('●')} ${pc.bold('Screenshot')}      ${pc.dim('capture a single frame as PNG')}`)
+          p(`    ${pc.cyan("playwriter -s 1 -e \"$(cat <<'JS'")}`)
+          p(`    ${pc.cyan('const dataUrl = await state.page.evaluate(() => window.egakiSDK.screenshot({ frame: 60 }))')}`)
+          p(`    ${pc.cyan('const buf = Buffer.from(await (await fetch(dataUrl)).arrayBuffer())')}`)
+          p(`    ${pc.cyan('require("node:fs").writeFileSync("/tmp/frame-60.png", buf)')}`)
+          p(`    ${pc.cyan('JS')}`)
+          p(`    ${pc.cyan(')"')}`)
+          p('')
+          p(`  ${pc.green('●')} ${pc.bold('Filmstrip')}       ${pc.dim('grid of frames across scenes')}`)
+          p(`    ${pc.cyan("playwriter -s 1 -e \"$(cat <<'JS'")}`)
+          p(`    ${pc.cyan('const dataUrl = await state.page.evaluate(() =>')}`)
+          p(`    ${pc.cyan('  window.egakiSDK.filmstrip({ scenes: [0, 1, 2], framesPerScene: 3 }))')}`)
+          p(`    ${pc.cyan('const buf = Buffer.from(await (await fetch(dataUrl)).arrayBuffer())')}`)
+          p(`    ${pc.cyan('require("node:fs").writeFileSync("/tmp/filmstrip.png", buf)')}`)
+          p(`    ${pc.cyan('JS')}`)
+          p(`    ${pc.cyan(')"')}`)
+          p('')
+          p(`  ${pc.green('●')} ${pc.bold('Export video')}     ${pc.dim('render MP4 via WebCodecs')}`)
+          p(`    ${pc.cyan(`playwriter -s 1 -e 'await state.page.evaluate(() => window.egakiSDK.export({ path: "output.mp4" }))'`)}`)
+          p('')
+          p(`  ${pc.green('●')} ${pc.bold('Seek')}            ${pc.dim('jump to a specific frame')}`)
+          p(`    ${pc.cyan(`playwriter -s 1 -e 'await state.page.evaluate(() => window.egakiSDK.seekTo(120))'`)}`)
+          p('')
+        }, 50)
+      })
     },
 
     // HMR for file changes in the project.
