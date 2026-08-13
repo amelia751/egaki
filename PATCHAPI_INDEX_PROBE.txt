@@ -1,4 +1,0 @@
-Temporary PatchAPI indexer probe. Safe to delete.
-identifier: imagen-4.0-generate-001
-
-delta identifier: imagen-4.0-fast-generate-001
